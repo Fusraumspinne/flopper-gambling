@@ -333,6 +333,9 @@ export default function PlinkoPage() {
 		};
 	}, [loop]);
 
+	// disable controls while any balls are active or auto-drop is running
+	const isDropping = (ballsRef.current && ballsRef.current.length > 0) || autoDrop;
+
 	return (
 		<div className="p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-8">
 			<div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-6 rounded-xl h-fit">
@@ -384,8 +387,9 @@ export default function PlinkoPage() {
 						{(["low", "medium", "high"] as RiskLevel[]).map((level) => (
 							<button
 								key={level}
-								onClick={() => setRisk(level)}
-								className={`flex-1 py-2 text-xs font-bold uppercase rounded transition-colors ${
+								onClick={() => !isDropping && setRisk(level)}
+								disabled={isDropping}
+								className={`flex-1 py-2 text-xs font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
 									risk === level ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
 								}`}
 							>
@@ -405,7 +409,8 @@ export default function PlinkoPage() {
 							step={1}
 							value={rows}
 							onChange={(e) => setRows(Number(e.target.value))}
-							className="w-full accent-[#00e701] cursor-pointer"
+							disabled={isDropping}
+							className="w-full accent-[#00e701] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 						/>
 						<div className="flex justify-between text-xs text-[#b1bad3] mt-2">
 							<span>8</span>

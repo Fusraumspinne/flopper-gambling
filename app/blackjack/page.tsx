@@ -93,6 +93,7 @@ export default function BlackjackPage() {
   const [dealerHand, setDealerHand] = useState<Card[]>([]);
   const [playerHands, setPlayerHands] = useState<Hand[]>([]);
   const [currentHandIndex, setCurrentHandIndex] = useState<number>(0);
+  const [lastWin, setLastWin] = useState<number>(0);
 
   const dealGame = () => {
     if (betAmount <= 0 || betAmount > balance) return;
@@ -118,6 +119,7 @@ export default function BlackjackPage() {
     setPlayerHands([initialHand]);
     setCurrentHandIndex(0);
     setGameState("playing");
+    setLastWin(0);
 
     const pValue = calculateHandValue([pCard1, pCard2]);
     if (pValue === 21) {
@@ -299,6 +301,7 @@ export default function BlackjackPage() {
 
   const finishGame = (finalDealerHand: Card[]) => {
     const dValue = calculateHandValue(finalDealerHand);
+    let totalWin = 0;
     const newHands = playerHands.map((hand) => {
       const pValue = calculateHandValue(hand.cards);
       let status: Hand["status"] = "lose";
@@ -332,11 +335,13 @@ export default function BlackjackPage() {
 
       if (winAmount > 0) {
         addToBalance(winAmount);
+        totalWin += winAmount;
       }
       return { ...hand, status };
     });
 
     setPlayerHands(newHands);
+    setLastWin(totalWin);
     setGameState("finished");
   };
 
@@ -481,6 +486,13 @@ export default function BlackjackPage() {
             >
               Split
             </button>
+          </div>
+        )}
+        
+        {lastWin > 0 && gameState !== "playing" && (
+          <div className="mt-4 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
+            <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
+            <div className="text-xl font-bold text-[#00e701]">{lastWin.toFixed(2)}</div>
           </div>
         )}
       </div>

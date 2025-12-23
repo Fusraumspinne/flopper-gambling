@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SportsEsports, Home, GridOn, Casino, ScatterPlot } from "@mui/icons-material";
+import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond } from "@mui/icons-material";
 import { useWallet } from "./WalletProvider";
 
 interface Game {
@@ -16,6 +16,7 @@ const games: Game[] = [
   { name: "Keno", icon: <GridOn className="w-5 h-5" />, href: "/keno" },
   { name: "Blackjack", icon: <Casino className="w-5 h-5" />, href: "/blackjack" },
   { name: "Plinko", icon: <ScatterPlot className="w-5 h-5" />, href: "/plinko" },
+  { name: "Mines", icon: <Diamond className="w-5 h-5" />, href: "/mines" },
 ];
 
 export default function Navbar() {

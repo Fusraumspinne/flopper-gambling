@@ -125,7 +125,7 @@ export default function KenoPage() {
     }
 
     for (let i = 0; i < newDrawn.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 150));
       setDrawnNumbers((prev) => [...prev, newDrawn[i]]);
     }
 
@@ -134,6 +134,7 @@ export default function KenoPage() {
     const winAmount = betAmount * multiplier;
 
     if (winAmount > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
       addToBalance(winAmount);
       setLastWin(winAmount);
     }
@@ -161,15 +162,15 @@ export default function KenoPage() {
   const getTileStyles = (status: string) => {
     switch (status) {
       case "hit":
-        return "bg-[#00e701] text-black scale-105 transition-transform duration-300";
+        return "bg-[#00e701] text-black shadow-[0_0_20px_rgba(0,231,1,0.5)] scale-110 z-10 border border-[#ccffcc]";
       case "selected":
-        return "bg-[#6b21a8] text-white scale-103 transition-transform duration-200";
+        return "bg-[#6b21a8] text-white shadow-[0_4px_0_#4c1d95] -translate-y-1 hover:bg-[#7e22ce] active:translate-y-0 active:shadow-none";
       case "miss":
-        return "bg-[#7f1b1b] text-white opacity-95 scale-95 transition-transform duration-200";
+        return "bg-[#0b1720] text-[#ef4444] scale-95 shadow-inner border border-[#ef4444]/20";
       case "drawn":
-        return "bg-[#213743] text-[#b1bad3] opacity-60 scale-95";
+        return "bg-[#2f4553] text-[#b1bad3] opacity-60 scale-95";
       default:
-        return "bg-[#213743] text-[#b1bad3] hover:bg-[#2f4553] hover:-translate-y-0.5";
+        return "bg-[#213743] text-[#b1bad3] shadow-[0_4px_0_#1a2c38] hover:-translate-y-1 hover:bg-[#2f4553] active:translate-y-0 active:shadow-none transition-all duration-100";
     }
   };
 
@@ -230,8 +231,9 @@ export default function KenoPage() {
             {(["low", "medium", "high"] as RiskLevel[]).map((level) => (
               <button
                 key={level}
-                onClick={() => setRiskLevel(level)}
-                className={`flex-1 py-2 text-xs font-bold uppercase rounded transition-colors ${
+                onClick={() => !isAnimating && setRiskLevel(level)}
+                disabled={isAnimating}
+                className={`flex-1 py-2 text-xs font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   riskLevel === level
                     ? "bg-[#213743] text-white shadow-sm"
                     : "text-[#b1bad3] hover:text-white"
@@ -331,7 +333,7 @@ export default function KenoPage() {
                   onClick={() => toggleNumber(num)}
                   disabled={isAnimating}
                   style={{ perspective: 900 }}
-                  className={`aspect-square rounded-md font-bold text-sm sm:text-base p-0 border-0 overflow-hidden ${getTileStyles(
+                  className={`aspect-square rounded-lg font-bold text-sm sm:text-base p-0 border-0 relative transition-all duration-200 ${getTileStyles(
                     status
                   )}`}
                 >
@@ -346,17 +348,19 @@ export default function KenoPage() {
                       }}
                     >
                       {isHit ? (
-                        <Diamond
-                          sx={{ color: "#000", fontSize: 20 }}
-                          className={gemClasses}
-                          style={{
-                            transitionDelay: isDrawn
-                              ? `${drawIndex * 140 + 200}ms`
-                              : "0ms",
-                          }}
-                        />
+                        <div className="animate-pulse drop-shadow-md">
+                          <Diamond
+                            sx={{ color: "#000", fontSize: 24 }}
+                            className={gemClasses}
+                            style={{
+                              transitionDelay: isDrawn
+                                ? `${drawIndex * 140 + 200}ms`
+                                : "0ms",
+                            }}
+                          />
+                        </div>
                       ) : isMiss ? (
-                        <div className="text-white font-bold">X</div>
+                        <span className="text-[#ef4444] font-bold">{num}</span>
                       ) : (
                         <div />
                       )}
