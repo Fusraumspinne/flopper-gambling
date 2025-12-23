@@ -333,7 +333,6 @@ export default function PlinkoPage() {
 		};
 	}, [loop]);
 
-	// disable controls while any balls are active or auto-drop is running
 	const isDropping = (ballsRef.current && ballsRef.current.length > 0) || autoDrop;
 
 	return (
