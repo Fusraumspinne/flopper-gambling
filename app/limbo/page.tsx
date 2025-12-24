@@ -135,8 +135,8 @@ export default function LimboPage() {
   const shownMultiplier = gameState === "rolling" ? rollingDisplayMultiplier : rolledMultiplier;
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-8">
-      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-6 rounded-xl h-fit">
+    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
+      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-4 sm:p-6 rounded-xl h-fit">
                 <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
           <div className="relative">
@@ -215,17 +215,27 @@ export default function LimboPage() {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-8 relative h-[600px] overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-8 relative h-[400px] sm:h-[600px] overflow-hidden">
         
         <div className="relative z-10 flex flex-col items-center">
-           <div className={`text-[6rem] sm:text-[8rem] md:text-[10rem] font-black font-mono leading-none transition-colors duration-300 ${
-              gameState === "won" ? "text-[#00e701] drop-shadow-[0_0_30px_rgba(0,231,1,0.4)]" :
+           <div className={`text-[4rem] sm:text-[6rem] md:text-[8rem] lg:text-[10rem] font-black font-mono leading-none transition-all duration-300 ${
+              gameState === "won" ? "text-[#00e701] drop-shadow-[0_0_30px_rgba(0,231,1,0.4)] scale-110" :
               gameState === "lost" ? "text-[#ef4444] drop-shadow-[0_0_30px_rgba(239,68,68,0.4)]" :
               "text-white"
            }`}>
               {shownMultiplier === null ? "1.00x" : `${formatMultiplier(shownMultiplier)}x`}
            </div>
-                   </div>
+           {gameState === "won" && (
+             <div className="mt-4 text-[#00e701] font-bold text-xl sm:text-2xl animate-bounce-in">
+               WIN!
+             </div>
+           )}
+        </div>
+        
+        {/* Background pulse effect */}
+        {gameState === "rolling" && (
+          <div className="absolute inset-0 bg-radial-gradient from-[#2f4553]/20 to-transparent animate-pulse pointer-events-none"></div>
+        )}
 
       </div>
     </div>

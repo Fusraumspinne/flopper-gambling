@@ -348,8 +348,8 @@ export default function PlinkoPage() {
     (ballsRef.current && ballsRef.current.length > 0);
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-8">
-      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-6 rounded-xl h-fit">
+    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
+      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-4 sm:p-6 rounded-xl h-fit">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -458,19 +458,12 @@ export default function PlinkoPage() {
         )}
       </div>
 
-      <div className="flex-1 bg-[#0f212e] p-6 rounded-xl min-h-[600px] flex items-center justify-center relative overflow-hidden">
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 text-center">
-          <div className="text-sm font-bold text-white">Plinko</div>
-          <div className="text-xs text-[#b1bad3] uppercase">
-            {risk.charAt(0).toUpperCase() + risk.slice(1)}
-          </div>
-        </div>
-
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2">
+      <div className="flex-1 bg-[#0f212e] p-4 sm:p-6 rounded-xl min-h-[400px] sm:min-h-[600px] flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="flex sm:flex-col gap-2 absolute top-4 right-4 sm:top-1/2 sm:-translate-y-1/2 z-10 max-w-[200px] flex-wrap justify-end sm:justify-center">
           {history.map((mult, i) => (
             <div
               key={i}
-              className="w-10 h-10 rounded-full flex items-center justify-center text-[10px] font-bold text-black shadow-md animate-in fade-in slide-in-from-top-4 duration-300"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[10px] font-bold text-black shadow-md animate-scale-in"
               style={{ backgroundColor: getColorForMultiplier(mult) }}
             >
               {mult}x
@@ -480,9 +473,9 @@ export default function PlinkoPage() {
 
         <canvas
           ref={canvasRef}
-          width={900}
-          height={650}
-          className="w-full h-full object-contain"
+          width={800}
+          height={600}
+          className="w-full h-full object-contain max-w-[800px]"
         />
       </div>
     </div>

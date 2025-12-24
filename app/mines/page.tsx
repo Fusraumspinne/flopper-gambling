@@ -37,6 +37,7 @@ interface Tile {
   id: number;
   isMine: boolean;
   isRevealed: boolean;
+  revealedByPlayer: boolean;
 }
 
 export default function MinesPage() {
@@ -59,6 +60,7 @@ export default function MinesPage() {
       id: i,
       isMine: false,
       isRevealed: false,
+      revealedByPlayer: false,
     }));
     setGrid(newGrid);
   };
@@ -97,6 +99,7 @@ export default function MinesPage() {
       id: i,
       isMine: false,
       isRevealed: false,
+      revealedByPlayer: false,
     }));
 
     let minesPlaced = 0;
@@ -117,12 +120,12 @@ export default function MinesPage() {
     if (tile.isRevealed) return;
 
     const newGrid = [...grid];
-    newGrid[id] = { ...tile, isRevealed: true };
+    newGrid[id] = { ...tile, isRevealed: true, revealedByPlayer: true };
     setGrid(newGrid);
 
     if (tile.isMine) {
       setGameState("game_over");
-      setGrid(newGrid.map(t => t.isMine ? { ...t, isRevealed: true } : t));
+      setGrid(newGrid.map((t) => ({ ...t, isRevealed: true })));
       finalizePendingLoss();
     } else {
       const newRevealedCount = revealedCount + 1;
@@ -134,6 +137,9 @@ export default function MinesPage() {
         addToBalance(winAmount);
         setLastWin(winAmount);
         setGameState("cashed_out");
+
+        // Reveal all tiles when the game ends
+        setGrid(newGrid.map((t) => ({ ...t, isRevealed: true })));
       }
     }
   };
@@ -146,13 +152,14 @@ export default function MinesPage() {
     addToBalance(winAmount);
     setLastWin(winAmount);
     setGameState("cashed_out");
-    
-    setGrid(grid.map(t => t.isMine ? { ...t, isRevealed: true } : t));
+
+    // Reveal all tiles when the game ends
+    setGrid((prev) => prev.map((t) => ({ ...t, isRevealed: true })));
   };
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-8">
-      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-6 rounded-xl h-fit">
+    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
+      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-4 sm:p-6 rounded-xl h-fit">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
           <div className="relative">
@@ -214,8 +221,6 @@ export default function MinesPage() {
           </select>
         </div>
 
-        
-
         {gameState === "playing" ? (
           <div className="flex flex-col gap-3">
             <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
@@ -251,8 +256,8 @@ export default function MinesPage() {
 
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-8 relative min-h-[500px]">
-        <div className="grid grid-cols-5 gap-3 w-full max-w-[500px] aspect-square">
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px]">
+        <div className="grid grid-cols-5 gap-2 sm:gap-3 w-full max-w-[500px] aspect-square">
           {grid.map((tile) => (
             <button
               key={tile.id}
@@ -261,14 +266,15 @@ export default function MinesPage() {
               className={`
                 relative rounded-lg transition-all duration-200 flex items-center justify-center aspect-square
                 ${tile.isRevealed 
-                  ? (tile.isMine ? "bg-[#ef4444]" : "bg-[#213743]") 
+                  ? (tile.isMine ? "bg-[#ef4444] animate-shake" : "bg-[#213743]") 
                   : "bg-[#2f4553] hover:bg-[#3c5566] hover:-translate-y-1 cursor-pointer shadow-[0_4px_0_0_#1a2c38]"
                 }
-                ${gameState !== "playing" && !tile.isRevealed ? "cursor-default hover:transform-none" : ""}
+                ${tile.isRevealed && !tile.revealedByPlayer ? "opacity-70 saturate-50" : ""}
+                ${gameState !== "playing" && !tile.isRevealed ? "cursor-default hover:transform-none opacity-50" : ""}
               `}
             >
               {tile.isRevealed && (
-                <div className="animate-in zoom-in duration-300 flex items-center justify-center w-full h-full">
+                <div className="animate-scale-in flex items-center justify-center w-full h-full">
                   {tile.isMine ? (
                     <LocalFireDepartment className="text-[#7f1d1d] w-3/4 h-3/4" />
                   ) : (

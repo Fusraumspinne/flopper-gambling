@@ -19,10 +19,12 @@ const games: Game[] = [
   { name: "Keno", icon: <GridOn className="w-5 h-5" />, href: "/keno" },
   { name: "Blackjack", icon: <Casino className="w-5 h-5" />, href: "/blackjack" },
   { name: "Plinko", icon: <ScatterPlot className="w-5 h-5" />, href: "/plinko" },
+  { name: "Dragon Tower", icon: <Casino className="w-5 h-5" />, href: "/dragontower" },
   { name: "Limbo", icon: <ShowChart className="w-5 h-5" />, href: "/limbo" },
   { name: "Mines", icon: <Diamond className="w-5 h-5" />, href: "/mines" },
   { name: "Coin Flip", icon: <MonetizationOn className="w-5 h-5" />, href: "/coinflip" },
   { name: "Rock Paper Scissors", icon: <SportsMma className="w-5 h-5" />, href: "/rps" },
+  { name: "Dice", icon: <Casino className="w-5 h-5" />, href: "/dice" },
 ];
 
 export default function Navbar() {

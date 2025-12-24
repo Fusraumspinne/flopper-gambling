@@ -61,6 +61,8 @@ export default function KenoPage() {
   const [riskLevel, setRiskLevel] = useState<RiskLevel>("medium");
   const [lastWin, setLastWin] = useState<number>(0);
 
+  const isRoundComplete = !isAnimating && drawnNumbers.length === DRAW_COUNT;
+
   const toggleNumber = (num: number) => {
     if (isAnimating) return;
     if (drawnNumbers.length > 0) {
@@ -155,6 +157,7 @@ export default function KenoPage() {
   const getTileStatus = (num: number) => {
     const isSelected = selectedNumbers.includes(num);
     const isDrawn = drawnNumbers.includes(num);
+    if (isRoundComplete && !isDrawn) return "unrevealed";
     if (isSelected && isDrawn) return "hit";
     if (isDrawn && !isSelected) return "miss";
     if (isSelected) return "selected";
@@ -169,16 +172,16 @@ export default function KenoPage() {
         return "bg-[#6b21a8] text-white shadow-[0_4px_0_#4c1d95] -translate-y-1 hover:bg-[#7e22ce] active:translate-y-0 active:shadow-none";
       case "miss":
         return "bg-[#0b1720] text-[#ef4444] scale-95 shadow-inner border border-[#ef4444]/20";
-      case "drawn":
-        return "bg-[#2f4553] text-[#b1bad3] opacity-60 scale-95";
+      case "unrevealed":
+        return "bg-[#2f4553] text-[#b1bad3] opacity-50 scale-95";
       default:
         return "bg-[#213743] text-[#b1bad3] shadow-[0_4px_0_#1a2c38] hover:-translate-y-1 hover:bg-[#2f4553] active:translate-y-0 active:shadow-none transition-all duration-100";
     }
   };
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-8">
-      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-6 rounded-xl h-fit">
+    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
+      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-4 sm:p-6 rounded-xl h-fit">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -294,13 +297,14 @@ export default function KenoPage() {
 
       <div className="flex-1 flex flex-col gap-6">
         <div className="bg-[#0f212e] p-6 rounded-xl relative overflow-hidden">
-          <div className="grid grid-cols-8 gap-2 sm:gap-3 max-w-[600px] mx-auto">
+          <div className="grid grid-cols-5 sm:grid-cols-8 gap-2 sm:gap-3 max-w-[600px] mx-auto">
             {Array.from({ length: GRID_SIZE }, (_, i) => i + 1).map((num) => {
               const status = getTileStatus(num);
               const drawIndex = drawnNumbers.indexOf(num);
               const isDrawn = drawIndex >= 0;
               const isHit = status === "hit";
               const isMiss = status === "miss";
+              const isUnrevealed = status === "unrevealed";
 
               const innerStyle: React.CSSProperties = isDrawn
                 ? { transitionDelay: `${drawIndex * 140}ms` }
@@ -313,7 +317,7 @@ export default function KenoPage() {
                 transformStyle: "preserve-3d",
                 transition: "transform 420ms cubic-bezier(.2,.9,.2,1)",
                 transitionDelay: isDrawn ? `${drawIndex * 140}ms` : "0ms",
-                transform: isDrawn ? "rotateX(180deg)" : "rotateX(0deg)",
+                transform: isDrawn || isRoundComplete ? "rotateX(180deg)" : "rotateX(0deg)",
               };
 
               const frontBackFaceStyle: React.CSSProperties = {
@@ -326,7 +330,7 @@ export default function KenoPage() {
               };
 
               const gemClasses = `transform transition-all duration-500 ${
-                isDrawn ? "opacity-100 scale-100" : "opacity-0 scale-75"
+                isDrawn || isRoundComplete ? "opacity-100 scale-100" : "opacity-0 scale-75"
               }`;
 
               return (
@@ -363,6 +367,11 @@ export default function KenoPage() {
                         </div>
                       ) : isMiss ? (
                         <span className="text-[#ef4444] font-bold">{num}</span>
+                      ) : isUnrevealed ? (
+                        <Diamond
+                          sx={{ color: "#557086", fontSize: 24 }}
+                          className={`${gemClasses} opacity-70`}
+                        />
                       ) : (
                         <div />
                       )}

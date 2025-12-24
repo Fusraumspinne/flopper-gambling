@@ -369,25 +369,29 @@ export default function BlackjackPage() {
       : "text-black";
   };
 
-  const renderCard = (card: Card, hidden = false) => {
+  const renderCard = (card: Card, hidden = false, index = 0) => {
     if (hidden) {
       return (
-        <div className="w-16 h-24 sm:w-20 sm:h-28 bg-[#2f4553] rounded-lg border-2 border-[#0f212e] flex items-center justify-center shadow-lg">
+        <div 
+          className="w-12 h-16 sm:w-16 sm:h-24 md:w-20 md:h-28 bg-[#2f4553] rounded-lg border-2 border-[#0f212e] flex items-center justify-center shadow-lg animate-slide-in"
+          style={{ animationDelay: `${index * 0.1}s` }}
+        >
           <div className="w-full h-full bg-[url('/card-back.png')] bg-cover opacity-50"></div>
         </div>
       );
     }
     return (
       <div
-        className={`w-16 h-24 sm:w-20 sm:h-28 bg-white rounded-lg flex flex-col items-center justify-between p-2 shadow-lg select-none ${getCardColor(
+        className={`w-12 h-16 sm:w-16 sm:h-24 md:w-20 md:h-28 bg-white rounded-lg flex flex-col items-center justify-between p-1 sm:p-2 shadow-lg select-none ${getCardColor(
           card.suit
-        )}`}
+        )} animate-slide-in hover:-translate-y-2 transition-transform duration-200`}
+        style={{ animationDelay: `${index * 0.1}s` }}
       >
-        <div className="self-start font-bold text-lg leading-none">
+        <div className="self-start font-bold text-xs sm:text-lg leading-none">
           {card.rank}
         </div>
-        <div className="text-2xl sm:text-3xl">{getSuitIcon(card.suit)}</div>
-        <div className="self-end font-bold text-lg leading-none rotate-180">
+        <div className="text-xl sm:text-2xl md:text-3xl">{getSuitIcon(card.suit)}</div>
+        <div className="self-end font-bold text-xs sm:text-lg leading-none rotate-180">
           {card.rank}
         </div>
       </div>
@@ -395,8 +399,8 @@ export default function BlackjackPage() {
   };
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-8">
-      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-6 rounded-xl h-fit">
+    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
+      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-4 sm:p-6 rounded-xl h-fit">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -502,27 +506,27 @@ export default function BlackjackPage() {
         )}
       </div>
 
-      <div className="flex-1 bg-[#0f212e] p-6 rounded-xl min-h-[500px] flex flex-col justify-between relative overflow-hidden">
+      <div className="flex-1 bg-[#0f212e] p-2 sm:p-6 rounded-xl min-h-[500px] flex flex-col justify-between relative overflow-hidden">
         <div className="flex flex-col items-center gap-4">
           <div className="text-[#b1bad3] font-bold uppercase tracking-wider text-sm">
             Dealer
           </div>
-          <div className="flex gap-2 justify-center">
+          <div className="flex justify-center items-center">
             {dealerHand.map((card, i) => (
-              <div key={i} className="relative">
-                {renderCard(card, gameState === "playing" && i === 1)}
+              <div key={i} className={`relative ${i > 0 ? "-ml-6 sm:-ml-8 md:-ml-10" : ""}`}>
+                {renderCard(card, gameState === "playing" && i === 1, i)}
               </div>
             ))}
             {dealerHand.length === 0 && (
-              <>
-                <div className="w-16 h-24 sm:w-20 sm:h-28 rounded-lg border-2 border-dashed border-[#2f4553]"></div>
-                <div className="w-16 h-24 sm:w-20 sm:h-28 rounded-lg border-2 border-dashed border-[#2f4553]"></div>
-              </>
+              <div className="flex gap-2">
+                <div className="w-12 h-16 sm:w-16 sm:h-24 md:w-20 md:h-28 rounded-lg border-2 border-dashed border-[#2f4553]"></div>
+                <div className="w-12 h-16 sm:w-16 sm:h-24 md:w-20 md:h-28 rounded-lg border-2 border-dashed border-[#2f4553]"></div>
+              </div>
             )}
           </div>
           {dealerHand.length > 0 &&
             (gameState !== "playing" || dealerHand.length > 2) && (
-              <div className="bg-[#213743] px-3 py-1 rounded-full text-white font-bold text-sm">
+              <div className="bg-[#213743] px-3 py-1 rounded-full text-white font-bold text-sm animate-scale-in">
                 {calculateHandValue(dealerHand)}
               </div>
             )}
@@ -532,34 +536,34 @@ export default function BlackjackPage() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10"></div>
         )}
 
-        <div className="flex justify-center gap-8 flex-wrap">
+        <div className="flex justify-center gap-4 sm:gap-8 flex-wrap">
           {playerHands.map((hand, index) => {
             const isCurrent =
               index === currentHandIndex && gameState === "playing";
             return (
               <div
                 key={index}
-                className={`flex flex-col items-center gap-4 transition-opacity ${
+                className={`flex flex-col items-center gap-4 transition-all duration-300 ${
                   gameState === "playing" && !isCurrent
-                    ? "opacity-50"
-                    : "opacity-100"
+                    ? "opacity-50 scale-90"
+                    : "opacity-100 scale-100"
                 }`}
               >
-                <div className="flex gap-2 relative">
+                <div className="flex items-center relative">
                   {hand.cards.map((card, i) => (
                     <div
                       key={i}
-                      style={{ transform: `translateX(${i * -30}px)` }}
+                      className={`relative ${i > 0 ? "-ml-6 sm:-ml-8 md:-ml-10" : ""}`}
                     >
-                      {renderCard(card)}
+                      {renderCard(card, false, i)}
                     </div>
                   ))}
                 </div>
                 <div className="flex flex-col items-center gap-1">
                   <div
-                    className={`px-3 py-1 rounded-full font-bold text-sm ${
+                    className={`px-3 py-1 rounded-full font-bold text-sm transition-colors ${
                       isCurrent
-                        ? "bg-[#00e701] text-black"
+                        ? "bg-[#00e701] text-black animate-pulse"
                         : "bg-[#213743] text-white"
                     }`}
                   >
@@ -570,7 +574,7 @@ export default function BlackjackPage() {
                   </div>
                   {hand.status !== "playing" && (
                     <div
-                      className={`text-sm font-bold uppercase ${
+                      className={`text-sm font-bold uppercase animate-bounce-in ${
                         hand.status === "win" || hand.status === "blackjack"
                           ? "text-[#00e701]"
                           : hand.status === "lose" || hand.status === "bust"
@@ -588,8 +592,8 @@ export default function BlackjackPage() {
           {playerHands.length === 0 && (
             <div className="flex flex-col items-center gap-4 opacity-50">
               <div className="flex gap-2">
-                <div className="w-16 h-24 sm:w-20 sm:h-28 rounded-lg border-2 border-dashed border-[#2f4553]"></div>
-                <div className="w-16 h-24 sm:w-20 sm:h-28 rounded-lg border-2 border-dashed border-[#2f4553]"></div>
+                <div className="w-12 h-16 sm:w-16 sm:h-24 md:w-20 md:h-28 rounded-lg border-2 border-dashed border-[#2f4553]"></div>
+                <div className="w-12 h-16 sm:w-16 sm:h-24 md:w-20 md:h-28 rounded-lg border-2 border-dashed border-[#2f4553]"></div>
               </div>
             </div>
           )}

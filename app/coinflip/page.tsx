@@ -84,8 +84,8 @@ export default function CoinFlipPage() {
   };
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-8">
-      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-6 rounded-xl h-fit">
+    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
+      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-4 sm:p-6 rounded-xl h-fit">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
           <div className="relative">
@@ -152,24 +152,24 @@ export default function CoinFlipPage() {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-8 relative min-h-[500px]">
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px]">
         
-        <div className="relative w-48 h-48 mb-12 cf-perspective">
+        <div className="relative w-32 h-32 sm:w-48 sm:h-48 mb-8 sm:mb-12 cf-perspective">
           <div className={`w-full h-full relative cf-3d ${isFlipping ? "cf-flip" : ""}`}>
-             <div className={`w-full h-full rounded-full flex items-center justify-center border-4 ${
+             <div className={`w-full h-full rounded-full flex items-center justify-center border-4 transition-all duration-300 ${
                lastResult === "tails"
                  ? "shadow-[0_0_30px_rgba(59,130,246,0.25)] bg-linear-to-br from-blue-300 to-blue-600 border-blue-400"
                  : "shadow-[0_0_30px_rgba(234,179,8,0.25)] bg-linear-to-br from-yellow-300 to-yellow-600 border-yellow-400"
              }`}>
                 {isFlipping ? (
-                  <span className="text-6xl font-bold text-white/80">?</span>
+                  <span className="text-4xl sm:text-6xl font-bold text-white/80">?</span>
                 ) : (
-                  <MonetizationOn className={`w-32! h-32! ${lastResult === 'tails' ? 'text-blue-100' : 'text-yellow-100'}`} />
+                  <MonetizationOn className={`w-20! h-20! sm:w-32! sm:h-32! ${lastResult === 'tails' ? 'text-blue-100' : 'text-yellow-100'}`} />
                 )}
              </div>
           </div>
           {lastResult && !isFlipping && (
-             <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-xl font-bold uppercase tracking-widest text-white cf-pop">
+             <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-xl font-bold uppercase tracking-widest text-white cf-pop animate-bounce-in">
                {lastResult}
              </div>
           )}
@@ -179,9 +179,9 @@ export default function CoinFlipPage() {
           <button
             onClick={() => gameState === "playing" ? continueGame("heads") : startGame("heads")}
             disabled={isFlipping || (gameState === "playing" && streak === 0)} 
-            className="flex-1 bg-[#eab308] hover:bg-[#ca8a04] disabled:opacity-50 disabled:cursor-not-allowed text-black py-4 rounded-xl font-bold text-xl shadow-[0_0_20px_rgba(234,179,8,0.2)] transition-all active:scale-95 flex flex-col items-center gap-2"
+            className="flex-1 bg-[#eab308] hover:bg-[#ca8a04] disabled:opacity-50 disabled:cursor-not-allowed text-black py-4 rounded-xl font-bold text-lg sm:text-xl shadow-[0_0_20px_rgba(234,179,8,0.2)] transition-all active:scale-95 flex flex-col items-center gap-2"
           >
-            <div className="w-12 h-12 rounded-full bg-yellow-200 flex items-center justify-center">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-yellow-200 flex items-center justify-center">
                <MonetizationOn className="text-yellow-700" />
             </div>
             HEADS
@@ -190,24 +190,25 @@ export default function CoinFlipPage() {
           <button
             onClick={() => gameState === "playing" ? continueGame("tails") : startGame("tails")}
             disabled={isFlipping || (gameState === "playing" && streak === 0)}
-            className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-black py-4 rounded-xl font-bold text-xl shadow-[0_0_20px_rgba(59,130,246,0.2)] transition-all active:scale-95 flex flex-col items-center gap-2"
+            className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-black py-4 rounded-xl font-bold text-lg sm:text-xl shadow-[0_0_20px_rgba(59,130,246,0.2)] transition-all active:scale-95 flex flex-col items-center gap-2"
           >
-            <div className="w-12 h-12 rounded-full bg-blue-200 flex items-center justify-center">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-200 flex items-center justify-center">
                <MonetizationOn className="text-blue-700" />
             </div>
             TAILS
           </button>
         </div>
 
-        <div className="mt-12 flex gap-2 overflow-x-auto max-w-full p-2">
+        <div className="mt-12 flex gap-2 overflow-x-auto max-w-full p-2 w-full justify-start sm:justify-center">
           {history.map((side, i) => (
             <div 
               key={i} 
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border-2 ${
+              className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 animate-scale-in ${
                 side === 'heads' 
                   ? 'bg-yellow-500 border-yellow-300 text-yellow-900' 
                   : 'bg-blue-500 border-blue-300 text-blue-950'
               }`}
+              style={{ animationDelay: `${i * 0.05}s` }}
             >
               {side === 'heads' ? 'H' : 'T'}
             </div>

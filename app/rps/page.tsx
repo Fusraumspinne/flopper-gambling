@@ -119,8 +119,8 @@ export default function RPSPage() {
   };
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-8">
-      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-6 rounded-xl h-fit">
+    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
+      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-4 sm:p-6 rounded-xl h-fit">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
           <div className="relative">
@@ -187,60 +187,62 @@ export default function RPSPage() {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-8 relative min-h-[500px]">
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px]">
         
-        <div className="flex justify-center items-center gap-8 mb-12 min-h-[200px]">
-          <div className="flex flex-col items-center gap-4">
-             <div className="text-[#b1bad3] text-sm uppercase tracking-wider">You</div>
-             <div className={`w-32 h-32 rounded-full bg-[#213743] border-4 border-[#2f4553] flex items-center justify-center text-6xl shadow-lg
-                ${lastResult === 'win' ? 'border-[#00e701] shadow-[0_0_20px_rgba(0,231,1,0.2)]' : ''}
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-8 mb-8 sm:mb-12 min-h-[200px]">
+          <div className="flex flex-col items-center gap-2 sm:gap-4">
+             <div className="text-[#b1bad3] text-xs sm:text-sm uppercase tracking-wider">You</div>
+             <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-[#213743] border-4 border-[#2f4553] flex items-center justify-center text-4xl sm:text-6xl shadow-lg transition-all duration-300
+                ${lastResult === 'win' ? 'border-[#00e701] shadow-[0_0_20px_rgba(0,231,1,0.2)] scale-110' : ''}
+                ${isProcessing ? 'animate-shake' : ''}
              `}>
                 {userChoice ? getEmoji(userChoice) : <span className="text-4xl opacity-20">👤</span>}
              </div>
           </div>
 
-          <div className="text-2xl font-bold text-[#2f4553]">VS</div>
+          <div className="text-xl sm:text-2xl font-bold text-[#2f4553] my-2 sm:my-0">VS</div>
 
-          <div className="flex flex-col items-center gap-4">
-             <div className="text-[#b1bad3] text-sm uppercase tracking-wider">Computer</div>
-             <div className={`w-32 h-32 rounded-full bg-[#213743] border-4 border-[#2f4553] flex items-center justify-center text-6xl shadow-lg
-                ${isProcessing ? 'animate-pulse' : ''}
-                ${lastResult === 'lose' ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)]' : ''}
+          <div className="flex flex-col items-center gap-2 sm:gap-4">
+             <div className="text-[#b1bad3] text-xs sm:text-sm uppercase tracking-wider">Computer</div>
+             <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-[#213743] border-4 border-[#2f4553] flex items-center justify-center text-4xl sm:text-6xl shadow-lg transition-all duration-300
+                ${isProcessing ? 'animate-shake' : ''}
+                ${lastResult === 'lose' ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)] scale-110' : ''}
              `}>
                 {computerChoice ? getEmoji(computerChoice) : <span className="text-4xl opacity-20">🤖</span>}
              </div>
           </div>
         </div>
 
-        <div className="flex gap-4 w-full max-w-2xl">
+        <div className="flex gap-2 sm:gap-4 w-full max-w-2xl">
           {CHOICES.map((choice) => (
             <button
               key={choice}
               onClick={() => gameState === "playing" ? continueGame(choice) : startGame(choice)}
               disabled={isProcessing || (gameState === "playing" && streak === 0 && lastResult !== 'draw')} 
               className={`
-                flex-1 py-6 rounded-xl font-bold text-xl transition-all active:scale-95 flex flex-col items-center gap-2
+                flex-1 py-4 sm:py-6 rounded-xl font-bold text-lg sm:text-xl transition-all active:scale-95 flex flex-col items-center gap-1 sm:gap-2
                 disabled:opacity-50 disabled:cursor-not-allowed
                 bg-[#213743] hover:bg-[#2f4553] text-white shadow-lg border-b-4 border-[#0f212e]
               `}
             >
-              <span className="text-4xl">{getEmoji(choice)}</span>
-              <span className="uppercase text-sm tracking-wider opacity-80">{choice}</span>
+              <span className="text-2xl sm:text-4xl">{getEmoji(choice)}</span>
+              <span className="uppercase text-[10px] sm:text-sm tracking-wider opacity-80">{choice}</span>
             </button>
           ))}
         </div>
 
-        <div className="mt-12 flex gap-2 overflow-x-auto max-w-full p-2">
+        <div className="mt-8 sm:mt-12 flex gap-2 overflow-x-auto max-w-full p-2 w-full justify-start sm:justify-center">
           {history.map((res, i) => (
             <div 
               key={i} 
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border-2 shrink-0 ${
+              className={`w-6 h-6 sm:w-8 sm:h-8 shrink-0 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] font-bold border-2 animate-scale-in ${
                 res === 'win' 
                   ? 'bg-[#00e701] border-[#00c201] text-black' 
                   : res === 'lose'
                   ? 'bg-red-500 border-red-600 text-white'
                   : 'bg-yellow-500 border-yellow-600 text-black'
               }`}
+              style={{ animationDelay: `${i * 0.05}s` }}
             >
               {res === 'win' ? 'W' : res === 'lose' ? 'L' : 'D'}
             </div>
