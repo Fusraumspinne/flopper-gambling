@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart } from "@mui/icons-material";
 import { useWallet } from "./WalletProvider";
 import LiveStatsPanel from "./LiveStatsPanel";
 import { useSidebar } from "./Shell";
+import { useHourlyReward } from "./useHourlyReward";
 
 interface Game {
   name: string;
@@ -30,43 +31,14 @@ export default function Navbar() {
   const { collapsed, toggleCollapsed, sidebarWidth } = useSidebar();
 
   const { addToBalance } = useWallet();
-  const [unclaimed, setUnclaimed] = useState<number>(0);
-  const [lastClaimISO, setLastClaimISO] = useState<string | null>(null);
+  const { claimableAmount, lastClaimISO, claim } = useHourlyReward({ amountPerHour: 100, storageKeyPrefix: "flopper_hourly_reward" });
 
   const [statsOpen, setStatsOpen] = useState(false);
 
-  useEffect(() => {
-    const KEY = "flopper_free_last_claim";
-    const raw = localStorage.getItem(KEY);
-    let lastDate: Date;
-
-    if (!raw || isNaN(Date.parse(raw))) {
-      lastDate = new Date();
-      localStorage.setItem(KEY, lastDate.toISOString());
-    } else {
-      lastDate = new Date(raw);
-    }
-
-    const update = () => {
-      const now = new Date();
-      const hours = Math.floor((now.getTime() - lastDate.getTime()) / 3600000);
-      setUnclaimed(hours * 100);
-      setLastClaimISO(lastDate.toISOString());
-    };
-
-    update();
-    const id = window.setInterval(update, 60_000);
-    return () => window.clearInterval(id);
-  }, []);
-
   const claimFree = () => {
-    if (unclaimed <= 0) return;
-    addToBalance(unclaimed);
-    const KEY = "flopper_free_last_claim";
-    const now = new Date();
-    localStorage.setItem(KEY, now.toISOString());
-    setUnclaimed(0);
-    setLastClaimISO(now.toISOString());
+    const amount = claim();
+    if (amount <= 0) return;
+    addToBalance(amount);
   };
 
   return (
@@ -160,12 +132,12 @@ export default function Navbar() {
           <div className="border-t border-[#213743] pt-4">
             <button
               onClick={claimFree}
-              disabled={unclaimed <= 0}
+              disabled={claimableAmount <= 0}
               className={`w-full py-2 rounded-md font-bold transition-colors ${
-                unclaimed > 0 ? "bg-[#00e701] text-black" : "bg-[#2f4553] text-[#b1bad3]"
+                claimableAmount > 0 ? "bg-[#00e701] text-black" : "bg-[#2f4553] text-[#b1bad3]"
               }`}
             >
-              {unclaimed > 0 ? `Claim $${unclaimed}` : "Claim Free"}
+              {claimableAmount > 0 ? `Claim $${claimableAmount}` : "Claim Free"}
             </button>
             <div className="text-xs text-[#557086] mt-2">+ $100 per hour since last claim</div>
             {lastClaimISO && (

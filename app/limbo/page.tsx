@@ -27,7 +27,6 @@ export default function LimboPage() {
   const [targetMultiplier, setTargetMultiplier] = useState<number>(2);
   const [targetInput, setTargetInput] = useState<string>("2.00");
   
-  const [winChance, setWinChance] = useState<number>(49.5);
   const [winChanceInput, setWinChanceInput] = useState<string>("49.50");
 
   const [gameState, setGameState] = useState<GameState>("idle");
@@ -68,23 +67,7 @@ export default function LimboPage() {
     setTargetInput(num.toFixed(2));
     
     const newChance = (HOUSE_EDGE / num) * 100;
-    setWinChance(newChance);
     setWinChanceInput(newChance.toFixed(2));
-  };
-
-  const handleChanceBlur = () => {
-    const raw = winChanceInput.trim();
-    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
-    let num = Number(sanitized);
-    num = clamp(num, 0.01, 98); 
-    
-    setWinChance(num);
-    setWinChanceInput(num.toFixed(2));
-
-    const newTarget = HOUSE_EDGE / (num / 100);
-    const clampedTarget = clamp(newTarget, MIN_TARGET, MAX_TARGET);
-    setTargetMultiplier(clampedTarget);
-    setTargetInput(clampedTarget.toFixed(2));
   };
 
   const roll = async () => {
@@ -208,24 +191,6 @@ export default function LimboPage() {
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 px-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#b1bad3] text-sm">x</div>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Win Chance</label>
-          <div className="relative">
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              max="98"
-              value={winChanceInput}
-              onChange={(e) => setWinChanceInput(e.target.value)}
-              onBlur={handleChanceBlur}
-              disabled={isLocked}
-              className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 px-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#b1bad3] text-sm">%</div>
           </div>
         </div>
 
