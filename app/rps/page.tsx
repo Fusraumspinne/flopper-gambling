@@ -11,7 +11,7 @@ const HOUSE_EDGE_MULTIPLIER = 1.98;
 const CHOICES: Choice[] = ["rock", "paper", "scissors"];
 
 export default function RPSPage() {
-  const { balance, subtractFromBalance, addToBalance } = useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
 
   const [betAmount, setBetAmount] = useState<number>(10);
   const [betInput, setBetInput] = useState<string>("10");
@@ -97,6 +97,7 @@ export default function RPSPage() {
     } else if (result === "lose") {
       setGameState("lost");
       setStreak(0);
+      finalizePendingLoss();
     }
   };
 

@@ -10,7 +10,7 @@ type GameState = "idle" | "playing" | "cashed_out" | "lost";
 const HOUSE_EDGE_MULTIPLIER = 1.98;
 
 export default function CoinFlipPage() {
-  const { balance, subtractFromBalance, addToBalance } = useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
 
   const [betAmount, setBetAmount] = useState<number>(10);
   const [betInput, setBetInput] = useState<string>("10");
@@ -71,6 +71,7 @@ export default function CoinFlipPage() {
     } else {
       setGameState("lost");
       setStreak(0);
+      finalizePendingLoss();
     }
   };
 

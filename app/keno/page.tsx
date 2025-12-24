@@ -51,7 +51,7 @@ const GRID_SIZE = 40;
 const DRAW_COUNT = 10;
 
 export default function KenoPage() {
-  const { balance, subtractFromBalance, addToBalance } = useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
 
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>([]);
   const [drawnNumbers, setDrawnNumbers] = useState<number[]>([]);
@@ -137,6 +137,8 @@ export default function KenoPage() {
       await new Promise((resolve) => setTimeout(resolve, 300));
       addToBalance(winAmount);
       setLastWin(winAmount);
+    } else {
+      finalizePendingLoss();
     }
 
     setIsAnimating(false);

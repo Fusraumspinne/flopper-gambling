@@ -40,7 +40,7 @@ interface Tile {
 }
 
 export default function MinesPage() {
-  const { balance, addToBalance, subtractFromBalance } = useWallet();
+  const { balance, addToBalance, subtractFromBalance, finalizePendingLoss } = useWallet();
   
   const [betAmount, setBetAmount] = useState<number>(10);
   const [betInput, setBetInput] = useState<string>("10");
@@ -123,6 +123,7 @@ export default function MinesPage() {
     if (tile.isMine) {
       setGameState("game_over");
       setGrid(newGrid.map(t => t.isMine ? { ...t, isRevealed: true } : t));
+      finalizePendingLoss();
     } else {
       const newRevealedCount = revealedCount + 1;
       setRevealedCount(newRevealedCount);

@@ -84,7 +84,7 @@ const calculateHandValue = (cards: Card[]): number => {
 };
 
 export default function BlackjackPage() {
-  const { balance, subtractFromBalance, addToBalance } = useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
 
   const [betAmount, setBetAmount] = useState<number>(10.0);
   const [betInput, setBetInput] = useState<string>(betAmount.toString());
@@ -336,6 +336,11 @@ export default function BlackjackPage() {
       if (winAmount > 0) {
         addToBalance(winAmount);
         totalWin += winAmount;
+      } else {
+        // Losing/busted hands do not pay out; count them as losses.
+        if (status === "lose" || status === "bust") {
+          finalizePendingLoss();
+        }
       }
       return { ...hand, status };
     });

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
 import { WalletProvider } from "@/components/WalletProvider";
+import Shell from "@/components/Shell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,12 +30,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#1a2c38] text-[#b1bad3]`}
       >
         <WalletProvider>
-          <div className="flex min-h-screen">
-            <Navbar />
-            <main className="ml-[20%] w-[80%] min-h-screen">
-              {children}
-            </main>
-          </div>
+          <Shell>{children}</Shell>
         </WalletProvider>
       </body>
     </html>
