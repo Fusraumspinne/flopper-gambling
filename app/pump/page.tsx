@@ -112,6 +112,31 @@ export default function PumpPage() {
 
   const potentialWin = betAmount * currentStep.multiplier;
 
+  const stepsScrollRef = useRef<HTMLDivElement | null>(null);
+  const stepRefs = useRef<Array<HTMLDivElement | null>>([]);
+
+  const formatProb = (p: number) => {
+    if (p >= 1) {
+      return `${Number(p.toFixed(p % 1 ? 2 : 0))}%`;
+    }
+    if (p === 0) return "0%";
+    return `${Number(p.toPrecision(3))}%`;
+  };
+
+  useEffect(() => {
+    if (gameState !== "playing") return;
+    const el = stepRefs.current[currentStepIndex];
+    if (el && stepsScrollRef.current) {
+      try {
+        el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      } catch (e) {
+        const container = stepsScrollRef.current;
+        const left = el.offsetLeft - container.clientWidth / 2 + el.clientWidth / 2;
+        container.scrollTo({ left, behavior: "smooth" });
+      }
+    }
+  }, [currentStepIndex, gameState]);
+
   const startGame = () => {
     if (balance < betAmount) {
       alert("Insufficient balance!");
@@ -349,6 +374,32 @@ export default function PumpPage() {
               <div className="text-[#ef4444] font-black text-4xl">POP!</div>
             </div>
           )}
+        </div>
+
+        <div className="w-full mt-4">
+          <div
+            ref={stepsScrollRef}
+            className="w-full overflow-x-auto"
+          >
+            <div className="flex items-center space-x-2 px-4 py-2">
+              {currentData.map((step, idx) => (
+                <div
+                  key={idx}
+                  ref={(el) => { stepRefs.current[idx] = el; }}
+                  className={`min-w-[96px] flex-shrink-0 bg-[#213743] p-2 rounded-md border transition-transform ${
+                    idx === currentStepIndex ? "border-[#00e701] scale-105" : "border-[#2f4553]"
+                  }`}
+                >
+                  <div className="text-sm text-white font-bold text-center">
+                    {step.multiplier}x
+                  </div>
+                  <div className="text-xs text-[#9fb0c6] mt-1 text-center">
+                    {formatProb(step.probability)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

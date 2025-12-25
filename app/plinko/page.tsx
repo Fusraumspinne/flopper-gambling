@@ -119,6 +119,68 @@ const getMultipliers = (rows: number, risk: RiskLevel): number[] => {
   return result;
 };
 
+// Kombinatorik: n choose r
+const comb = (n: number, r: number) => {
+  if (r < 0 || r > n) return 0;
+  r = Math.min(r, n - r);
+  let num = 1;
+  let den = 1;
+  for (let i = 1; i <= r; i++) {
+    num *= n - r + i;
+    den *= i;
+  }
+  return num / den;
+};
+
+const formatPercentTwoNonZero = (p: number) => {
+  if (!p || p <= 0) return "0%";
+  const pct = p * 100;
+  if (pct >= 0.01) return `${pct.toFixed(2)}%`;
+  const fixed = pct.toFixed(30);
+  const parts = fixed.split('.');
+  const intPart = parts[0];
+  let dec = parts[1] || '';
+  let nonZeroCount = 0;
+  let cut = dec.length;
+  for (let i = 0; i < dec.length; i++) {
+    if (dec[i] !== '0') nonZeroCount++;
+    if (nonZeroCount === 2) {
+      cut = i + 1;
+      break;
+    }
+  }
+  if (nonZeroCount < 2) {
+    dec = dec.replace(/0+$/g, '');
+    return dec ? `${intPart}.${dec}%` : `${intPart}%`;
+  }
+  const nextDigit = dec[cut] ? parseInt(dec[cut], 10) : 0;
+  let sliceArr = dec.slice(0, cut).split('').map((c) => parseInt(c, 10));
+  if (nextDigit >= 5) {
+    let carry = 1;
+    for (let i = sliceArr.length - 1; i >= 0; i--) {
+      const v = sliceArr[i] + carry;
+      if (v === 10) {
+        sliceArr[i] = 0;
+        carry = 1;
+      } else {
+        sliceArr[i] = v;
+        carry = 0;
+        break;
+      }
+    }
+    if (carry === 1) {
+      const newInt = String(Number(intPart) + 1);
+      while (sliceArr.length && sliceArr[sliceArr.length - 1] === 0) sliceArr.pop();
+      return sliceArr.length ? `${newInt}.${sliceArr.join('')}%` : `${newInt}%`;
+    }
+  }
+  let lastNonZero = sliceArr.length - 1;
+  while (lastNonZero >= 0 && sliceArr[lastNonZero] === 0) lastNonZero--;
+  if (lastNonZero < 0) return `${intPart}%`;
+  sliceArr = sliceArr.slice(0, lastNonZero + 1);
+  return `${intPart}.${sliceArr.join('')}%`;
+};
+
 export default function PlinkoPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
     useWallet();
@@ -218,7 +280,7 @@ export default function PlinkoPage() {
         const x = startXSlots + i * pegSpacing;
         const val = multipliers[i];
         const boxW = pegSpacing * 0.92;
-        const boxH = 24;
+        const boxH = 34;
 
         ctx.fillStyle = getColorForMultiplier(val);
         drawRoundedRect(ctx, x - boxW / 2, slotY, boxW, boxH, 5);
@@ -226,10 +288,20 @@ export default function PlinkoPage() {
 
         ctx.fillStyle = "#000";
         ctx.font =
-          "bold 10px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+          "bold 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(`${val}x`, x, slotY + boxH / 2);
+        ctx.fillText(`${val}x`, x, slotY + boxH * 0.36);
+
+        const favourable = comb(rows, i);
+        const totalPaths = Math.pow(2, rows);
+        const prob = totalPaths > 0 ? favourable / totalPaths : 0;
+        const probText = formatPercentTwoNonZero(prob);
+
+        ctx.fillStyle = "#071826";
+        ctx.font =
+          "9px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+        ctx.fillText(probText, x, slotY + boxH * 0.74);
       }
 
       const getPegPos = (r: number, c: number) => {

@@ -61,8 +61,6 @@ export default function KenoPage() {
   const [riskLevel, setRiskLevel] = useState<RiskLevel>("medium");
   const [lastWin, setLastWin] = useState<number>(0);
 
-  const isRoundComplete = !isAnimating && drawnNumbers.length === DRAW_COUNT;
-
   const toggleNumber = (num: number) => {
     if (isAnimating) return;
     if (drawnNumbers.length > 0) {
@@ -103,6 +101,81 @@ export default function KenoPage() {
     if (count === 0) return 0;
     const table = MULTIPLIERS[riskLevel][count];
     return table && table[matches] ? table[matches] : 0;
+  };
+
+  const comb = (n: number, r: number) => {
+    if (r < 0 || r > n) return 0;
+    r = Math.min(r, n - r);
+    let num = 1;
+    let den = 1;
+    for (let i = 1; i <= r; i++) {
+      num *= n - r + i;
+      den *= i;
+    }
+    return num / den;
+  };
+
+  const probabilityForHits = (k: number, hits: number) => {
+    const n = GRID_SIZE; 
+    const draw = DRAW_COUNT; 
+    if (k <= 0) return 0;
+    const total = comb(n, draw);
+    const favourable = comb(k, hits) * comb(n - k, draw - hits);
+    return total === 0 ? 0 : favourable / total;
+  };
+
+  const formatPercentTwoNonZero = (p: number) => {
+    if (!p || p <= 0) return "0%";
+    const pct = p * 100;
+    if (pct >= 0.01) return `${pct.toFixed(2)}%`;
+
+    const fixed = pct.toFixed(30);
+    const parts = fixed.split('.');
+    const intPart = parts[0];
+    let dec = parts[1] || '';
+
+    let nonZeroCount = 0;
+    let cut = dec.length;
+    for (let i = 0; i < dec.length; i++) {
+      if (dec[i] !== '0') nonZeroCount++;
+      if (nonZeroCount === 2) {
+        cut = i + 1;
+        break;
+      }
+    }
+
+    if (nonZeroCount < 2) {
+      dec = dec.replace(/0+$/g, '');
+      return dec ? `${intPart}.${dec}%` : `${intPart}%`;
+    }
+
+    const nextDigit = dec[cut] ? parseInt(dec[cut], 10) : 0;
+    let sliceArr = dec.slice(0, cut).split('').map((c) => parseInt(c, 10));
+    if (nextDigit >= 5) {
+      let carry = 1;
+      for (let i = sliceArr.length - 1; i >= 0; i--) {
+        const v = sliceArr[i] + carry;
+        if (v === 10) {
+          sliceArr[i] = 0;
+          carry = 1;
+        } else {
+          sliceArr[i] = v;
+          carry = 0;
+          break;
+        }
+      }
+      if (carry === 1) {
+        const newInt = String(Number(intPart) + 1);
+        while (sliceArr.length && sliceArr[sliceArr.length - 1] === 0) sliceArr.pop();
+        return sliceArr.length ? `${newInt}.${sliceArr.join('')}%` : `${newInt}%`;
+      }
+    }
+
+    let lastNonZero = sliceArr.length - 1;
+    while (lastNonZero >= 0 && sliceArr[lastNonZero] === 0) lastNonZero--;
+    if (lastNonZero < 0) return `${intPart}%`;
+    sliceArr = sliceArr.slice(0, lastNonZero + 1);
+    return `${intPart}.${sliceArr.join('')}%`;
   };
 
   const playGame = useCallback(async () => {
@@ -157,7 +230,6 @@ export default function KenoPage() {
   const getTileStatus = (num: number) => {
     const isSelected = selectedNumbers.includes(num);
     const isDrawn = drawnNumbers.includes(num);
-    if (isRoundComplete && !isDrawn) return "unrevealed";
     if (isSelected && isDrawn) return "hit";
     if (isDrawn && !isSelected) return "miss";
     if (isSelected) return "selected";
@@ -304,11 +376,7 @@ export default function KenoPage() {
               const isDrawn = drawIndex >= 0;
               const isHit = status === "hit";
               const isMiss = status === "miss";
-              const isUnrevealed = status === "unrevealed";
-
-              const innerStyle: React.CSSProperties = isDrawn
-                ? { transitionDelay: `${drawIndex * 140}ms` }
-                : {};
+              const isUnrevealed = (status as string) === "unrevealed";
 
               const innerStyles: React.CSSProperties = {
                 width: "100%",
@@ -316,8 +384,8 @@ export default function KenoPage() {
                 position: "relative",
                 transformStyle: "preserve-3d",
                 transition: "transform 420ms cubic-bezier(.2,.9,.2,1)",
-                transitionDelay: isDrawn ? `${drawIndex * 140}ms` : "0ms",
-                transform: isDrawn || isRoundComplete ? "rotateX(180deg)" : "rotateX(0deg)",
+                  transitionDelay: isDrawn ? `${drawIndex * 140}ms` : "0ms",
+                  transform: isDrawn ? "rotateX(180deg)" : "rotateX(0deg)",
               };
 
               const frontBackFaceStyle: React.CSSProperties = {
@@ -330,7 +398,7 @@ export default function KenoPage() {
               };
 
               const gemClasses = `transform transition-all duration-500 ${
-                isDrawn || isRoundComplete ? "opacity-100 scale-100" : "opacity-0 scale-75"
+                isDrawn ? "opacity-100 scale-100" : "opacity-0 scale-75"
               }`;
 
               return (
@@ -383,41 +451,52 @@ export default function KenoPage() {
           </div>
         </div>
 
-        <div className="bg-[#213743] p-4 rounded-xl overflow-x-auto">
-          <div className="flex justify-between items-center min-w-max gap-2">
-            {selectedNumbers.length > 0 ? (
-              MULTIPLIERS[riskLevel][selectedNumbers.length]?.map(
-                (mult, hits) => {
-                  const currentMatches = selectedNumbers.filter((n) =>
-                    drawnNumbers.includes(n)
-                  ).length;
-                  const isCurrent = isAnimating
-                    ? false
-                    : drawnNumbers.length > 0 && hits === currentMatches;
+        <div className="bg-[#213743] p-4 rounded-xl">
+          {selectedNumbers.length > 0 ? (
+            (() => {
+              const payouts = MULTIPLIERS[riskLevel][selectedNumbers.length] || [];
+              const cols = payouts.length || 1;
+              return (
+                <div
+                  className="grid gap-2 w-full"
+                  style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+                >
+                  {payouts.map((mult, hits) => {
+                    const currentMatches = selectedNumbers.filter((n) =>
+                      drawnNumbers.includes(n)
+                    ).length;
+                    const isCurrent = isAnimating
+                      ? false
+                      : drawnNumbers.length > 0 && hits === currentMatches;
 
-                  return (
-                    <div
-                      key={hits}
-                      className={`flex flex-col items-center p-2 rounded min-w-[60px] ${
-                        isCurrent
-                          ? "bg-[#2f4553] text-white scale-105"
-                          : "bg-[#0f212e] text-[#b1bad3]"
-                      }`}
-                    >
-                      <span className="text-xs opacity-70">{hits}x</span>
-                      <span className="font-bold">
-                        {mult && mult > 0 ? `${mult}x` : "-"}
-                      </span>
-                    </div>
-                  );
-                }
-              )
-            ) : (
-              <div className="text-[#b1bad3] text-sm w-full text-center">
-                Select numbers to see payouts
-              </div>
-            )}
-          </div>
+                    const prob = probabilityForHits(selectedNumbers.length, hits);
+                    const probText = formatPercentTwoNonZero(prob);
+
+                    return (
+                      <div
+                        key={hits}
+                        className={`flex flex-col items-center px-2 py-2 rounded text-center ${
+                          isCurrent
+                            ? "bg-[#2f4553] text-white scale-105"
+                            : "bg-[#0f212e] text-[#b1bad3]"
+                        }`}
+                      >
+                        <span className="text-xs opacity-70">{hits}x</span>
+                        <span className="font-bold text-sm">
+                          {mult && mult > 0 ? `${mult}x` : "-"}
+                        </span>
+                        <span className="text-xs text-[#8399aa] mt-1 leading-tight">{probText}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()
+          ) : (
+            <div className="text-[#b1bad3] text-sm w-full text-center">
+              Select numbers to see payouts
+            </div>
+          )}
         </div>
       </div>
     </div>

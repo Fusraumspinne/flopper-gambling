@@ -41,6 +41,22 @@ interface Tile {
 }
 
 export default function MinesPage() {
+  // Blend two hex colors. weight = 0 => hex1, weight = 1 => hex2
+  const blendHexColors = (hex1: string, hex2: string, weight = 0.5) => {
+    const h1 = hex1.replace('#', '');
+    const h2 = hex2.replace('#', '');
+    const r1 = parseInt(h1.substring(0, 2), 16);
+    const g1 = parseInt(h1.substring(2, 4), 16);
+    const b1 = parseInt(h1.substring(4, 6), 16);
+    const r2 = parseInt(h2.substring(0, 2), 16);
+    const g2 = parseInt(h2.substring(2, 4), 16);
+    const b2 = parseInt(h2.substring(4, 6), 16);
+    const r = Math.round(r1 * (1 - weight) + r2 * weight);
+    const g = Math.round(g1 * (1 - weight) + g2 * weight);
+    const b = Math.round(b1 * (1 - weight) + b2 * weight);
+    const hex = (n: number) => n.toString(16).padStart(2, '0');
+    return `#${hex(r)}${hex(g)}${hex(b)}`;
+  };
   const { balance, addToBalance, subtractFromBalance, finalizePendingLoss } = useWallet();
   
   const [betAmount, setBetAmount] = useState<number>(10);
@@ -258,32 +274,53 @@ export default function MinesPage() {
 
       <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px]">
         <div className="grid grid-cols-5 gap-2 sm:gap-3 w-full max-w-[500px] aspect-square">
-          {grid.map((tile) => (
-            <button
-              key={tile.id}
-              onClick={() => revealTile(tile.id)}
-              disabled={gameState !== "playing" || tile.isRevealed}
-              className={`
-                relative rounded-lg transition-all duration-200 flex items-center justify-center aspect-square
-                ${tile.isRevealed 
-                  ? (tile.isMine ? "bg-[#ef4444] animate-shake" : "bg-[#213743]") 
-                  : "bg-[#2f4553] hover:bg-[#3c5566] hover:-translate-y-1 cursor-pointer shadow-[0_4px_0_0_#1a2c38]"
+          {grid.map((tile) => {
+            const isAutoRevealed = tile.isRevealed && !tile.revealedByPlayer;
+            const baseSafe = '#213743';
+            const baseMine = '#ef4444';
+            const target = '#0f212e';
+            const blendedBg = tile.isRevealed
+              ? (isAutoRevealed ? blendHexColors(tile.isMine ? baseMine : baseSafe, target, 0.5) : (tile.isMine ? baseMine : baseSafe))
+              : undefined;
+
+            return (
+              <button
+                key={tile.id}
+                onClick={() => revealTile(tile.id)}
+                disabled={gameState !== 'playing' || tile.isRevealed}
+                className={
+                  `relative rounded-lg transition-all duration-200 flex items-center justify-center aspect-square
+                  ${!tile.isRevealed ? "bg-[#2f4553] hover:bg-[#3c5566] hover:-translate-y-1 cursor-pointer shadow-[0_4px_0_0_#1a2c38]" : (tile.isMine && tile.revealedByPlayer ? "animate-shake" : "")}
+                  ${gameState !== 'playing' && !tile.isRevealed ? 'cursor-default hover:transform-none opacity-50' : ''}`
                 }
-                ${tile.isRevealed && !tile.revealedByPlayer ? "opacity-70 saturate-50" : ""}
-                ${gameState !== "playing" && !tile.isRevealed ? "cursor-default hover:transform-none opacity-50" : ""}
-              `}
-            >
-              {tile.isRevealed && (
-                <div className="animate-scale-in flex items-center justify-center w-full h-full">
-                  {tile.isMine ? (
-                    <LocalFireDepartment className="text-[#7f1d1d] w-3/4 h-3/4" />
-                  ) : (
-                    <Diamond className="text-[#00e701] w-3/4 h-3/4 drop-shadow-[0_0_10px_rgba(0,231,1,0.5)]" />
-                  )}
-                </div>
-              )}
-            </button>
-          ))}
+                style={blendedBg ? { backgroundColor: blendedBg } : undefined}
+              >
+                {tile.isRevealed && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '35%', height: '35%' }}>
+                    {tile.isMine ? (
+                      <LocalFireDepartment
+                        style={{
+                          width: tile.revealedByPlayer ? '100%' : '75%',
+                          height: tile.revealedByPlayer ? '100%' : '75%',
+                          color: tile.revealedByPlayer ? '#4c0f0f' : '#4c0f0f',
+                          filter: tile.revealedByPlayer ? 'drop-shadow(0 0 12px rgba(127,29,29,0.45))' : undefined,
+                        }}
+                      />
+                    ) : (
+                      <Diamond
+                        style={{
+                          width: tile.revealedByPlayer ? '100%' : '75%',
+                          height: tile.revealedByPlayer ? '100%' : '75%',
+                          color: tile.revealedByPlayer ? '#00ff17' : '#0b6623',
+                          filter: tile.revealedByPlayer ? 'drop-shadow(0 0 16px rgba(0,231,1,0.85))' : 'brightness(1.25)',
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -26,6 +26,7 @@ const games: Game[] = [
   { name: "Coin Flip", icon: <MonetizationOn className="w-5 h-5" />, href: "/coinflip" },
   { name: "Rock Paper Scissors", icon: <SportsMma className="w-5 h-5" />, href: "/rps" },
   { name: "Dice", icon: <Casino className="w-5 h-5" />, href: "/dice" },
+  { name: "HiLo", icon: <ShowChart className="w-5 h-5" />, href: "/hilo" },
 ];
 
 export default function Navbar() {

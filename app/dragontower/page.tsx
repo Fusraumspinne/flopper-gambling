@@ -203,16 +203,22 @@ export default function DragonTowerPage() {
 
   const getCellStyle = (rowLevel: number, idx: number) => {
     const rowReveal = reveals.find((r) => r.level === rowLevel);
-    const isCurrentRow = roundState === "active" && rowLevel === level;
-    const isClickable = isCurrentRow && !isBusy && !rowReveal;
+    const isHighlightedRow = rowLevel === level && roundState !== "idle"; // keep highlight until reset
+    const isClickable = roundState === "active" && rowLevel === level && !isBusy && !rowReveal;
 
     if (!rowReveal) {
-      return isClickable
-        ? "bg-[#213743] text-[#b1bad3] shadow-[0_4px_0_#1a2c38] hover:-translate-y-1 hover:bg-[#2f4553] active:translate-y-0 active:shadow-none transition-all duration-100"
-        : "bg-[#2f4553] text-[#b1bad3] opacity-60";
+      if (isClickable) {
+        return "bg-[#213743] text-[#b1bad3] shadow-[0_4px_0_#1a2c38] hover:-translate-y-1 hover:bg-[#2f4553] active:translate-y-0 active:shadow-none transition-all duration-100";
+      }
+      if (isHighlightedRow) {
+        // visually highlighted row after round end (not clickable)
+        return "bg-[#213743] text-[#b1bad3] shadow-[0_4px_0_#1a2c38] opacity-100";
+      }
+      return "bg-[#2f4553] text-[#b1bad3] opacity-60";
     }
 
-    const isFutureReveal = rowReveal.pickedIndex === -1;
+    // treat "future" reveals (pickedIndex === -1) as future only while round is active
+    const isFutureReveal = rowReveal.pickedIndex === -1 && roundState === "active";
     const futureClasses = isFutureReveal ? " opacity-70 saturate-50" : "";
 
     const isTrap = idx === rowReveal.trapIndex;
@@ -362,12 +368,13 @@ export default function DragonTowerPage() {
             <div className="flex flex-col gap-2">
               {Array.from({ length: TOWER_LEVELS }, (_, i) => TOWER_LEVELS - 1 - i).map((rowLevel) => {
                 const rowReveal = reveals.find((r) => r.level === rowLevel);
-                const isCurrentRow = roundState === "active" && rowLevel === level;
+                const isHighlightedRow = rowLevel === level && roundState !== "idle";
+                const isActiveRow = roundState === "active" && rowLevel === level;
 
                 return (
                   <div
                     key={rowLevel}
-                    className={`rounded-md ${isCurrentRow ? "" : ""}`}
+                    className={`${isHighlightedRow ? "bg-[#123f47] p-2 rounded-md" : "rounded-md"}`}
                   >
                     <div
                       className={`grid gap-2 sm:gap-3 w-full ${
@@ -381,7 +388,7 @@ export default function DragonTowerPage() {
                       {Array.from({ length: fieldsCount }, (_, idx) => {
                         const canClick =
                           roundState === "active" &&
-                          isCurrentRow &&
+                          isActiveRow &&
                           !isBusy &&
                           !rowReveal &&
                           !currentReveal;
