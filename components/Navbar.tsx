@@ -23,6 +23,7 @@ const games: Game[] = [
   { name: "Dragon Tower", icon: <Casino className="w-5 h-5" />, href: "/dragontower" },
   { name: "Limbo", icon: <ShowChart className="w-5 h-5" />, href: "/limbo" },
   { name: "Mines", icon: <Diamond className="w-5 h-5" />, href: "/mines" },
+  { name: "Snakes", icon: <SportsEsports className="w-5 h-5" />, href: "/snakes" },
   { name: "Coin Flip", icon: <MonetizationOn className="w-5 h-5" />, href: "/coinflip" },
   { name: "Rock Paper Scissors", icon: <SportsMma className="w-5 h-5" />, href: "/rps" },
   { name: "Dice", icon: <Casino className="w-5 h-5" />, href: "/dice" },

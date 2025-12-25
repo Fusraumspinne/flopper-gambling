@@ -41,7 +41,6 @@ interface Tile {
 }
 
 export default function MinesPage() {
-  // Blend two hex colors. weight = 0 => hex1, weight = 1 => hex2
   const blendHexColors = (hex1: string, hex2: string, weight = 0.5) => {
     const h1 = hex1.replace('#', '');
     const h2 = hex2.replace('#', '');
@@ -154,7 +153,6 @@ export default function MinesPage() {
         setLastWin(winAmount);
         setGameState("cashed_out");
 
-        // Reveal all tiles when the game ends
         setGrid(newGrid.map((t) => ({ ...t, isRevealed: true })));
       }
     }
@@ -169,7 +167,6 @@ export default function MinesPage() {
     setLastWin(winAmount);
     setGameState("cashed_out");
 
-    // Reveal all tiles when the game ends
     setGrid((prev) => prev.map((t) => ({ ...t, isRevealed: true })));
   };
 

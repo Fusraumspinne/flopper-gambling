@@ -12,7 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import { Close, RestartAlt, QueryStats } from "@mui/icons-material";
-import { useWallet } from "./WalletProvider";
+import { DROPDOWN_GAME_OPTIONS, useWallet } from "./WalletProvider";
 
 type LiveStatsPanelProps = {
   open: boolean;
@@ -22,6 +22,7 @@ type LiveStatsPanelProps = {
 type StoredPos = { x: number; y: number };
 
 const POS_KEY = "flopper_livestats_panel_pos_v1";
+const SELECTED_GAME_KEY = "flopper_livestats_panel_selected_game_v1";
 
 function safeParsePos(raw: string | null): StoredPos | null {
   if (!raw) return null;
@@ -41,13 +42,27 @@ function formatMoney(n: number) {
   return `${sign}$${abs.toFixed(2)}`;
 }
 
+function createEmptyStats() {
+  const now = Date.now();
+  return {
+    startedAt: now,
+    net: 0,
+    wagered: 0,
+    wins: 0,
+    losses: 0,
+    history: [{ t: now, net: 0 }],
+  };
+}
+
 export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
-  const { liveStats, resetLiveStats } = useWallet();
+  const { liveStatsByGame, currentGameId, resetLiveStats } = useWallet();
   const [mounted, setMounted] = useState(false);
 
   const nodeRef = useRef<HTMLElement | null>(null);
 
   const [pos, setPos] = useState<StoredPos>({ x: 360, y: 80 });
+  const [selectedGameId, setSelectedGameId] = useState<(typeof DROPDOWN_GAME_OPTIONS)[number]["id"]>("all");
+  const emptyStatsRef = useRef(createEmptyStats());
 
   useEffect(() => {
     setMounted(true);
@@ -57,14 +72,36 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
       return;
     }
 
-    // Default: a bit right from sidebar, near top.
     const x = Math.max(24, Math.floor(window.innerWidth * 0.22));
     const y = 80;
     setPos({ x, y });
   }, []);
 
+  useEffect(() => {
+    const stored = localStorage.getItem(SELECTED_GAME_KEY);
+    const validIds = new Set<string>(DROPDOWN_GAME_OPTIONS.map((g) => g.id));
+    if (stored && validIds.has(stored)) {
+      setSelectedGameId(stored as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]);
+      return;
+    }
+
+    if (validIds.has(currentGameId)) {
+      setSelectedGameId(currentGameId as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]);
+      return;
+    }
+
+    setSelectedGameId("all");
+  }, [currentGameId]);
+
+  const handleGameChange = (value: (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]) => {
+    setSelectedGameId(value);
+    localStorage.setItem(SELECTED_GAME_KEY, value);
+  };
+
+  const selectedStats = liveStatsByGame[selectedGameId] ?? liveStatsByGame.all ?? emptyStatsRef.current;
+
   const chartData = useMemo(() => {
-    const points = liveStats.history;
+    const points = selectedStats.history;
     if (points.length === 0) return [] as Array<{ t: number; net: number; pos: number | null; neg: number | null }>;
 
     const out: Array<{ t: number; net: number }> = [{ t: points[0].t, net: points[0].net }];
@@ -79,7 +116,6 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
       const prevSign = prevNet === 0 ? 0 : prevNet > 0 ? 1 : -1;
       const currSign = currNet === 0 ? 0 : currNet > 0 ? 1 : -1;
 
-      // If sign flips across zero, insert a crossing point at y=0 so the red/green lines touch.
       if (prevSign !== 0 && currSign !== 0 && prevSign !== currSign) {
         const denom = currNet - prevNet;
         if (denom !== 0) {
@@ -97,25 +133,24 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
       return {
         t: p.t,
         net,
-        // At exactly 0: render on both lines to avoid a gap.
         pos: net >= 0 ? net : null,
         neg: net <= 0 ? net : null,
       };
     });
-  }, [liveStats.history]);
+  }, [selectedStats.history]);
 
   const yDomain = useMemo(() => {
-    if (liveStats.history.length === 0) return { min: 0, max: 0 };
+    if (selectedStats.history.length === 0) return { min: 0, max: 0 };
     let min = 0;
     let max = 0;
-    for (const p of liveStats.history) {
+    for (const p of selectedStats.history) {
       if (p.net < min) min = p.net;
       if (p.net > max) max = p.net;
     }
     return { min, max };
-  }, [liveStats.history]);
+  }, [selectedStats.history]);
 
-  const netClass = liveStats.net >= 0 ? "text-[#00e701]" : "text-red-500";
+  const netClass = selectedStats.net >= 0 ? "text-[#00e701]" : "text-red-500";
 
   const onDrag = (_e: DraggableEvent, data: DraggableData) => {
     setPos({ x: data.x, y: data.y });
@@ -142,18 +177,31 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
           className="pointer-events-auto rounded-lg border border-[#2f4553] bg-[#0f212e] shadow-lg"
           style={{ width: 320 }}
         >
-          <header className="livestats-handle flex cursor-move items-center justify-between gap-3 rounded-t-lg border-b border-[#213743] bg-[#1a2c38] px-2 py-2">
-            <div className="flex items-center gap-2 text-white font-bold">
+          <header className="flex items-center justify-between gap-3 rounded-t-lg border-b border-[#213743] bg-[#1a2c38] px-2 py-2">
+            <div className="livestats-handle flex cursor-move items-center gap-2 text-white font-bold">
               <QueryStats sx={{ fontSize: 20 }} />
               <span>Live Stats</span>
             </div>
-            <button
-              onClick={onClose}
-              className="rounded-md px-2 py-1 text-[#b1bad3] hover:bg-[#213743] hover:text-white"
-              aria-label="Close live stats"
-            >
-              <Close sx={{ fontSize: 18 }} />
-            </button>
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedGameId}
+                onChange={(e) => handleGameChange(e.target.value as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"])}
+                className="rounded-md bg-[#0f212e] border border-[#2f4553] px-2 py-1 text-sm text-white focus:outline-none focus:border-[#00e701]"
+              >
+                {DROPDOWN_GAME_OPTIONS.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {game.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={onClose}
+                className="rounded-md px-2 py-1 text-[#b1bad3] hover:bg-[#213743] hover:text-white"
+                aria-label="Close live stats"
+              >
+                <Close sx={{ fontSize: 18 }} />
+              </button>
+            </div>
           </header>
 
           <div className="p-3 space-y-3">
@@ -161,22 +209,22 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
               <div className="flex flex-col gap-2">
                 <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-2">
                   <div className="text-xs text-[#8399aa]">Profit</div>
-                  <div className={`mt-1 font-mono font-bold ${netClass}`}>{formatMoney(liveStats.net)}</div>
+                  <div className={`mt-1 font-mono font-bold ${netClass}`}>{formatMoney(selectedStats.net)}</div>
                 </div>
                 <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-2">
                   <div className="text-xs text-[#8399aa]">Wagered</div>
-                  <div className="mt-1 font-mono font-bold text-white">{formatMoney(liveStats.wagered)}</div>
+                  <div className="mt-1 font-mono font-bold text-white">{formatMoney(selectedStats.wagered)}</div>
                 </div>
               </div>
 
               <div className="flex flex-col gap-2">
                 <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-2">
                   <div className="text-xs text-[#8399aa]">Wins</div>
-                  <div className="mt-1 font-mono font-bold text-white">{liveStats.wins}</div>
+                  <div className="mt-1 font-mono font-bold text-white">{selectedStats.wins}</div>
                 </div>
                 <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-2">
                   <div className="text-xs text-[#8399aa]">Losses</div>
-                  <div className="mt-1 font-mono font-bold text-white">{liveStats.losses}</div>
+                  <div className="mt-1 font-mono font-bold text-white">{selectedStats.losses}</div>
                 </div>
               </div>
             </div>
@@ -214,9 +262,9 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
             </div>
 
             <div className="flex items-center justify-between gap-2">
-              <div className="text-xs text-[#557086]">Start: {new Date(liveStats.startedAt).toLocaleString()}</div>
+              <div className="text-xs text-[#557086]">Start: {new Date(selectedStats.startedAt).toLocaleString()}</div>
               <button
-                onClick={resetLiveStats}
+                onClick={() => resetLiveStats("all")}
                 className="inline-flex items-center gap-2 rounded-md bg-[#213743] px-2 py-2 text-sm font-bold text-white hover:bg-[#2f4553]"
               >
                 <RestartAlt sx={{ fontSize: 18 }} />

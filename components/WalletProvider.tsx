@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type LiveStatsPoint = {
   t: number;
@@ -16,40 +17,139 @@ export type LiveStatsState = {
   history: LiveStatsPoint[];
 };
 
+export const GAME_OPTIONS = [
+  { id: "blackjack", label: "Blackjack" },
+  { id: "coinflip", label: "Coinflip" },
+  { id: "dice", label: "Dice" },
+  { id: "dragontower", label: "Dragon Tower" },
+  { id: "hilo", label: "Hi-Lo" },
+  { id: "keno", label: "Keno" },
+  { id: "limbo", label: "Limbo" },
+  { id: "mines", label: "Mines" },
+  { id: "plinko", label: "Plinko" },
+  { id: "pump", label: "Pump" },
+  { id: "rps", label: "Rock Paper Scissors" },
+  { id: "snakes", label: "Snakes" },
+] as const;
+
+const ALL_OPTION = { id: "all", label: "All Games" } as const;
+export const DROPDOWN_GAME_OPTIONS = [ALL_OPTION, ...GAME_OPTIONS];
+
+type GameId = (typeof GAME_OPTIONS)[number]["id"];
+type GameKey = GameId | "all" | "unknown";
+type LiveStatsByGame = Record<GameKey, LiveStatsState>;
+
 interface WalletContextType {
   balance: number;
   addToBalance: (amount: number) => void;
   subtractFromBalance: (amount: number) => void;
   liveStats: LiveStatsState;
-  resetLiveStats: () => void;
+  liveStatsByGame: LiveStatsByGame;
+  currentGameId: GameKey;
+  resetLiveStats: (gameId?: GameKey) => void;
   finalizePendingLoss: () => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
+const LIVE_STATS_KEY = "flopper_livestats_by_game_v3";
+const LEGACY_LIVE_STATS_KEYS = ["flopper_livestats_by_game_v2"];
+const GAME_ID_SET = new Set<string>(GAME_OPTIONS.map((g) => g.id));
+
+function createEmptyLiveStats(): LiveStatsState {
+  const now = Date.now();
+  return {
+    startedAt: now,
+    net: 0,
+    wagered: 0,
+    wins: 0,
+    losses: 0,
+    history: [{ t: now, net: 0 }],
+  };
+}
+
+function deriveGameId(pathname: string): GameKey {
+  const firstSegment = pathname.split("/").filter(Boolean)[0];
+  if (firstSegment && GAME_ID_SET.has(firstSegment)) return firstSegment as GameKey;
+  return "unknown";
+}
+
+function isValidLiveStats(value: any): value is LiveStatsState {
+  if (
+    !value ||
+    typeof value.startedAt !== "number" ||
+    typeof value.net !== "number" ||
+    typeof value.wagered !== "number" ||
+    typeof value.wins !== "number" ||
+    typeof value.losses !== "number" ||
+    !Array.isArray(value.history)
+  ) {
+    return false;
+  }
+
+  return value.history.every((p: any) => p && typeof p.t === "number" && typeof p.net === "number");
+}
+
+function buildAllAggregate(map: LiveStatsByGame): LiveStatsState {
+  let startedAt = Date.now();
+  let wagered = 0;
+  let wins = 0;
+  let losses = 0;
+  const events: Array<{ t: number; delta: number }> = [];
+
+  for (const [key, stats] of Object.entries(map)) {
+    if (key === "all") continue;
+    if (!isValidLiveStats(stats)) continue;
+
+    startedAt = Math.min(startedAt, stats.startedAt);
+    wagered += stats.wagered;
+    wins += stats.wins;
+    losses += stats.losses;
+
+    if (stats.history.length > 0) {
+      events.push({ t: stats.history[0].t, delta: stats.history[0].net });
+    }
+
+    for (let i = 1; i < stats.history.length; i++) {
+      const prev = stats.history[i - 1];
+      const curr = stats.history[i];
+      events.push({ t: curr.t, delta: curr.net - prev.net });
+    }
+  }
+
+  events.sort((a, b) => a.t - b.t);
+
+  let net = 0;
+  const history: LiveStatsPoint[] = [{ t: startedAt, net }];
+  for (const ev of events) {
+    net += ev.delta;
+    history.push({ t: ev.t, net });
+  }
+
+  return {
+    startedAt,
+    net,
+    wagered,
+    wins,
+    losses,
+    history: history.length > 0 ? history : [{ t: startedAt, net: 0 }],
+  };
+}
+
 export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const [balance, setBalance] = useState<number>(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [liveStatsByGame, setLiveStatsByGame] = useState<LiveStatsByGame>(() => {
+    const empty: Partial<LiveStatsByGame> = { all: createEmptyLiveStats(), unknown: createEmptyLiveStats() };
+    for (const game of GAME_OPTIONS) {
+      empty[game.id] = createEmptyLiveStats();
+    }
+    return empty as LiveStatsByGame;
+  });
 
-  // Bets are tracked as a FIFO queue. A payout settles the oldest pending bet.
-  // Use a ref to avoid React StrictMode / batching side-effects.
   const pendingBetsRef = useRef<number[]>([]);
-
-  const LIVE_STATS_KEY = "flopper_livestats_v1";
-
-  const initialLiveStats = useMemo<LiveStatsState>(
-    () => ({
-      startedAt: Date.now(),
-      net: 0,
-      wagered: 0,
-      wins: 0,
-      losses: 0,
-      history: [{ t: Date.now(), net: 0 }],
-    }),
-    []
-  );
-
-  const [liveStats, setLiveStats] = useState<LiveStatsState>(initialLiveStats);
+  const pathname = usePathname();
+  const currentGameId = useMemo(() => deriveGameId(pathname ?? "/"), [pathname]);
 
   useEffect(() => {
     const storedBalance = localStorage.getItem("flopper_balance");
@@ -60,38 +160,47 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.setItem("flopper_balance", "1000.00");
     }
 
-    const storedStats = localStorage.getItem(LIVE_STATS_KEY);
-    if (storedStats) {
-      try {
-        const parsed = JSON.parse(storedStats) as Partial<LiveStatsState>;
-        if (
-          typeof parsed.startedAt === "number" &&
-          typeof parsed.net === "number" &&
-          typeof parsed.wagered === "number" &&
-          typeof parsed.wins === "number" &&
-          typeof parsed.losses === "number" &&
-          Array.isArray(parsed.history)
-        ) {
-          const history = parsed.history
-            .filter((p: any) => p && typeof p.t === "number" && typeof p.net === "number")
-            .map((p: any) => ({ t: p.t, net: p.net }));
+    const rawStats = (() => {
+      const primary = localStorage.getItem(LIVE_STATS_KEY);
+      if (primary) return primary;
+      for (const legacyKey of LEGACY_LIVE_STATS_KEYS) {
+        const legacy = localStorage.getItem(legacyKey);
+        if (legacy) return legacy;
+      }
+      return null;
+    })();
 
-          setLiveStats({
-            startedAt: parsed.startedAt,
-            net: parsed.net,
-            wagered: parsed.wagered,
-            wins: parsed.wins,
-            losses: parsed.losses,
-            history: history.length > 0 ? history : [{ t: Date.now(), net: parsed.net }],
-          });
+    if (rawStats) {
+      try {
+        const parsed = JSON.parse(rawStats) as LiveStatsByGame;
+        const next: Partial<LiveStatsByGame> = { all: createEmptyLiveStats(), unknown: createEmptyLiveStats() };
+
+        for (const key of Object.keys(parsed)) {
+          const maybe = parsed[key as keyof LiveStatsByGame];
+          if (isValidLiveStats(maybe)) {
+            next[key as GameKey] = {
+              ...maybe,
+              history:
+                maybe.history.length > 0
+                  ? maybe.history.map((p) => ({ t: p.t, net: p.net }))
+                  : [{ t: Date.now(), net: maybe.net }],
+            };
+          }
         }
+
+        for (const game of GAME_OPTIONS) {
+          if (!next[game.id]) next[game.id] = createEmptyLiveStats();
+        }
+        if (!next.unknown) next.unknown = createEmptyLiveStats();
+
+        next.all = buildAllAggregate(next as LiveStatsByGame);
+        setLiveStatsByGame(next as LiveStatsByGame);
       } catch {
-        // ignore corrupted stats
       }
     }
 
     setIsLoaded(true);
-  }, [LIVE_STATS_KEY]);
+  }, []);
 
   useEffect(() => {
     if (isLoaded) {
@@ -101,15 +210,31 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem(LIVE_STATS_KEY, JSON.stringify(liveStats));
+      localStorage.setItem(LIVE_STATS_KEY, JSON.stringify(liveStatsByGame));
     }
-  }, [liveStats, isLoaded, LIVE_STATS_KEY]);
+  }, [liveStatsByGame, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    setLiveStatsByGame((prev) => {
+      if (prev[currentGameId]) return prev;
+      return { ...prev, [currentGameId]: createEmptyLiveStats() };
+    });
+  }, [currentGameId, isLoaded]);
+
+  const updateCurrentAndAll = (updater: (prev: LiveStatsState, now: number) => LiveStatsState) => {
+    const now = Date.now();
+    setLiveStatsByGame((prev) => {
+      const apply = (key: GameKey) => updater(prev[key] ?? createEmptyLiveStats(), now);
+      return { ...prev, [currentGameId]: apply(currentGameId), all: apply("all") };
+    });
+  };
 
   const applyNetChange = (roundNet: number) => {
     if (!Number.isFinite(roundNet) || roundNet === 0) return;
-    setLiveStats((prev) => {
+    updateCurrentAndAll((prev, now) => {
       const nextNet = prev.net + roundNet;
-      const nextHistory = [...prev.history, { t: Date.now(), net: nextNet }];
+      const nextHistory = [...prev.history, { t: now, net: nextNet }];
       return { ...prev, net: nextNet, history: nextHistory };
     });
   };
@@ -121,9 +246,9 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
     const roundNet = payout - bet;
     if (roundNet > 0) {
-      setLiveStats((s) => ({ ...s, wins: s.wins + 1 }));
+      updateCurrentAndAll((s) => ({ ...s, wins: s.wins + 1 }));
     } else if (roundNet < 0) {
-      setLiveStats((s) => ({ ...s, losses: s.losses + 1 }));
+      updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
     }
     applyNetChange(roundNet);
   };
@@ -131,20 +256,27 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const finalizePendingLoss = () => {
     const bet = pendingBetsRef.current.shift();
     if (typeof bet !== "number") return;
-    setLiveStats((s) => ({ ...s, losses: s.losses + 1 }));
+    updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
     applyNetChange(-bet);
   };
 
-  const resetLiveStats = () => {
+  const resetLiveStats = (gameId: GameKey = currentGameId) => {
     pendingBetsRef.current = [];
-    setLiveStats({
-      startedAt: Date.now(),
-      net: 0,
-      wagered: 0,
-      wins: 0,
-      losses: 0,
-      history: [{ t: Date.now(), net: 0 }],
-    });
+    if (gameId === "all") {
+      setLiveStatsByGame(() => {
+        const next: LiveStatsByGame = { all: createEmptyLiveStats(), unknown: createEmptyLiveStats() } as any;
+        for (const game of GAME_OPTIONS) {
+          next[game.id] = createEmptyLiveStats();
+        }
+        // ensure unknown + all present
+        next.unknown = createEmptyLiveStats();
+        next.all = createEmptyLiveStats();
+        return next;
+      });
+      return;
+    }
+
+    setLiveStatsByGame((prev) => ({ ...prev, [gameId]: createEmptyLiveStats() }));
   };
 
   const addToBalance = (amount: number) => {
@@ -164,15 +296,28 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     pendingBetsRef.current.push(amount);
     setBalance((prev) => prev - amount);
 
-    setLiveStats((s) => ({ ...s, wagered: s.wagered + amount }));
+    updateCurrentAndAll((s) => ({ ...s, wagered: s.wagered + amount }));
   };
 
   if (!isLoaded) {
     return null;
   }
 
+  const liveStats = liveStatsByGame[currentGameId] ?? liveStatsByGame.all ?? createEmptyLiveStats();
+
   return (
-    <WalletContext.Provider value={{ balance, addToBalance, subtractFromBalance, liveStats, resetLiveStats, finalizePendingLoss }}>
+    <WalletContext.Provider
+      value={{
+        balance,
+        addToBalance,
+        subtractFromBalance,
+        liveStats,
+        liveStatsByGame,
+        currentGameId,
+        resetLiveStats,
+        finalizePendingLoss,
+      }}
+    >
       {children}
     </WalletContext.Provider>
   );
