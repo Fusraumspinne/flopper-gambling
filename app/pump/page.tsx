@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { PlayArrow } from "@mui/icons-material";
 
-type Difficulty = "Easy" | "Medium" | "Hard";
+type Difficulty = "Low" | "Medium" | "High";
 
 interface Step {
   multiplier: number;
@@ -12,7 +12,7 @@ interface Step {
 }
 
 const GAME_DATA: Record<Difficulty, Step[]> = {
-  Easy: [
+  Low: [
     { multiplier: 1, probability: 100 },
     { multiplier: 1.02, probability: 96 },
     { multiplier: 1.07, probability: 92 },
@@ -64,7 +64,7 @@ const GAME_DATA: Record<Difficulty, Step[]> = {
     { multiplier: 563.5, probability: 0.173913 },
     { multiplier: 2254, probability: 0.043478 },
   ],
-  Hard: [
+  High: [
     { multiplier: 1, probability: 100 },
     { multiplier: 1.23, probability: 80 },
     { multiplier: 1.55, probability: 63.333333 },
@@ -139,7 +139,6 @@ export default function PumpPage() {
 
   const startGame = () => {
     if (balance < betAmount) {
-      alert("Insufficient balance!");
       return;
     }
     if (gameState === "playing") return;
@@ -257,7 +256,7 @@ export default function PumpPage() {
             Difficulty
           </label>
           <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-            {(["Easy", "Medium", "Hard"] as Difficulty[]).map((level) => (
+            {(["Low", "Medium", "High"] as Difficulty[]).map((level) => (
               <button
                 key={level}
                 onClick={() => changeDifficulty(level)}

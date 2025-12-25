@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { PlayArrow, Refresh, ExitToApp, Diamond, Close } from "@mui/icons-material";
 
-type RiskLevel = "easy" | "medium" | "hard";
+type RiskLevel = "low" | "medium" | "high";
 
 type RoundState = "idle" | "active" | "busted" | "cashed";
 
@@ -18,15 +18,15 @@ type Reveal = {
 const TOWER_LEVELS = 9;
 
 const MULTIPLIERS: Record<RiskLevel, number[]> = {
-  easy: [1.31, 1.74, 2.32, 3.1, 4.13, 5.51, 7.34, 9.79, 13.05],
+  low: [1.31, 1.74, 2.32, 3.1, 4.13, 5.51, 7.34, 9.79, 13.05],
   medium: [1.47, 2.21, 3.31, 4.96, 7.44, 11.16, 16.74, 25.11, 37.67],
-  hard: [1.96, 3.92, 7.84, 15.68, 31.36, 62.72, 125.44, 250.88, 501.76],
+  high: [1.96, 3.92, 7.84, 15.68, 31.36, 62.72, 125.44, 250.88, 501.76],
 };
 
 const FIELDS_PER_LEVEL: Record<RiskLevel, number> = {
-  easy: 4,
+  low: 4,
   medium: 3,
-  hard: 2,
+  high: 2,
 };
 
 export default function DragonTowerPage() {
@@ -310,7 +310,7 @@ export default function DragonTowerPage() {
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Risk</label>
           <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-            {(["easy", "medium", "hard"] as RiskLevel[]).map((lvl) => (
+            {(["low", "medium", "high"] as RiskLevel[]).map((lvl) => (
               <button
                 key={lvl}
                 onClick={() => changeRiskLevel(lvl)}

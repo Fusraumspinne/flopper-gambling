@@ -100,7 +100,6 @@ export default function MinesPage() {
 
   const startGame = () => {
     if (balance < betAmount) {
-      alert("Insufficient balance!");
       return;
     }
     if (gameState === "playing") return;

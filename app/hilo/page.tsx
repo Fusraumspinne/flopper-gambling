@@ -106,7 +106,6 @@ export default function HiloPage() {
 
   const startGame = () => {
     if (balance < betAmount) {
-      alert("Insufficient balance!");
       return;
     }
     if (gameState === "playing") return;

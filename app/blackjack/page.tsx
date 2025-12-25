@@ -337,7 +337,6 @@ export default function BlackjackPage() {
         addToBalance(winAmount);
         totalWin += winAmount;
       } else {
-        // Losing/busted hands do not pay out; count them as losses.
         if (status === "lose" || status === "bust") {
           finalizePendingLoss();
         }

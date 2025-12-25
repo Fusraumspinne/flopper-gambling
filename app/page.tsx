@@ -53,6 +53,20 @@ export default function Home() {
         </Link>
 
         <Link
+          href="/spinningwheel"
+          className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group"
+        >
+          <div className="h-40 bg-[#0f212e] flex items-center justify-center relative">
+            <div className="absolute inset-0 bg-linear-to-t from-[#213743] to-transparent opacity-50"></div>
+            <Casino sx={{ fontSize: 48, opacity: 0.5 }} className="group-hover:opacity-100 transition-opacity text-white" />
+          </div>
+          <div className="p-4">
+            <h3 className="text-white font-bold text-lg">Spinning Wheel</h3>
+            <p className="text-sm text-[#b1bad3] mt-1">Spin and hit a multiplier</p>
+          </div>
+        </Link>
+
+        <Link
           href="/pump"
           className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group"
         >

@@ -19,6 +19,7 @@ const games: Game[] = [
   { name: "Keno", icon: <GridOn className="w-5 h-5" />, href: "/keno" },
   { name: "Blackjack", icon: <Casino className="w-5 h-5" />, href: "/blackjack" },
   { name: "Plinko", icon: <ScatterPlot className="w-5 h-5" />, href: "/plinko" },
+  { name: "Spinning Wheel", icon: <Casino className="w-5 h-5" />, href: "/spinningwheel" },
   { name: "Pump", icon: <ShowChart className="w-5 h-5" />, href: "/pump" },
   { name: "Dragon Tower", icon: <Casino className="w-5 h-5" />, href: "/dragontower" },
   { name: "Limbo", icon: <ShowChart className="w-5 h-5" />, href: "/limbo" },
