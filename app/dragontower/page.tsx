@@ -39,7 +39,7 @@ export default function DragonTowerPage() {
   const [roundState, setRoundState] = useState<RoundState>("idle");
   const [isBusy, setIsBusy] = useState(false);
 
-  const [level, setLevel] = useState<number>(0); // next level to play: 0..8
+  const [level, setLevel] = useState<number>(0);
   const [trapByLevel, setTrapByLevel] = useState<number[]>([]);
   const [reveals, setReveals] = useState<Reveal[]>([]);
   const [lastWin, setLastWin] = useState<number>(0);
@@ -111,7 +111,6 @@ export default function DragonTowerPage() {
     setLevel(0);
     setRoundState("active");
 
-    // tiny delay so UI feels consistent with other games
     await new Promise((r) => setTimeout(r, 120));
     setIsBusy(false);
   };
@@ -122,7 +121,6 @@ export default function DragonTowerPage() {
     setIsBusy(true);
     const win = cashoutAmount;
 
-    // Reveal remaining rows (like Mines reveals mines on cashout)
     revealAllRemainingRows();
 
     await new Promise((r) => setTimeout(r, 150));
@@ -141,6 +139,13 @@ export default function DragonTowerPage() {
     setLevel(0);
     setLastWin(0);
     setRoundState("idle");
+  };
+
+  const changeRiskLevel = (lvl: RiskLevel) => {
+    if (roundState === "active" || isBusy) return;
+    if (lvl === riskLevel) return;
+    setRiskLevel(lvl);
+    resetRound();
   };
 
   const pickField = async (idx: number) => {
@@ -227,7 +232,6 @@ export default function DragonTowerPage() {
       return `bg-[#0b1720] text-[#ef4444] shadow-inner border border-[#ef4444]/20${futureClasses}`;
     }
 
-    // revealed safe egg (not the picked one): keep neutral tile like Keno "drawn"
     return `bg-[#2f4553] text-[#b1bad3] opacity-80 scale-95${futureClasses}`;
   };
 
@@ -244,7 +248,6 @@ export default function DragonTowerPage() {
       return <Close sx={{ fontSize: 18, color: isPicked ? "#ef4444" : "#ef4444" }} />;
     }
 
-    // clicked safe uses black icon (like Keno hit), other safe eggs stay green
     return <Diamond sx={{ fontSize: 18, color: isPicked ? "#000" : "#00e701" }} />;
   };
 
@@ -304,7 +307,7 @@ export default function DragonTowerPage() {
             {(["easy", "medium", "hard"] as RiskLevel[]).map((lvl) => (
               <button
                 key={lvl}
-                onClick={() => roundState !== "active" && !isBusy && setRiskLevel(lvl)}
+                onClick={() => changeRiskLevel(lvl)}
                 disabled={roundState === "active" || isBusy}
                 className={`flex-1 py-2 text-xs font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   riskLevel === lvl

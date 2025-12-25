@@ -8,7 +8,7 @@ type GameState = "idle" | "rolling" | "won" | "lost";
 
 const HOUSE_EDGE = 0.99;
 const MIN_TARGET = 1.01;
-const MAX_TARGET = 1000;
+const MAX_TARGET = Infinity;
 const ROLL_ANIMATION_MS = 1000;
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
@@ -27,12 +27,11 @@ export default function LimboPage() {
   const [targetMultiplier, setTargetMultiplier] = useState<number>(2);
   const [targetInput, setTargetInput] = useState<string>("2.00");
   
-  const [winChanceInput, setWinChanceInput] = useState<string>("49.50");
-
   const [gameState, setGameState] = useState<GameState>("idle");
   const [rolledMultiplier, setRolledMultiplier] = useState<number | null>(null);
   const [rollingDisplayMultiplier, setRollingDisplayMultiplier] = useState<number>(1);
   const [lastWin, setLastWin] = useState<number>(0);
+  const [history, setHistory] = useState<{ mult: number; win: boolean }[]>([]);
 
   const rafRef = useRef<number | null>(null);
 
@@ -67,7 +66,6 @@ export default function LimboPage() {
     setTargetInput(num.toFixed(2));
     
     const newChance = (HOUSE_EDGE / num) * 100;
-    setWinChanceInput(newChance.toFixed(2));
   };
 
   const roll = async () => {
@@ -119,6 +117,7 @@ export default function LimboPage() {
     });
 
     setRolledMultiplier(result);
+    setHistory((prev) => [...prev, { mult: result, win: result >= t }].slice(-8));
 
     if (isWin) {
       const payout = betAmount * t;
@@ -183,7 +182,7 @@ export default function LimboPage() {
               type="number"
               step="0.01"
               min={MIN_TARGET}
-              max={MAX_TARGET}
+              max={Number.isFinite(MAX_TARGET) ? MAX_TARGET : undefined}
               value={targetInput}
               onChange={(e) => setTargetInput(e.target.value)}
               onBlur={handleTargetBlur}
@@ -230,6 +229,21 @@ export default function LimboPage() {
                WIN!
              </div>
            )}
+        </div>
+       
+        {/* recent multipliers: start at center and grow to the right */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+          {history.map((h, i) => (
+            <div
+              key={i}
+              className={`w-10 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md animate-scale-in ${
+                h.win ? "text-black" : "text-white"
+              }`}
+              style={{ backgroundColor: h.win ? "#00e701" : "#6b7280" }}
+            >
+              {formatMultiplier(h.mult)}x
+            </div>
+          ))}
         </div>
         
         {/* Background pulse effect */}
