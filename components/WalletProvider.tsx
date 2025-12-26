@@ -29,6 +29,7 @@ export const GAME_OPTIONS = [
   { id: "plinko", label: "Plinko" },
   { id: "pump", label: "Pump" },
   { id: "rps", label: "Rock Paper Scissors" },
+  { id: "chicken", label: "Chicken" },
   { id: "snakes", label: "Snakes" },
   { id: "spinningwheel", label: "Spinning Wheel" },
 ] as const;
