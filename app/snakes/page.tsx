@@ -4,7 +4,7 @@ import React, { useMemo, useState, useCallback } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { Casino, Autorenew, Flag, PlayArrow, LocalFireDepartment } from "@mui/icons-material";
 
-type RiskLevel = "low" | "medium" | "high";
+type RiskLevel = "low" | "medium" | "high" | "expert" | "master";
 type GameState = "idle" | "playing" | "dead" | "cashed";
 
 type TileValue = number | "dead" | "start";
@@ -60,6 +60,34 @@ const BOARD_BY_RISK: Record<RiskLevel, TileValue[]> = {
     1.38,
     3,
     7.5,
+  ],
+  expert: [
+    "start",
+    10,
+    3.82,
+    "dead",
+    "dead",
+    "dead",
+    "dead",
+    "dead",
+    "dead",
+    "dead",
+    3.82,
+    10,
+  ],
+  master: [
+    "start",
+    17.64,
+    "dead",
+    "dead",
+    "dead",
+    "dead",
+    "dead",
+    "dead",
+    "dead",
+    "dead",
+    "dead",
+    17.64,
   ],
 };
 
@@ -388,7 +416,7 @@ export default function SnakesPage() {
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Risk</label>
           <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-            {(["low", "medium", "high"] as RiskLevel[]).map((level) => (
+            {(["low", "medium", "high", "expert", "master"] as RiskLevel[]).map((level) => (
               <button
                 key={level}
                 onClick={() => changeRisk(level)}

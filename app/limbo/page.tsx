@@ -18,6 +18,12 @@ const formatMultiplier = (m: number) => {
   return m.toFixed(2);
 };
 
+const formatChance = (pct: number) => {
+  if (!Number.isFinite(pct) || pct < 0) return "—";
+  if (pct === 0) return "0.00";
+  return pct.toFixed(2);
+};
+
 export default function LimboPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
 
@@ -48,6 +54,15 @@ export default function LimboPage() {
     return betAmount * targetMultiplier - betAmount;
   }, [betAmount, targetMultiplier]);
 
+  const liveChancePercent = useMemo(() => {
+    const raw = targetInput.trim();
+    if (!raw) return Number.NaN;
+    const num = Number(raw);
+    if (!Number.isFinite(num) || num <= 0) return Number.NaN;
+    const t = clamp(num, MIN_TARGET, MAX_TARGET);
+    return (HOUSE_EDGE / t) * 100;
+  }, [targetInput]);
+
   const handleBetInputBlur = () => {
     const raw = betInput.trim();
     const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
@@ -64,8 +79,6 @@ export default function LimboPage() {
     
     setTargetMultiplier(num);
     setTargetInput(num.toFixed(2));
-    
-    const newChance = (HOUSE_EDGE / num) * 100;
   };
 
   const roll = async () => {
@@ -190,6 +203,10 @@ export default function LimboPage() {
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 px-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#b1bad3] text-sm">x</div>
+          </div>
+
+          <div className="text-[11px] text-[#b1bad3]">
+            Chance: <span className="font-mono text-white">{formatChance(liveChancePercent)}%</span>
           </div>
         </div>
 

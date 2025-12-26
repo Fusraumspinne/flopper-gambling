@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart } from "@mui/icons-material";
+import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon } from "@mui/icons-material";
 import { useWallet } from "./WalletProvider";
 import LiveStatsPanel from "./LiveStatsPanel";
 import { useSidebar } from "./Shell";
@@ -19,16 +19,17 @@ const games: Game[] = [
   { name: "Keno", icon: <GridOn className="w-5 h-5" />, href: "/keno" },
   { name: "Blackjack", icon: <Casino className="w-5 h-5" />, href: "/blackjack" },
   { name: "Plinko", icon: <ScatterPlot className="w-5 h-5" />, href: "/plinko" },
-  { name: "Spinning Wheel", icon: <Casino className="w-5 h-5" />, href: "/spinningwheel" },
-  { name: "Pump", icon: <ShowChart className="w-5 h-5" />, href: "/pump" },
-  { name: "Dragon Tower", icon: <Casino className="w-5 h-5" />, href: "/dragontower" },
-  { name: "Limbo", icon: <ShowChart className="w-5 h-5" />, href: "/limbo" },
+  { name: "Spinning Wheel", icon: <Cached className="w-5 h-5" />, href: "/spinningwheel" },
+  { name: "Pump", icon: <TrendingUp className="w-5 h-5" />, href: "/pump" },
+  { name: "Dragon Tower", icon: <AutoAwesome className="w-5 h-5" />, href: "/dragontower" },
+  { name: "Limbo", icon: <Timeline className="w-5 h-5" />, href: "/limbo" },
   { name: "Mines", icon: <Diamond className="w-5 h-5" />, href: "/mines" },
   { name: "Snakes", icon: <SportsEsports className="w-5 h-5" />, href: "/snakes" },
   { name: "Coin Flip", icon: <MonetizationOn className="w-5 h-5" />, href: "/coinflip" },
   { name: "Rock Paper Scissors", icon: <SportsMma className="w-5 h-5" />, href: "/rps" },
-  { name: "Dice", icon: <Casino className="w-5 h-5" />, href: "/dice" },
+  { name: "Dice", icon: <SmartToy className="w-5 h-5" />, href: "/dice" },
   { name: "HiLo", icon: <ShowChart className="w-5 h-5" />, href: "/hilo" },
+  { name: "Chicken", icon: <CatchingPokemon className="w-5 h-5" />, href: "/chicken" },
 ];
 
 export default function Navbar() {

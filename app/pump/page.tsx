@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { PlayArrow } from "@mui/icons-material";
 
-type Difficulty = "Low" | "Medium" | "High";
+type Difficulty = "Low" | "Medium" | "High" | "Expert";
 
 interface Step {
   multiplier: number;
@@ -87,6 +87,31 @@ const GAME_DATA: Record<Difficulty, Step[]> = {
     { multiplier: 8677.9, probability: 0.011293 },
     { multiplier: 52076.4, probability: 0.001882 },
   ],
+  Expert: [
+    { multiplier: 1, probability: 100 },
+    { multiplier: 1.63, probability: 60 },
+    { multiplier: 2.8, probability: 35 },
+    { multiplier: 4.95, probability: 19.782609 },
+    { multiplier: 9.08, probability: 10.790514 },
+    { multiplier: 17.34, probability: 5.652174 },
+    { multiplier: 34.68, probability: 2.826087 },
+    { multiplier: 73.21, probability: 1.338673 },
+    { multiplier: 164.72, probability: 0.594966 },
+    { multiplier: 400.02, probability: 0.224986 },
+    { multiplier: 1066.73, probability: 0.09187 },
+    { multiplier: 3200.18, probability: 0.030623 },
+    { multiplier: 11200.65, probability: 0.008749 },
+    { multiplier: 48536.13, probability: 0.002019 },
+    { multiplier: 291216.8, probability: 0.000337 },
+    { multiplier: 3203384.8, probability: 0.000031 },
+  ],
+};
+
+const BALLOON_COLORS: Record<Difficulty, string> = {
+  Low: "#10b981",
+  Medium: "#3b82f6",
+  High: "#f59e0b",
+  Expert: "#8b5cf6",
 };
 
 type GameState = "idle" | "playing" | "cashed_out" | "popped";
@@ -101,6 +126,8 @@ export default function PumpPage() {
   const [gameState, setGameState] = useState<GameState>("idle");
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [lastWin, setLastWin] = useState<number>(0);
+
+  const [plannedSafeSteps, setPlannedSafeSteps] = useState<number | null>(null);
 
   const [scale, setScale] = useState(1);
   const [isPumping, setIsPumping] = useState(false);
@@ -128,10 +155,15 @@ export default function PumpPage() {
     const el = stepRefs.current[currentStepIndex];
     if (el && stepsScrollRef.current) {
       try {
-        el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        el.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
       } catch (e) {
         const container = stepsScrollRef.current;
-        const left = el.offsetLeft - container.clientWidth / 2 + el.clientWidth / 2;
+        const left =
+          el.offsetLeft - container.clientWidth / 2 + el.clientWidth / 2;
         container.scrollTo({ left, behavior: "smooth" });
       }
     }
@@ -149,6 +181,14 @@ export default function PumpPage() {
     setLastWin(0);
     setScale(1);
     setHasPumped(false);
+
+    const roll = Math.random() * 100;
+
+    const safeIndex = currentData.findLastIndex(
+      (step) => roll <= step.probability
+    );
+
+    setPlannedSafeSteps(Math.max(safeIndex, 0));
   };
 
   const resetSession = () => {
@@ -157,6 +197,7 @@ export default function PumpPage() {
     setLastWin(0);
     setHasPumped(false);
     setScale(1);
+    setPlannedSafeSteps(null);
   };
 
   const changeDifficulty = (level: Difficulty) => {
@@ -173,15 +214,13 @@ export default function PumpPage() {
 
     setIsPumping(true);
 
-    const currentProb = currentStep.probability;
-    const nextProb = nextStep.probability;
-    const survivalChance = nextProb / currentProb;
-
-    const random = Math.random();
+    // Use the precomputed single-roll safe limit (cumulative probabilities).
+    const safeLimit = plannedSafeSteps ?? currentData.length;
+    const nextIndex = currentStepIndex + 1;
 
     setTimeout(() => {
       setIsPumping(false);
-      if (random <= survivalChance) {
+      if (nextIndex <= safeLimit) {
         setCurrentStepIndex((prev) => prev + 1);
         setScale((prev) => prev + 0.1);
       } else {
@@ -256,20 +295,22 @@ export default function PumpPage() {
             Difficulty
           </label>
           <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-            {(["Low", "Medium", "High"] as Difficulty[]).map((level) => (
-              <button
-                key={level}
-                onClick={() => changeDifficulty(level)}
-                disabled={gameState === "playing"}
-                className={`flex-1 py-2 text-xs font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  difficulty === level
-                    ? "bg-[#213743] text-white shadow-sm"
-                    : "text-[#b1bad3] hover:text-white"
-                }`}
-              >
-                {level}
-              </button>
-            ))}
+            {(["Low", "Medium", "High", "Expert"] as Difficulty[]).map(
+              (level) => (
+                <button
+                  key={level}
+                  onClick={() => changeDifficulty(level)}
+                  disabled={gameState === "playing"}
+                  className={`flex-1 py-2 text-xs font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    difficulty === level
+                      ? "bg-[#213743] text-white shadow-sm"
+                      : "text-[#b1bad3] hover:text-white"
+                  }`}
+                >
+                  {level}
+                </button>
+              )
+            )}
           </div>
         </div>
 
@@ -352,7 +393,11 @@ export default function PumpPage() {
             >
               <path
                 d="M50 0 C 20 0 0 30 0 60 C 0 90 40 110 48 118 L 46 120 L 54 120 L 52 118 C 60 110 100 90 100 60 C 100 30 80 0 50 0 Z"
-                fill={gameState === "popped" ? "#ef4444" : "#3b82f6"}
+                fill={
+                  gameState === "popped"
+                    ? "#ef4444"
+                    : BALLOON_COLORS[difficulty]
+                }
               />
               <ellipse
                 cx="30"
@@ -365,7 +410,7 @@ export default function PumpPage() {
               />
             </svg>
 
-            <div className="absolute top-[100%] left-1/2 -translate-x-1/2 w-[2px] h-[100px] bg-white/20 origin-top animate-swing"></div>
+            <div className="absolute top-[100%] left-1/2 -translate-x-1/2 w-[2px] h-[50px] bg-white/20 origin-top animate-swing"></div>
           </div>
 
           {gameState === "popped" && (
@@ -376,17 +421,18 @@ export default function PumpPage() {
         </div>
 
         <div className="w-full mt-4">
-          <div
-            ref={stepsScrollRef}
-            className="w-full overflow-x-auto"
-          >
+          <div ref={stepsScrollRef} className="w-full overflow-x-auto">
             <div className="flex items-center space-x-2 px-4 py-2">
               {currentData.map((step, idx) => (
                 <div
                   key={idx}
-                  ref={(el) => { stepRefs.current[idx] = el; }}
+                  ref={(el) => {
+                    stepRefs.current[idx] = el;
+                  }}
                   className={`min-w-[96px] flex-shrink-0 bg-[#213743] p-2 rounded-md border transition-transform ${
-                    idx === currentStepIndex ? "border-[#00e701] scale-105" : "border-[#2f4553]"
+                    idx === currentStepIndex
+                      ? "border-[#00e701] scale-105"
+                      : "border-[#2f4553]"
                   }`}
                 >
                   <div className="text-sm text-white font-bold text-center">
