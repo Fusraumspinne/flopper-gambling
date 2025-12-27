@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { PlayArrow, Refresh } from "@mui/icons-material";
 
 type RiskLevel = "Low" | "Medium" | "High" | "Expert";
 
@@ -452,9 +453,14 @@ export default function DartsPage() {
         <button
           onClick={handlePlay}
           disabled={isPlaying || bet <= 0 || bet > balance}
-          className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95"
+          className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
         >
-          {isPlaying ? "Playing..." : "Play"}
+          {isPlaying ? (
+            <Refresh className="animate-spin" />
+          ) : (
+            <PlayArrow sx={{ fill: "currentColor" }} />
+          )}
+          {isPlaying ? "Playing..." : "Bet"}
         </button>
 
         {lastWin !== null && lastWin > 0 && (
