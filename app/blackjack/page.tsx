@@ -86,7 +86,7 @@ const calculateHandValue = (cards: Card[]): number => {
 export default function BlackjackPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
 
-  const [betAmount, setBetAmount] = useState<number>(10.0);
+  const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>(betAmount.toString());
   const [gameState, setGameState] = useState<GameState>("betting");
   const [deck, setDeck] = useState<Card[]>([]);
@@ -452,7 +452,7 @@ export default function BlackjackPage() {
         {gameState === "betting" || gameState === "finished" ? (
           <button
             onClick={dealGame}
-            className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-4 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+            className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             <PlayArrow /> Deal
           </button>
@@ -500,7 +500,7 @@ export default function BlackjackPage() {
         {lastWin > 0 && gameState !== "playing" && (
           <div className="mt-4 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
             <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
-            <div className="text-xl font-bold text-[#00e701]">{lastWin.toFixed(2)}</div>
+            <div className="text-xl font-bold text-[#00e701]">${lastWin.toFixed(2)}</div>
           </div>
         )}
       </div>

@@ -120,9 +120,9 @@ export default function PumpPage() {
   const { balance, addToBalance, subtractFromBalance, finalizePendingLoss } =
     useWallet();
 
-  const [betAmount, setBetAmount] = useState<number>(10);
-  const [betInput, setBetInput] = useState<string>("10");
-  const [difficulty, setDifficulty] = useState<Difficulty>("Medium");
+  const [betAmount, setBetAmount] = useState<number>(100);
+  const [betInput, setBetInput] = useState<string>("100");
+  const [difficulty, setDifficulty] = useState<Difficulty>("Low");
   const [gameState, setGameState] = useState<GameState>("idle");
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [lastWin, setLastWin] = useState<number>(0);
@@ -301,7 +301,7 @@ export default function PumpPage() {
                   key={level}
                   onClick={() => changeDifficulty(level)}
                   disabled={gameState === "playing"}
-                  className={`flex-1 py-2 text-xs font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     difficulty === level
                       ? "bg-[#213743] text-white shadow-sm"
                       : "text-[#b1bad3] hover:text-white"
@@ -316,16 +316,6 @@ export default function PumpPage() {
 
         {gameState === "playing" ? (
           <div className="flex flex-col gap-3">
-            <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
-              <div className="text-[#b1bad3] text-sm">Current Win</div>
-              <div className="text-2xl font-bold text-[#00e701]">
-                ${potentialWin.toFixed(2)}
-              </div>
-              <div className="text-sm text-[#b1bad3] mt-1">
-                Next Multiplier: {nextStep.multiplier}x
-              </div>
-            </div>
-
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={pump}
@@ -350,6 +340,18 @@ export default function PumpPage() {
           >
             <PlayArrow /> Bet
           </button>
+        )}
+
+        {gameState === "playing" && (
+          <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
+            <div className="text-[#b1bad3] text-sm">Current Win</div>
+            <div className="text-2xl font-bold text-[#00e701]">
+              ${potentialWin.toFixed(2)}
+            </div>
+            <div className="text-sm text-[#b1bad3] mt-1">
+              Next: {nextStep.multiplier}x
+            </div>
+          </div>
         )}
 
         {lastWin > 0 && gameState === "cashed_out" && (

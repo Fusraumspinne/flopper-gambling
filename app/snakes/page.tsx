@@ -2,7 +2,13 @@
 
 import React, { useMemo, useState, useCallback } from "react";
 import { useWallet } from "@/components/WalletProvider";
-import { Casino, Autorenew, Flag, PlayArrow, LocalFireDepartment } from "@mui/icons-material";
+import {
+  Casino,
+  Autorenew,
+  Flag,
+  PlayArrow,
+  LocalFireDepartment,
+} from "@mui/icons-material";
 
 type RiskLevel = "low" | "medium" | "high" | "expert" | "master";
 type GameState = "idle" | "playing" | "dead" | "cashed";
@@ -19,20 +25,7 @@ type RollEntry = {
 };
 
 const BOARD_BY_RISK: Record<RiskLevel, TileValue[]> = {
-  low: [
-    "start",
-    2,
-    1.3,
-    1.2,
-    1.1,
-    1.01,
-    "dead",
-    1.01,
-    1.1,
-    1.2,
-    1.3,
-    2,
-  ],
+  low: ["start", 2, 1.3, 1.2, 1.1, 1.01, "dead", 1.01, 1.1, 1.2, 1.3, 2],
   medium: [
     "start",
     4,
@@ -192,10 +185,11 @@ function sleep(ms: number) {
 }
 
 export default function SnakesPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
+    useWallet();
 
-  const [betAmount, setBetAmount] = useState<number>(10);
-  const [betInput, setBetInput] = useState<string>("10");
+  const [betAmount, setBetAmount] = useState<number>(100);
+  const [betInput, setBetInput] = useState<string>("100");
   const [risk, setRisk] = useState<RiskLevel>("low");
   const [gameState, setGameState] = useState<GameState>("idle");
   const [currentPos, setCurrentPos] = useState<number>(-1);
@@ -223,13 +217,19 @@ export default function SnakesPage() {
   }, [balance, betAmount, subtractFromBalance]);
 
   const landOnTile = useCallback(
-    (landingIndex: number, currentMult: number): { nextMult: number; newState: GameState } => {
+    (
+      landingIndex: number,
+      currentMult: number
+    ): { nextMult: number; newState: GameState } => {
       const value = board[landingIndex];
       if (value === "dead") {
         return { nextMult: currentMult, newState: "dead" };
       }
       if (typeof value === "number") {
-        return { nextMult: parseFloat((currentMult * value).toFixed(4)), newState: "playing" };
+        return {
+          nextMult: parseFloat((currentMult * value).toFixed(4)),
+          newState: "playing",
+        };
       }
       return { nextMult: currentMult, newState: "playing" };
     },
@@ -339,7 +339,17 @@ export default function SnakesPage() {
 
     setGameState("playing");
     setIsAnimating(false);
-  }, [board, finalizePendingLoss, gameState, handleCashout, isAnimating, landOnTile, rolls, startNewRound, totalMultiplier]);
+  }, [
+    board,
+    finalizePendingLoss,
+    gameState,
+    handleCashout,
+    isAnimating,
+    landOnTile,
+    rolls,
+    startNewRound,
+    totalMultiplier,
+  ]);
 
   const manualCashout = useCallback(() => {
     if (gameState !== "playing") return;
@@ -369,9 +379,13 @@ export default function SnakesPage() {
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
       <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Bet Amount
+          </label>
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+              $
+            </div>
             <input
               type="number"
               value={betInput}
@@ -414,28 +428,27 @@ export default function SnakesPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Risk</label>
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Risk
+          </label>
           <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-            {(["low", "medium", "high", "expert", "master"] as RiskLevel[]).map((level) => (
-              <button
-                key={level}
-                onClick={() => changeRisk(level)}
-                className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors ${
-                  risk === level ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
-                }`}
-              >
-                {level}
-              </button>
-            ))}
+            {(["low", "medium", "high", "expert", "master"] as RiskLevel[]).map(
+              (level) => (
+                <button
+                  key={level}
+                  onClick={() => changeRisk(level)}
+                  className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors ${
+                    risk === level
+                      ? "bg-[#213743] text-white shadow-sm"
+                      : "text-[#b1bad3] hover:text-white"
+                  }`}
+                >
+                  {level}
+                </button>
+              )
+            )}
           </div>
         </div>
-
-        {gameState === "playing" && (
-          <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
-            <div className="text-[#b1bad3] text-sm">Current Win</div>
-            <div className="text-2xl font-bold text-[#00e701]">{currentWin.toFixed(2)}</div>
-          </div>
-        )}
 
         <div className="flex gap-2">
           <button
@@ -457,10 +470,24 @@ export default function SnakesPage() {
           )}
         </div>
 
+        {gameState === "playing" && (
+          <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
+            <div className="text-[#b1bad3] text-sm">Current Win</div>
+            <div className="text-2xl font-bold text-[#00e701]">
+              ${currentWin.toFixed(2)}
+            </div>
+            <div className="text-sm text-[#b1bad3] mt-1">
+              Current: {totalMultiplier}x
+            </div>
+          </div>
+        )}
+
         {gameState === "cashed" && lastWin > 0 && (
           <div className="p-3 rounded-md bg-[#213743] border border-[#00e701] text-center">
             <div className="text-xs uppercase text-[#b1bad3]">You Won</div>
-            <div className="text-2xl font-bold text-[#00e701]">${lastWin.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-[#00e701]">
+              ${lastWin.toFixed(2)}
+            </div>
           </div>
         )}
       </div>
@@ -476,7 +503,10 @@ export default function SnakesPage() {
             }}
           >
             {[
-              ...BOARD_AREAS.map((item) => ({ ...item, type: "board" as const })),
+              ...BOARD_AREAS.map((item) => ({
+                ...item,
+                type: "board" as const,
+              })),
               { area: "center", type: "center" as const },
             ].map((item) => {
               if (item.type === "board") {
@@ -484,14 +514,16 @@ export default function SnakesPage() {
                 const isCurrent = currentPos === item.boardIndex;
                 const isDead = value === "dead";
                 const isStart = value === "start";
-                const isVisited = rolls.some((r) => r.landing === item.boardIndex) || item.boardIndex === 0;
+                const isVisited =
+                  rolls.some((r) => r.landing === item.boardIndex) ||
+                  item.boardIndex === 0;
 
-                const baseBg =
-                  !isAnimating && isCurrent
-                    ? ""
-                    : "bg-[#213743]";
+                const baseBg = !isAnimating && isCurrent ? "" : "bg-[#213743]";
                 const baseBorder = "border border-[#2f4553]";
-                const active = isCurrent && !isAnimating && isStart ? "shadow-[0_0_0_2px_#8b5cf6]" : "";
+                const active =
+                  isCurrent && !isAnimating && isStart
+                    ? "shadow-[0_0_0_2px_#8b5cf6]"
+                    : "";
                 const visited = !isCurrent && isVisited ? "opacity-95" : "";
                 const isTravel = isAnimating && isCurrent;
                 const landed =
@@ -499,10 +531,14 @@ export default function SnakesPage() {
                     ? isDead
                       ? tileLandedDead
                       : typeof value === "number"
-                        ? tileLandedMulti
-                        : ""
+                      ? tileLandedMulti
+                      : ""
                     : "";
-                const pulse = isTravel ? (isDead ? tileTravelHighlightDead : tileTravelHighlight) : "";
+                const pulse = isTravel
+                  ? isDead
+                    ? tileTravelHighlightDead
+                    : tileTravelHighlight
+                  : "";
 
                 return (
                   <div
@@ -526,16 +562,23 @@ export default function SnakesPage() {
                         <LocalFireDepartment
                           sx={{
                             fontSize: 30,
-                            color: !isAnimating && isCurrent ? "#0f212e" : "#ef4444",
+                            color:
+                              !isAnimating && isCurrent ? "#0f212e" : "#ef4444",
                           }}
                         />
-                        <div className="text-[10px] text-[#b1bad3] mt-1">{probPercentForBoardIndex(item.boardIndex)}</div>
+                        <div className="text-[10px] text-[#b1bad3] mt-1">
+                          {probPercentForBoardIndex(item.boardIndex)}
+                        </div>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center">
-                        <span className="text-white font-bold text-lg">{typeof value === "number" ? `${value}x` : ""}</span>
+                        <span className="text-white font-bold text-lg">
+                          {typeof value === "number" ? `${value}x` : ""}
+                        </span>
                         {(typeof value === "number" || value === "dead") && (
-                          <div className="text-[10px] text-[#b1bad3] mt-1">{probPercentForBoardIndex(item.boardIndex)}</div>
+                          <div className="text-[10px] text-[#b1bad3] mt-1">
+                            {probPercentForBoardIndex(item.boardIndex)}
+                          </div>
                         )}
                       </div>
                     )}
@@ -562,7 +605,9 @@ export default function SnakesPage() {
                     </div>
                   </div>
                   <div className="mt-3 bg-[#0f212e] border border-[#2f4553] rounded-md px-4 py-2">
-                    <div className="text-lg font-bold text-white">{formatMultiplierShort(totalMultiplier)}x</div>
+                    <div className="text-lg font-bold text-white">
+                      {formatMultiplierShort(totalMultiplier)}x
+                    </div>
                   </div>
                 </div>
               );

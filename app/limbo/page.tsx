@@ -27,8 +27,8 @@ const formatChance = (pct: number) => {
 export default function LimboPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
 
-  const [betAmount, setBetAmount] = useState<number>(10);
-  const [betInput, setBetInput] = useState<string>("10");
+  const [betAmount, setBetAmount] = useState<number>(100);
+  const [betInput, setBetInput] = useState<string>("100");
 
   const [targetMultiplier, setTargetMultiplier] = useState<number>(2);
   const [targetInput, setTargetInput] = useState<string>("2.00");
@@ -213,7 +213,7 @@ export default function LimboPage() {
         <button
           onClick={roll}
           disabled={isLocked}
-          className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-4 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLocked ? (
              <Refresh className="animate-spin" />
@@ -241,14 +241,8 @@ export default function LimboPage() {
            }`}>
               {shownMultiplier === null ? "1.00x" : `${formatMultiplier(shownMultiplier)}x`}
            </div>
-           {gameState === "won" && (
-             <div className="mt-4 text-[#00e701] font-bold text-xl sm:text-2xl animate-bounce-in">
-               WIN!
-             </div>
-           )}
         </div>
        
-        {/* recent multipliers: start at center and grow to the right */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
           {history.map((h, i) => (
             <div
@@ -263,7 +257,6 @@ export default function LimboPage() {
           ))}
         </div>
         
-        {/* Background pulse effect */}
         {gameState === "rolling" && (
           <div className="absolute inset-0 bg-radial-gradient from-[#2f4553]/20 to-transparent animate-pulse pointer-events-none"></div>
         )}

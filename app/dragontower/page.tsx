@@ -2,7 +2,13 @@
 
 import React, { useMemo, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
-import { PlayArrow, Refresh, ExitToApp, Diamond, Close } from "@mui/icons-material";
+import {
+  PlayArrow,
+  Refresh,
+  ExitToApp,
+  Diamond,
+  Close,
+} from "@mui/icons-material";
 
 type RiskLevel = "low" | "medium" | "high";
 
@@ -30,11 +36,12 @@ const FIELDS_PER_LEVEL: Record<RiskLevel, number> = {
 };
 
 export default function DragonTowerPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
+    useWallet();
 
-  const [riskLevel, setRiskLevel] = useState<RiskLevel>("medium");
-  const [betAmount, setBetAmount] = useState<number>(10);
-  const [betInput, setBetInput] = useState<string>("10");
+  const [riskLevel, setRiskLevel] = useState<RiskLevel>("low");
+  const [betAmount, setBetAmount] = useState<number>(100);
+  const [betInput, setBetInput] = useState<string>("100");
 
   const [roundState, setRoundState] = useState<RoundState>("idle");
   const [isBusy, setIsBusy] = useState(false);
@@ -204,21 +211,21 @@ export default function DragonTowerPage() {
   const getCellStyle = (rowLevel: number, idx: number) => {
     const rowReveal = reveals.find((r) => r.level === rowLevel);
     const isHighlightedRow = rowLevel === level && roundState !== "idle"; // keep highlight until reset
-    const isClickable = roundState === "active" && rowLevel === level && !isBusy && !rowReveal;
+    const isClickable =
+      roundState === "active" && rowLevel === level && !isBusy && !rowReveal;
 
     if (!rowReveal) {
       if (isClickable) {
         return "bg-[#213743] text-[#b1bad3] shadow-[0_4px_0_#1a2c38] hover:-translate-y-1 hover:bg-[#2f4553] active:translate-y-0 active:shadow-none transition-all duration-100";
       }
       if (isHighlightedRow) {
-        // visually highlighted row after round end (not clickable)
         return "bg-[#213743] text-[#b1bad3] shadow-[0_4px_0_#1a2c38] opacity-100";
       }
       return "bg-[#2f4553] text-[#b1bad3] opacity-60";
     }
 
-    // treat "future" reveals (pickedIndex === -1) as future only while round is active
-    const isFutureReveal = rowReveal.pickedIndex === -1 && roundState === "active";
+    const isFutureReveal =
+      rowReveal.pickedIndex === -1 && roundState === "active";
     const futureClasses = isFutureReveal ? " opacity-70 saturate-50" : "";
 
     const isTrap = idx === rowReveal.trapIndex;
@@ -251,10 +258,14 @@ export default function DragonTowerPage() {
     const isTrap = idx === rowReveal.trapIndex;
 
     if (isTrap) {
-      return <Close sx={{ fontSize: 18, color: isPicked ? "#ef4444" : "#ef4444" }} />;
+      return (
+        <Close sx={{ fontSize: 18, color: isPicked ? "#ef4444" : "#ef4444" }} />
+      );
     }
 
-    return <Diamond sx={{ fontSize: 18, color: isPicked ? "#000" : "#00e701" }} />;
+    return (
+      <Diamond sx={{ fontSize: 18, color: isPicked ? "#000" : "#00e701" }} />
+    );
   };
 
   return (
@@ -265,7 +276,9 @@ export default function DragonTowerPage() {
             Bet Amount
           </label>
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+              $
+            </div>
             <input
               type="number"
               value={betInput}
@@ -308,7 +321,9 @@ export default function DragonTowerPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Risk</label>
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Risk
+          </label>
           <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
             {(["low", "medium", "high"] as RiskLevel[]).map((lvl) => (
               <button
@@ -329,13 +344,6 @@ export default function DragonTowerPage() {
 
         {roundState === "active" ? (
           <div className="flex flex-col gap-3">
-            <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
-              <div className="text-[#b1bad3] text-sm">Current Win</div>
-              <div className="text-2xl font-bold text-[#00e701]">${cashoutAmount.toFixed(2)}</div>
-              <div className="text-sm text-[#b1bad3] mt-1">
-                Next: {nextMultiplier ? `${nextMultiplier}x` : "Max"}
-              </div>
-            </div>
             <button
               onClick={endRoundCashout}
               disabled={!canCashout}
@@ -355,64 +363,86 @@ export default function DragonTowerPage() {
           </button>
         )}
 
+        {roundState === "active" && (
+          <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
+            <div className="text-[#b1bad3] text-sm">Current Win</div>
+            <div className="text-2xl font-bold text-[#00e701]">
+              ${cashoutAmount.toFixed(2)}
+            </div>
+            <div className="text-sm text-[#b1bad3] mt-1">
+              Next: {nextMultiplier ? `${nextMultiplier}x` : "Max"}
+            </div>
+          </div>
+        )}
+
         {lastWin > 0 && roundState !== "active" && (
           <div className="mt-2 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center animate-pulse">
             <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
-            <div className="text-2xl font-bold text-[#00e701]">${lastWin.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-[#00e701]">
+              ${lastWin.toFixed(2)}
+            </div>
           </div>
         )}
       </div>
 
       <div className="flex-1 flex flex-col gap-4">
         <div className="bg-[#0f212e] p-4 rounded-xl relative overflow-hidden">
-            <div className="flex flex-col gap-2">
-              {Array.from({ length: TOWER_LEVELS }, (_, i) => TOWER_LEVELS - 1 - i).map((rowLevel) => {
-                const rowReveal = reveals.find((r) => r.level === rowLevel);
-                const isHighlightedRow = rowLevel === level && roundState !== "idle";
-                const isActiveRow = roundState === "active" && rowLevel === level;
+          <div className="flex flex-col gap-2">
+            {Array.from(
+              { length: TOWER_LEVELS },
+              (_, i) => TOWER_LEVELS - 1 - i
+            ).map((rowLevel) => {
+              const rowReveal = reveals.find((r) => r.level === rowLevel);
+              const isHighlightedRow =
+                rowLevel === level && roundState !== "idle";
+              const isActiveRow = roundState === "active" && rowLevel === level;
 
-                return (
+              return (
+                <div
+                  key={rowLevel}
+                  className={`${
+                    isHighlightedRow
+                      ? "bg-[#123f47] p-2 rounded-md"
+                      : "rounded-md"
+                  }`}
+                >
                   <div
-                    key={rowLevel}
-                    className={`${isHighlightedRow ? "bg-[#123f47] p-2 rounded-md" : "rounded-md"}`}
+                    className={`grid gap-2 sm:gap-3 w-full ${
+                      fieldsCount === 4
+                        ? "grid-cols-4"
+                        : fieldsCount === 3
+                        ? "grid-cols-3"
+                        : "grid-cols-2"
+                    }`}
                   >
-                    <div
-                      className={`grid gap-2 sm:gap-3 w-full ${
-                        fieldsCount === 4
-                          ? "grid-cols-4"
-                          : fieldsCount === 3
-                            ? "grid-cols-3"
-                            : "grid-cols-2"
-                      }`}
-                    >
-                      {Array.from({ length: fieldsCount }, (_, idx) => {
-                        const canClick =
-                          roundState === "active" &&
-                          isActiveRow &&
-                          !isBusy &&
-                          !rowReveal &&
-                          !currentReveal;
+                    {Array.from({ length: fieldsCount }, (_, idx) => {
+                      const canClick =
+                        roundState === "active" &&
+                        isActiveRow &&
+                        !isBusy &&
+                        !rowReveal &&
+                        !currentReveal;
 
-                        return (
-                          <button
-                            key={idx}
-                            onClick={() => pickField(idx)}
-                            disabled={!canClick}
-                            className={`h-10 sm:h-11 rounded-md p-0 border-0 relative flex items-center justify-center ${getCellStyle(
-                              rowLevel,
-                              idx
-                            )}`}
-                          >
-                            {renderCellContent(rowLevel, idx)}
-                          </button>
-                        );
-                      })}
-                    </div>
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => pickField(idx)}
+                          disabled={!canClick}
+                          className={`h-10 sm:h-11 rounded-md p-0 border-0 relative flex items-center justify-center ${getCellStyle(
+                            rowLevel,
+                            idx
+                          )}`}
+                        >
+                          {renderCellContent(rowLevel, idx)}
+                        </button>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
+        </div>
       </div>
     </div>
   );

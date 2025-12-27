@@ -10,10 +10,11 @@ type GameState = "idle" | "playing" | "cashed_out" | "lost";
 const HOUSE_EDGE_MULTIPLIER = 1.98;
 
 export default function CoinFlipPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
+    useWallet();
 
-  const [betAmount, setBetAmount] = useState<number>(10);
-  const [betInput, setBetInput] = useState<string>("10");
+  const [betAmount, setBetAmount] = useState<number>(100);
+  const [betInput, setBetInput] = useState<string>("100");
   const [gameState, setGameState] = useState<GameState>("idle");
   const [streak, setStreak] = useState<number>(0);
   const [history, setHistory] = useState<CoinSide[]>([]);
@@ -40,7 +41,7 @@ export default function CoinFlipPage() {
 
   const startGame = (choice: CoinSide) => {
     if (balance < betAmount) return;
-    
+
     subtractFromBalance(betAmount);
     setGameState("playing");
     setStreak(0);
@@ -59,15 +60,15 @@ export default function CoinFlipPage() {
     setIsFlipping(true);
 
     const result: CoinSide = Math.random() > 0.5 ? "heads" : "tails";
-    
-    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     setLastResult(result);
-    setHistory(prev => [...prev, result]);
+    setHistory((prev) => [...prev, result]);
     setIsFlipping(false);
 
     if (result === choice) {
-      setStreak(prev => prev + 1);
+      setStreak((prev) => prev + 1);
     } else {
       setGameState("lost");
       setStreak(0);
@@ -77,7 +78,7 @@ export default function CoinFlipPage() {
 
   const cashOut = () => {
     if (gameState !== "playing" || streak === 0) return;
-    
+
     addToBalance(currentPayout);
     setLastWin(currentPayout);
     setGameState("cashed_out");
@@ -87,9 +88,13 @@ export default function CoinFlipPage() {
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
       <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Bet Amount
+          </label>
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+              $
+            </div>
             <input
               type="number"
               value={betInput}
@@ -100,7 +105,7 @@ export default function CoinFlipPage() {
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <button 
+            <button
               onClick={() => {
                 const newBet = Number((betAmount / 2).toFixed(2));
                 setBetAmount(newBet);
@@ -111,7 +116,7 @@ export default function CoinFlipPage() {
             >
               ½
             </button>
-            <button 
+            <button
               onClick={() => {
                 const newBet = Number((betAmount * 2).toFixed(2));
                 setBetAmount(newBet);
@@ -127,13 +132,6 @@ export default function CoinFlipPage() {
 
         {gameState === "playing" && (
           <div className="flex flex-col gap-3">
-            <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
-              <div className="text-[#b1bad3] text-sm">Current Profit ({currentMultiplier.toFixed(2)}x)</div>
-              <div className="text-2xl font-bold text-[#00e701]">{currentPayout.toFixed(2)}</div>
-              <div className="text-sm text-[#b1bad3] mt-1">
-                Next: {nextPayout.toFixed(2)} ({nextMultiplier.toFixed(2)}x)
-              </div>
-            </div>
             <button
               onClick={cashOut}
               disabled={isFlipping || streak === 0}
@@ -144,56 +142,89 @@ export default function CoinFlipPage() {
           </div>
         )}
 
+        {gameState === "playing" && (
+          <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
+            <div className="text-[#b1bad3] text-sm">Current Win</div>
+            <div className="text-2xl font-bold text-[#00e701]">
+              ${currentPayout.toFixed(2)}
+            </div>
+            <div className="text-sm text-[#b1bad3] mt-1">
+              Next: {nextMultiplier.toFixed(2)}x
+            </div>
+          </div>
+        )}
+
         {lastWin > 0 && gameState === "cashed_out" && (
           <div className="mt-4 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
             <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
-            <div className="text-xl font-bold text-[#00e701]">{lastWin.toFixed(2)}</div>
+            <div className="text-xl font-bold text-[#00e701]">
+              {lastWin.toFixed(2)}
+            </div>
           </div>
         )}
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px]">
-        
         <div className="relative w-32 h-32 sm:w-48 sm:h-48 mb-8 sm:mb-12 cf-perspective">
-          <div className={`w-full h-full relative cf-3d ${isFlipping ? "cf-flip" : ""}`}>
-             <div className={`w-full h-full rounded-full flex items-center justify-center border-4 transition-all duration-300 ${
-               lastResult === "tails"
-                 ? "shadow-[0_0_30px_rgba(59,130,246,0.25)] bg-linear-to-br from-blue-300 to-blue-600 border-blue-400"
-                 : "shadow-[0_0_30px_rgba(234,179,8,0.25)] bg-linear-to-br from-yellow-300 to-yellow-600 border-yellow-400"
-             }`}>
-                {isFlipping ? (
-                  <span className="text-4xl sm:text-6xl font-bold text-white/80">?</span>
-                ) : (
-                  <MonetizationOn className={`w-20! h-20! sm:w-32! sm:h-32! ${lastResult === 'tails' ? 'text-blue-100' : 'text-yellow-100'}`} />
-                )}
-             </div>
+          <div
+            className={`w-full h-full relative cf-3d ${
+              isFlipping ? "cf-flip" : ""
+            }`}
+          >
+            <div
+              className={`w-full h-full rounded-full flex items-center justify-center border-4 transition-all duration-300 ${
+                lastResult === "tails"
+                  ? "shadow-[0_0_30px_rgba(59,130,246,0.25)] bg-linear-to-br from-blue-300 to-blue-600 border-blue-400"
+                  : "shadow-[0_0_30px_rgba(234,179,8,0.25)] bg-linear-to-br from-yellow-300 to-yellow-600 border-yellow-400"
+              }`}
+            >
+              {isFlipping ? (
+                <span className="text-4xl sm:text-6xl font-bold text-white/80">
+                  ?
+                </span>
+              ) : (
+                <MonetizationOn
+                  className={`w-20! h-20! sm:w-32! sm:h-32! ${
+                    lastResult === "tails" ? "text-blue-100" : "text-yellow-100"
+                  }`}
+                />
+              )}
+            </div>
           </div>
           {lastResult && !isFlipping && (
-             <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-xl font-bold uppercase tracking-widest text-white cf-pop animate-bounce-in">
-               {lastResult}
-             </div>
+            <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-xl font-bold uppercase tracking-widest text-white cf-pop animate-bounce-in">
+              {lastResult}
+            </div>
           )}
         </div>
 
         <div className="flex gap-4 w-full max-w-md">
           <button
-            onClick={() => gameState === "playing" ? continueGame("heads") : startGame("heads")}
-            disabled={isFlipping || (gameState === "playing" && streak === 0)} 
+            onClick={() =>
+              gameState === "playing"
+                ? continueGame("heads")
+                : startGame("heads")
+            }
+            disabled={isFlipping || (gameState === "playing" && streak === 0)}
             className="flex-1 bg-[#eab308] hover:bg-[#ca8a04] disabled:opacity-50 disabled:cursor-not-allowed text-black py-4 rounded-xl font-bold text-lg sm:text-xl shadow-[0_0_20px_rgba(234,179,8,0.2)] transition-all active:scale-95 flex flex-col items-center gap-2"
           >
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-yellow-200 flex items-center justify-center">
-               <MonetizationOn className="text-yellow-700" />
+              <MonetizationOn className="text-yellow-700" />
             </div>
             HEADS
           </button>
 
           <button
-            onClick={() => gameState === "playing" ? continueGame("tails") : startGame("tails")}
+            onClick={() =>
+              gameState === "playing"
+                ? continueGame("tails")
+                : startGame("tails")
+            }
             disabled={isFlipping || (gameState === "playing" && streak === 0)}
             className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-black py-4 rounded-xl font-bold text-lg sm:text-xl shadow-[0_0_20px_rgba(59,130,246,0.2)] transition-all active:scale-95 flex flex-col items-center gap-2"
           >
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-200 flex items-center justify-center">
-               <MonetizationOn className="text-blue-700" />
+              <MonetizationOn className="text-blue-700" />
             </div>
             TAILS
           </button>
@@ -201,20 +232,19 @@ export default function CoinFlipPage() {
 
         <div className="mt-12 flex gap-2 overflow-x-auto max-w-full p-2 w-full justify-start sm:justify-center">
           {history.map((side, i) => (
-            <div 
-              key={i} 
+            <div
+              key={i}
               className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 animate-scale-in ${
-                side === 'heads' 
-                  ? 'bg-yellow-500 border-yellow-300 text-yellow-900' 
-                  : 'bg-blue-500 border-blue-300 text-blue-950'
+                side === "heads"
+                  ? "bg-yellow-500 border-yellow-300 text-yellow-900"
+                  : "bg-blue-500 border-blue-300 text-blue-950"
               }`}
               style={{ animationDelay: `${i * 0.05}s` }}
             >
-              {side === 'heads' ? 'H' : 'T'}
+              {side === "heads" ? "H" : "T"}
             </div>
           ))}
         </div>
-
       </div>
     </div>
   );

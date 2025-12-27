@@ -185,9 +185,9 @@ export default function PlinkoPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
     useWallet();
 
-  const [betAmount, setBetAmount] = useState<number>(10);
-  const [betInput, setBetInput] = useState<string>("10");
-  const [risk, setRisk] = useState<RiskLevel>("medium");
+  const [betAmount, setBetAmount] = useState<number>(100);
+  const [betInput, setBetInput] = useState<string>("100");
+  const [risk, setRisk] = useState<RiskLevel>("low");
   const [rows, setRows] = useState<number>(16);
   const [lastWin, setLastWin] = useState<number>(0);
   const [history, setHistory] = useState<number[]>([]);

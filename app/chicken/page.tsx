@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from "react";
 import { useWallet } from "@/components/WalletProvider";
 import {
   PlayArrow,
@@ -20,14 +26,14 @@ type StepInfo = {
 
 type CarAnim = {
   id: number;
-  stepIndex: number; 
+  stepIndex: number;
   lane: number;
   duration: number;
   delay: number;
   size: number;
   color: string;
   spawnedAt: number;
-  removing?: boolean; 
+  removing?: boolean;
   crash?: {
     phase: "from" | "to";
     fromY: number;
@@ -104,7 +110,10 @@ function RoadBlockade({ visible }: { visible: boolean }) {
 
 function Manhole({ active, fire }: { active: boolean; fire: boolean }) {
   return (
-    <div className="relative w-16 h-16 flex items-center justify-center" style={{ zIndex: 40 }}>
+    <div
+      className="relative w-16 h-16 flex items-center justify-center"
+      style={{ zIndex: 40 }}
+    >
       <div
         className={`absolute inset-0 rounded-full bg-[#233240] border-2 border-[#1b2733] shadow-[0_2px_6px_rgba(0,0,0,0.35)]`}
       />
@@ -123,7 +132,10 @@ function Manhole({ active, fire }: { active: boolean; fire: boolean }) {
             <div className="chicken-flame" />
             <div className="chicken-flame chicken-flame--back" />
           </div>
-          <LocalFireDepartment className="chicken-fire" sx={{ fontSize: 18, color: "#fed7aa" }} />
+          <LocalFireDepartment
+            className="chicken-fire"
+            sx={{ fontSize: 18, color: "#fed7aa" }}
+          />
         </div>
       )}
     </div>
@@ -268,10 +280,10 @@ const TILE_GAP = 12;
 const LANES = 3;
 const MANHOLE_SIZE = 64;
 const ROAD_TOP = 96;
-const LANE_HEIGHT = 70; 
+const LANE_HEIGHT = 70;
 const ROAD_HEIGHT = ROAD_TOP * 2 + LANES * LANE_HEIGHT;
-const CAR_LANE_OFFSET_X = 18; 
-const CAR_SIZE = 40; 
+const CAR_LANE_OFFSET_X = 18;
+const CAR_SIZE = 40;
 
 function formatMultiplier(mult: number) {
   if (mult >= 100000) return mult.toFixed(0);
@@ -329,13 +341,14 @@ function laneOffsetXPx(lane: number) {
 }
 
 export default function ChickenPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
+    useWallet();
 
-  const [betAmount, setBetAmount] = useState<number>(10);
-  const [betInput, setBetInput] = useState<string>("10");
+  const [betAmount, setBetAmount] = useState<number>(100);
+  const [betInput, setBetInput] = useState<string>("100");
   const [risk, setRisk] = useState<RiskLevel>("low");
   const [gameState, setGameState] = useState<GameState>("idle");
-  const [currentStep, setCurrentStep] = useState<number>(0); // 0 = Start
+  const [currentStep, setCurrentStep] = useState<number>(0);
   const [plannedSafeSteps, setPlannedSafeSteps] = useState<number | null>(null);
   const [lastWin, setLastWin] = useState<number>(0);
   const [isAnimatingStep, setIsAnimatingStep] = useState<boolean>(false);
@@ -349,7 +362,9 @@ export default function ChickenPage() {
 
   const roadScrollRef = useRef<HTMLDivElement | null>(null);
   const lastCarLaneRef = useRef<number>(Math.floor(Math.random() * LANES));
-  const recentCarColsByLaneRef = useRef<number[][]>(Array.from({ length: LANES }, () => []));
+  const recentCarColsByLaneRef = useRef<number[][]>(
+    Array.from({ length: LANES }, () => [])
+  );
 
   const carRef = useRef<CarAnim[]>([]);
   useEffect(() => {
@@ -374,12 +389,15 @@ export default function ChickenPage() {
 
   const nextInfo = steps[currentStep] ?? null;
 
-  const currentWin = gameState === "walking" ? betAmount * currentMultiplier : 0;
+  const currentWin =
+    gameState === "walking" ? betAmount * currentMultiplier : 0;
   const potentialWin = currentWin;
-  const nextStep = steps[currentStep] ?? steps[Math.min(currentStep, steps.length - 1)];
+  const nextStep =
+    steps[currentStep] ?? steps[Math.min(currentStep, steps.length - 1)];
   const cashoutValue = betAmount * currentMultiplier;
 
-  const canWalk = gameState === "walking" && !isAnimatingStep && currentStep < steps.length;
+  const canWalk =
+    gameState === "walking" && !isAnimatingStep && currentStep < steps.length;
   const canCashout = gameState === "walking" && currentStep > 0;
 
   const computeSafePath = useCallback(() => {
@@ -419,18 +437,29 @@ export default function ChickenPage() {
     resetVisuals();
   }, [balance, betAmount, subtractFromBalance, computeSafePath, resetVisuals]);
 
-  const handleCrash = useCallback((crashStep?: number) => {
-    const step = clampInt(crashStep ?? currentStep, 0, steps.length);
-    const type: DeathType = Math.random() < 0.7 ? "car" : "fire";
-    const lane = Math.floor(Math.random() * LANES);
+  const handleCrash = useCallback(
+    (crashStep?: number) => {
+      const step = clampInt(crashStep ?? currentStep, 0, steps.length);
+      const type: DeathType = Math.random() < 0.7 ? "car" : "fire";
+      const lane = Math.floor(Math.random() * LANES);
 
-    const carBaseDurationMs = type === "car" ? 1200 + Math.random() * 600 : undefined;
-    const carDelayMs = type === "car" ? Math.random() * 300 : undefined;
+      const carBaseDurationMs =
+        type === "car" ? 1200 + Math.random() * 600 : undefined;
+      const carDelayMs = type === "car" ? Math.random() * 300 : undefined;
 
-    setDeathAnim({ type, step, lane, startedAt: Date.now(), carBaseDurationMs, carDelayMs });
-    setGameState("crashed");
-    finalizePendingLoss();
-  }, [currentStep, finalizePendingLoss, steps.length]);
+      setDeathAnim({
+        type,
+        step,
+        lane,
+        startedAt: Date.now(),
+        carBaseDurationMs,
+        carDelayMs,
+      });
+      setGameState("crashed");
+      finalizePendingLoss();
+    },
+    [currentStep, finalizePendingLoss, steps.length]
+  );
 
   const handleCashout = useCallback(
     (auto = false) => {
@@ -472,7 +501,14 @@ export default function ChickenPage() {
     if (nextStep === steps.length && safeLimit >= steps.length) {
       handleCashout(true);
     }
-  }, [canWalk, currentStep, plannedSafeSteps, steps, handleCrash, handleCashout]);
+  }, [
+    canWalk,
+    currentStep,
+    plannedSafeSteps,
+    steps,
+    handleCrash,
+    handleCashout,
+  ]);
 
   useEffect(() => {
     const TARGET_CARS_PER_SEC_PER_LANE = 2;
@@ -483,8 +519,16 @@ export default function ChickenPage() {
     const MAX_VISIBLE_PER_LANE = 6;
     const MAX_VISIBLE_GLOBAL = 18;
 
-    const riskFactor = risk === "low" ? 1 : risk === "medium" ? 1.05 : risk === "high" ? 1.1 : 1.15;
-    const laneRate = TARGET_CARS_PER_SEC_PER_LANE * SPAWN_RATE_SCALE * riskFactor;
+    const riskFactor =
+      risk === "low"
+        ? 1
+        : risk === "medium"
+        ? 1.05
+        : risk === "high"
+        ? 1.1
+        : 1.15;
+    const laneRate =
+      TARGET_CARS_PER_SEC_PER_LANE * SPAWN_RATE_SCALE * riskFactor;
 
     const SPEED_MULTIPLIER = 2;
 
@@ -499,7 +543,9 @@ export default function ChickenPage() {
         duration,
         delay: Math.random() * 300,
         size: CAR_SIZE,
-        color: ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6"][Math.floor(Math.random() * 4)],
+        color: ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6"][
+          Math.floor(Math.random() * 4)
+        ],
         spawnedAt: now,
         removing: false,
       };
@@ -512,7 +558,9 @@ export default function ChickenPage() {
 
       window.setTimeout(() => {
         setCarWaves((prev) =>
-          prev.map((c) => (c.id === car.id && !c.crash ? { ...c, removing: true } : c))
+          prev.map((c) =>
+            c.id === car.id && !c.crash ? { ...c, removing: true } : c
+          )
         );
       }, markFadeAt);
 
@@ -521,7 +569,12 @@ export default function ChickenPage() {
       }, removeAfter + 60);
     };
 
-    const pickSpawnColumnForLane = (args: { min: number; max: number; lane: number; visible: CarAnim[] }): number | null => {
+    const pickSpawnColumnForLane = (args: {
+      min: number;
+      max: number;
+      lane: number;
+      visible: CarAnim[];
+    }): number | null => {
       const { min, max, lane, visible } = args;
 
       const visibleInLane = visible.filter((c) => c.lane === lane);
@@ -566,7 +619,12 @@ export default function ChickenPage() {
         if (visibleByLane[lane].length >= MAX_VISIBLE_PER_LANE) continue;
 
         if (Math.random() < perLaneSpawnP) {
-          const col = pickSpawnColumnForLane({ min, max, lane, visible: visibleCars });
+          const col = pickSpawnColumnForLane({
+            min,
+            max,
+            lane,
+            visible: visibleCars,
+          });
           if (col === null) continue;
 
           spawnCarAt({ stepIndex: col, lane });
@@ -638,7 +696,14 @@ export default function ChickenPage() {
   }, [currentStep, gameState]);
 
   useEffect(() => {
-    const riskFactor = risk === "low" ? 1 : risk === "medium" ? 1.2 : risk === "high" ? 1.45 : 1.7;
+    const riskFactor =
+      risk === "low"
+        ? 1
+        : risk === "medium"
+        ? 1.2
+        : risk === "high"
+        ? 1.45
+        : 1.7;
     const intervalMs = Math.round(1100 / riskFactor);
 
     const id = window.setInterval(() => {
@@ -648,16 +713,18 @@ export default function ChickenPage() {
       setFires((prev) => {
         const cleaned = prev.filter((f) => f.endsAt > now);
 
-        const min = Math.max(1, currentStep + 1); 
+        const min = Math.max(1, currentStep + 1);
         const max = steps.length;
         if (min > max) return cleaned;
 
-        const spawnCount = Math.random() < 0.40 ? 0 : Math.random() < 0.80 ? 1 : 2;
+        const spawnCount =
+          Math.random() < 0.4 ? 0 : Math.random() < 0.8 ? 1 : 2;
         const next = [...cleaned];
 
         for (let i = 0; i < spawnCount; i++) {
           const stepIndex = min + Math.floor(Math.random() * (max - min + 1));
-          if (next.some((f) => f.stepIndex === stepIndex && f.endsAt > now)) continue;
+          if (next.some((f) => f.stepIndex === stepIndex && f.endsAt > now))
+            continue;
           next.push({
             id: now + i + Math.floor(Math.random() * 10000),
             stepIndex,
@@ -705,7 +772,8 @@ export default function ChickenPage() {
     }
   }, [risk]);
 
-  const roadWidthPx = (steps.length + 2) * TILE_W + (steps.length + 1) * TILE_GAP;
+  const roadWidthPx =
+    (steps.length + 2) * TILE_W + (steps.length + 1) * TILE_GAP;
   const manholeTopPx = ROAD_TOP + LANES * LANE_HEIGHT - MANHOLE_SIZE / 2;
 
   const stepCenterX = (stepIndex: number) => {
@@ -724,15 +792,25 @@ export default function ChickenPage() {
     const centerX = idx * (TILE_W + TILE_GAP) + TILE_W / 2;
 
     const maxScroll = Math.max(0, roadWidthPx - containerW);
-    const targetLeft = Math.max(0, Math.min(maxScroll, centerX - containerW / 2));
+    const targetLeft = Math.max(
+      0,
+      Math.min(maxScroll, centerX - containerW / 2)
+    );
 
-    el.scrollTo({ left: targetLeft, behavior: gameState === "walking" ? "smooth" : "auto" });
+    el.scrollTo({
+      left: targetLeft,
+      behavior: gameState === "walking" ? "smooth" : "auto",
+    });
   }, [currentStep, gameState, roadWidthPx, steps.length]);
 
   const chickenLeftPx = stepCenterX(currentStep) - 24;
   const chickenTopPx = manholeTopPx + MANHOLE_SIZE / 2 - 24;
   const chickenState: "idle" | "walk" | "crash" =
-    gameState === "walking" ? "walk" : gameState === "crashed" && (deathAnim?.type === "fire") ? "crash" : "idle";
+    gameState === "walking"
+      ? "walk"
+      : gameState === "crashed" && deathAnim?.type === "fire"
+      ? "crash"
+      : "idle";
   const chickenVariant: "normal" | "burned" = isBurned ? "burned" : "normal";
 
   useEffect(() => {
@@ -753,7 +831,10 @@ export default function ChickenPage() {
       const animDurationMs = base / 3 / 2;
 
       const desiredY = chickenTopPx + 18 - topPx;
-      const progress = Math.max(0, Math.min(1, (desiredY - startY) / (endY - startY)));
+      const progress = Math.max(
+        0,
+        Math.min(1, (desiredY - startY) / (endY - startY))
+      );
       const impactMs = Math.round(delay + animDurationMs * progress);
 
       timers.push(window.setTimeout(() => setIsFlat(true), impactMs));
@@ -770,9 +851,13 @@ export default function ChickenPage() {
     <div className="p-1 sm:p-2 lg:p-3 max-w-350 mx-auto flex flex-col lg:flex-row gap-3 lg:gap-6 overflow-x-hidden">
       <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Einsatz</label>
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Einsatz
+          </label>
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+              $
+            </div>
             <input
               type="number"
               value={betInput}
@@ -815,43 +900,39 @@ export default function ChickenPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Risiko</label>
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Risiko
+          </label>
           <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-            {(["low", "medium", "high", "expert"] as RiskLevel[]).map((level) => (
-              <button
-                key={level}
-                onClick={() => setRisk(level)}
-                disabled={gameState === "walking"}
-                className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  risk === level ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
-                }`}
-              >
-                {level}
-              </button>
-            ))}
+            {(["low", "medium", "high", "expert"] as RiskLevel[]).map(
+              (level) => (
+                <button
+                  key={level}
+                  onClick={() => setRisk(level)}
+                  disabled={gameState === "walking"}
+                  className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    risk === level
+                      ? "bg-[#213743] text-white shadow-sm"
+                      : "text-[#b1bad3] hover:text-white"
+                  }`}
+                >
+                  {level}
+                </button>
+              )
+            )}
           </div>
         </div>
 
         <div>
           {gameState === "walking" ? (
             <div className="flex flex-col gap-3">
-              <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
-                <div className="text-[#b1bad3] text-sm">Current Win</div>
-                <div className="text-2xl font-bold text-[#00e701]">
-                  ${potentialWin.toFixed(2)}
-                </div>
-                <div className="text-sm text-[#b1bad3] mt-1">
-                  Next Multiplier: {nextStep.multiplier}x
-                </div>
-              </div>
-
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={walkOneStep}
                   disabled={!canWalk}
                   className="bg-[#2f4553] hover:bg-[#3e5666] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <DirectionsWalk sx={{ fontSize: 22 }} /> Step
+                  Step
                 </button>
                 <button
                   onClick={() => handleCashout(false)}
@@ -872,10 +953,24 @@ export default function ChickenPage() {
           )}
         </div>
 
+        {gameState == "walking" && (
+          <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
+            <div className="text-[#b1bad3] text-sm">Current Win</div>
+            <div className="text-2xl font-bold text-[#00e701]">
+              ${potentialWin.toFixed(2)}
+            </div>
+            <div className="text-sm text-[#b1bad3] mt-1">
+              Next: {nextStep.multiplier}x
+            </div>
+          </div>
+        )}
+
         {gameState === "cashed" && lastWin > 0 && (
           <div className="p-3 rounded-md bg-[#213743] border border-[#00e701] text-center">
             <div className="text-xs uppercase text-[#b1bad3]">You Won</div>
-            <div className="text-2xl font-bold text-[#00e701]">${lastWin.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-[#00e701]">
+              ${lastWin.toFixed(2)}
+            </div>
           </div>
         )}
       </div>
@@ -886,13 +981,21 @@ export default function ChickenPage() {
             className="relative w-full min-w-0"
             style={{ minHeight: ROAD_HEIGHT + 32 }}
           >
-            <div ref={roadScrollRef} className="relative w-full max-w-full overflow-x-auto overflow-y-hidden chicken-scroll">
-              <div className="relative" style={{ width: roadWidthPx, height: ROAD_HEIGHT + 24 }}>
+            <div
+              ref={roadScrollRef}
+              className="relative w-full max-w-full overflow-x-auto overflow-y-hidden chicken-scroll"
+            >
+              <div
+                className="relative"
+                style={{ width: roadWidthPx, height: ROAD_HEIGHT + 24 }}
+              >
                 <div className="absolute inset-0 pointer-events-none">
                   {carWaves.map((car) => (
                     <div
                       key={`${car.id}-${car.stepIndex}-${car.lane}`}
-                      className={`absolute chicken-car${car.removing ? " removing" : ""}${car.crash ? " chicken-car-barrier-crash" : ""}`}
+                      className={`absolute chicken-car${
+                        car.removing ? " removing" : ""
+                      }${car.crash ? " chicken-car-barrier-crash" : ""}`}
                       style={{
                         left: `${stepCenterX(car.stepIndex)}px`,
                         top: 8,
@@ -900,12 +1003,20 @@ export default function ChickenPage() {
                         height: `${CAR_SIZE * 1.7}px`,
                         opacity: 0.95,
                         background: car.color,
-                        ['--drive-distance-y' as any]: `${ROAD_HEIGHT + 28}px`,
+                        ["--drive-distance-y" as any]: `${ROAD_HEIGHT + 28}px`,
                         animationName: car.crash ? "none" : undefined,
-                        animationDuration: car.crash ? undefined : `${car.duration / 3 / 2}ms`,
-                        animationDelay: car.crash ? undefined : `${car.delay}ms`,
+                        animationDuration: car.crash
+                          ? undefined
+                          : `${car.duration / 3 / 2}ms`,
+                        animationDelay: car.crash
+                          ? undefined
+                          : `${car.delay}ms`,
                         transform: car.crash
-                          ? `translate(-50%, ${car.crash.phase === "from" ? car.crash.fromY : car.crash.toY}px)`
+                          ? `translate(-50%, ${
+                              car.crash.phase === "from"
+                                ? car.crash.fromY
+                                : car.crash.toY
+                            }px)`
                           : undefined,
                       }}
                     >
@@ -916,15 +1027,22 @@ export default function ChickenPage() {
                   ))}
                 </div>
 
-                <div className="absolute left-0 right-0 rounded-xl border border-[#152a38] overflow-hidden" style={{ top: 8, height: ROAD_HEIGHT + 8, zIndex: 6 }}>
+                <div
+                  className="absolute left-0 right-0 rounded-xl border border-[#152a38] overflow-hidden"
+                  style={{ top: 8, height: ROAD_HEIGHT + 8, zIndex: 6 }}
+                >
                   {Array.from({ length: steps.length + 2 }).map((_, colIdx) => {
                     const left = colIdx * (TILE_W + TILE_GAP);
                     const isStartCol = colIdx === 0;
                     const isEndCol = colIdx === steps.length + 1;
                     const isGrassCol = isStartCol || isEndCol;
                     const bg = isGrassCol ? "#6bbf59" : "#0e1c27";
-                    const innerShadow = isGrassCol ? 'inset 0 -4px 10px rgba(0,0,0,0.06)' : 'inset 0 1px 0 rgba(255,255,255,0.02)';
-                    const border = isGrassCol ? '1px solid rgba(0,0,0,0.06)' : undefined;
+                    const innerShadow = isGrassCol
+                      ? "inset 0 -4px 10px rgba(0,0,0,0.06)"
+                      : "inset 0 1px 0 rgba(255,255,255,0.02)";
+                    const border = isGrassCol
+                      ? "1px solid rgba(0,0,0,0.06)"
+                      : undefined;
                     return (
                       <div
                         key={colIdx}
@@ -949,13 +1067,20 @@ export default function ChickenPage() {
                                 ...(isStartCol ? { right: 0 } : { left: 0 }),
                                 width: 12,
                                 height: "100%",
-                                background:
-                                  isStartCol
-                                    ? "linear-gradient(90deg, rgba(15,33,46,0.0) 0%, rgba(0,0,0,0.10) 22%, rgba(148,163,184,0.85) 55%, rgba(226,232,240,0.95) 100%)"
-                                    : "linear-gradient(270deg, rgba(15,33,46,0.0) 0%, rgba(0,0,0,0.10) 22%, rgba(148,163,184,0.85) 55%, rgba(226,232,240,0.95) 100%)",
+                                background: isStartCol
+                                  ? "linear-gradient(90deg, rgba(15,33,46,0.0) 0%, rgba(0,0,0,0.10) 22%, rgba(148,163,184,0.85) 55%, rgba(226,232,240,0.95) 100%)"
+                                  : "linear-gradient(270deg, rgba(15,33,46,0.0) 0%, rgba(0,0,0,0.10) 22%, rgba(148,163,184,0.85) 55%, rgba(226,232,240,0.95) 100%)",
                                 ...(isStartCol
-                                  ? { borderLeft: "1px solid rgba(0,0,0,0.22)", boxShadow: "inset 1px 0 0 rgba(255,255,255,0.18)" }
-                                  : { borderRight: "1px solid rgba(0,0,0,0.22)", boxShadow: "inset -1px 0 0 rgba(255,255,255,0.18)" }),
+                                  ? {
+                                      borderLeft: "1px solid rgba(0,0,0,0.22)",
+                                      boxShadow:
+                                        "inset 1px 0 0 rgba(255,255,255,0.18)",
+                                    }
+                                  : {
+                                      borderRight: "1px solid rgba(0,0,0,0.22)",
+                                      boxShadow:
+                                        "inset -1px 0 0 rgba(255,255,255,0.18)",
+                                    }),
                                 opacity: 0.95,
                                 pointerEvents: "none",
                               }}
@@ -972,7 +1097,8 @@ export default function ChickenPage() {
                                 borderRadius: 999,
                                 background:
                                   "radial-gradient(circle at 30% 40%, rgba(34,197,94,0.90) 0%, rgba(34,197,94,0.55) 55%, rgba(34,197,94,0.0) 72%)",
-                                filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.20))",
+                                filter:
+                                  "drop-shadow(0 2px 2px rgba(0,0,0,0.20))",
                                 pointerEvents: "none",
                               }}
                             />
@@ -987,7 +1113,8 @@ export default function ChickenPage() {
                                 borderRadius: 999,
                                 background:
                                   "radial-gradient(circle at 45% 55%, rgba(74,222,128,0.85) 0%, rgba(74,222,128,0.45) 55%, rgba(74,222,128,0.0) 72%)",
-                                filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.18))",
+                                filter:
+                                  "drop-shadow(0 2px 2px rgba(0,0,0,0.18))",
                                 pointerEvents: "none",
                               }}
                             />
@@ -1002,7 +1129,8 @@ export default function ChickenPage() {
                                 borderRadius: 999,
                                 background:
                                   "radial-gradient(circle at 50% 60%, rgba(22,163,74,0.75) 0%, rgba(22,163,74,0.40) 58%, rgba(22,163,74,0.0) 74%)",
-                                filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.16))",
+                                filter:
+                                  "drop-shadow(0 2px 2px rgba(0,0,0,0.16))",
                                 pointerEvents: "none",
                               }}
                             />
@@ -1011,35 +1139,41 @@ export default function ChickenPage() {
                       </div>
                     );
                   })}
-                
-                {Array.from({ length: steps.length + 1 }).map((_, sepIdx) => {
-                  const leftPx = (sepIdx + 1) * (TILE_W + TILE_GAP) - TILE_GAP / 2;
-                  return (
-                    <div
-                      key={`street-sep-${sepIdx}`}
-                      style={{
-                        position: 'absolute',
-                        left: `${leftPx}px`,
-                        top: 10,
-                        transform: 'translateX(-50%)',
-                        width: 4,
-                        height: `calc(100% - 20px)`,
-                        backgroundImage:
-                          'repeating-linear-gradient(180deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 6px, transparent 6px, transparent 18px)',
-                        zIndex: 12,
-                      }}
-                    />
-                  );
-                })}
+
+                  {Array.from({ length: steps.length + 1 }).map((_, sepIdx) => {
+                    const leftPx =
+                      (sepIdx + 1) * (TILE_W + TILE_GAP) - TILE_GAP / 2;
+                    return (
+                      <div
+                        key={`street-sep-${sepIdx}`}
+                        style={{
+                          position: "absolute",
+                          left: `${leftPx}px`,
+                          top: 10,
+                          transform: "translateX(-50%)",
+                          width: 4,
+                          height: `calc(100% - 20px)`,
+                          backgroundImage:
+                            "repeating-linear-gradient(180deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 6px, transparent 6px, transparent 18px)",
+                          zIndex: 12,
+                        }}
+                      />
+                    );
+                  })}
                 </div>
 
                 <div
                   className="absolute left-0 flex items-end"
                   style={{ top: manholeTopPx, gap: TILE_GAP }}
                 >
-                  <div className="flex flex-col items-center" style={{ width: TILE_W }}>
-                    <div className="relative w-16 h-16 flex items-center justify-center" style={{ zIndex: 40 }}>
-                    </div>
+                  <div
+                    className="flex flex-col items-center"
+                    style={{ width: TILE_W }}
+                  >
+                    <div
+                      className="relative w-16 h-16 flex items-center justify-center"
+                      style={{ zIndex: 40 }}
+                    ></div>
                     <div className="mt-2 px-3 py-1 rounded-full bg-[#e6ece6] text-[#21313a] text-[11px] font-semibold shadow-[0_2px_0_#ffffff1a]">
                       Start
                     </div>
@@ -1048,23 +1182,38 @@ export default function ChickenPage() {
                   {steps.map((info, idx) => {
                     const tileStep = idx + 1;
                     const isVisited = currentStep >= tileStep;
-                    const isCurrent = currentStep === tileStep && gameState === "walking";
-                    const isDeathTile = gameState === "crashed" && deathAnim?.step === tileStep;
+                    const isCurrent =
+                      currentStep === tileStep && gameState === "walking";
+                    const isDeathTile =
+                      gameState === "crashed" && deathAnim?.step === tileStep;
                     const hasFire =
-                      tileStep > currentStep && fires.some((f) => f.stepIndex === tileStep && f.endsAt > Date.now());
+                      tileStep > currentStep &&
+                      fires.some(
+                        (f) => f.stepIndex === tileStep && f.endsAt > Date.now()
+                      );
                     const multColor = getColorForMultiplier(info.multiplier);
 
                     const pillClasses = isCurrent
                       ? "bg-[#00e701] text-[#0b1b12]"
                       : isVisited
-                        ? "bg-[#1f2d3a] text-white"
-                        : "bg-[#1f2d3a] text-[#e5e7eb]";
+                      ? "bg-[#1f2d3a] text-white"
+                      : "bg-[#1f2d3a] text-[#e5e7eb]";
 
                     return (
-                      <div key={info.step} className="flex flex-col items-center" style={{ width: TILE_W }}>
-                        <div className="relative" style={{ width: MANHOLE_SIZE, height: MANHOLE_SIZE }}>
+                      <div
+                        key={info.step}
+                        className="flex flex-col items-center"
+                        style={{ width: TILE_W }}
+                      >
+                        <div
+                          className="relative"
+                          style={{ width: MANHOLE_SIZE, height: MANHOLE_SIZE }}
+                        >
                           <RoadBlockade visible={isVisited && !isDeathTile} />
-                          <Manhole active={isCurrent || isVisited} fire={hasFire && !isVisited} />
+                          <Manhole
+                            active={isCurrent || isVisited}
+                            fire={hasFire && !isVisited}
+                          />
                         </div>
                         <div
                           className={`mt-2 px-3 py-1 rounded-full text-[11px] font-extrabold shadow-[0_2px_0_#111a23] border border-[#101823] ${pillClasses}`}
@@ -1072,79 +1221,111 @@ export default function ChickenPage() {
                         >
                           {formatMultiplier(info.multiplier)}x
                         </div>
-                        <div className="mt-1 text-[10px] text-[#758295]">{formatChance(info.chance)}</div>
+                        <div className="mt-1 text-[10px] text-[#758295]">
+                          {formatChance(info.chance)}
+                        </div>
                       </div>
                     );
                   })}
-                  </div>
-
-                  <div
-                    className="absolute left-0 flex items-center text-center"
-                    style={{ top: manholeTopPx + MANHOLE_SIZE + 8, gap: TILE_GAP, zIndex: 20 }}
-                  >
-                    <div className="flex flex-col items-center" style={{ width: TILE_W }}>
-                    </div>
-                    {steps.map((info) => (
-                      <div key={`meta-${info.step}`} className="flex flex-col items-center" style={{ width: TILE_W }}>
-                        <div className="bg-[#0f2a30] px-2 py-1 rounded-md border border-[#102428]">
-                          <div className="text-[11px] font-medium text-[#b1bad3]">{formatMultiplier(info.multiplier)}x</div>
-                          <div className="text-[9px] text-[#758295] mt-0.5">{formatChance(info.chance)}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-              </div>
-
-                <div
-                  className="absolute"
-                  style={{
-                    left: `${chickenLeftPx}px`,
-                    top: `${chickenTopPx}px`,
-                    transition: "left 260ms cubic-bezier(0.2,0.9,0.2,1)",
-                    zIndex: 40,
-                  }}
-                >
-                  <ChickenSprite state={chickenState} variant={chickenVariant} flattened={isFlat} />
-                  {sparkAtStep !== null && sparkAtStep === currentStep && (
-                    <div className="absolute inset-0 chicken-sparkle" />
-                  )}
-
-                  {gameState === "crashed" && deathAnim?.type === "fire" && (
-                    <div className="absolute inset-0 flex items-center justify-center chicken-burn-overlay">
-                      <div className="chicken-flame-wrap chicken-flame-wrap--death" aria-hidden>
-                        <div className="chicken-flame-glow" />
-                        <div className="chicken-flame-sparks" />
-                        <div className="chicken-flame-smoke" />
-                        <div className="chicken-flame" />
-                        <div className="chicken-flame chicken-flame--back" />
-                      </div>
-                      <LocalFireDepartment className="chicken-fire chicken-fire--death" sx={{ fontSize: 40, color: "#fff7ed" }} />
-                    </div>
-                  )}
                 </div>
 
-                {gameState === "crashed" && deathAnim?.type === "car" && (
+                <div
+                  className="absolute left-0 flex items-center text-center"
+                  style={{
+                    top: manholeTopPx + MANHOLE_SIZE + 8,
+                    gap: TILE_GAP,
+                    zIndex: 20,
+                  }}
+                >
                   <div
-                    key={`killcar-${deathAnim.startedAt}`}
-                      className="absolute chicken-car chicken-killcar"
-                    style={{
-                        left: `${stepCenterX(deathAnim.step)}px`,
-                        top: 8,
-                      width: `${CAR_SIZE}px`,
-                      height: `${CAR_SIZE * 1.7}px`,
-                      background: "#ef4444",
-                      opacity: 0.98,
-                      zIndex: 120,
-                        ['--drive-distance-y' as any]: `${ROAD_HEIGHT + 28}px`,
-                        animationDuration: `${((deathAnim.carBaseDurationMs ?? 1500) / 3 / 2).toFixed(0)}ms`,
-                        animationDelay: `${(deathAnim.carDelayMs ?? 0).toFixed(0)}ms`,
-                    }}
-                  >
-                    <div className="car-window" />
-                    <div className="car-light car-light-left" />
-                    <div className="car-light car-light-right" />
+                    className="flex flex-col items-center"
+                    style={{ width: TILE_W }}
+                  ></div>
+                  {steps.map((info) => (
+                    <div
+                      key={`meta-${info.step}`}
+                      className="flex flex-col items-center"
+                      style={{ width: TILE_W }}
+                    >
+                      <div className="bg-[#0f2a30] px-2 py-1 rounded-md border border-[#102428]">
+                        <div className="text-[11px] font-medium text-[#b1bad3]">
+                          {formatMultiplier(info.multiplier)}x
+                        </div>
+                        <div className="text-[9px] text-[#758295] mt-0.5">
+                          {formatChance(info.chance)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                className="absolute"
+                style={{
+                  left: `${chickenLeftPx}px`,
+                  top: `${chickenTopPx}px`,
+                  transition: "left 260ms cubic-bezier(0.2,0.9,0.2,1)",
+                  zIndex: 40,
+                }}
+              >
+                <ChickenSprite
+                  state={chickenState}
+                  variant={chickenVariant}
+                  flattened={isFlat}
+                />
+                {sparkAtStep !== null && sparkAtStep === currentStep && (
+                  <div className="absolute inset-0 chicken-sparkle" />
+                )}
+
+                {gameState === "crashed" && deathAnim?.type === "fire" && (
+                  <div className="absolute inset-0 flex items-center justify-center chicken-burn-overlay">
+                    <div
+                      className="chicken-flame-wrap chicken-flame-wrap--death"
+                      aria-hidden
+                    >
+                      <div className="chicken-flame-glow" />
+                      <div className="chicken-flame-sparks" />
+                      <div className="chicken-flame-smoke" />
+                      <div className="chicken-flame" />
+                      <div className="chicken-flame chicken-flame--back" />
+                    </div>
+                    <LocalFireDepartment
+                      className="chicken-fire chicken-fire--death"
+                      sx={{ fontSize: 40, color: "#fff7ed" }}
+                    />
                   </div>
                 )}
+              </div>
+
+              {gameState === "crashed" && deathAnim?.type === "car" && (
+                <div
+                  key={`killcar-${deathAnim.startedAt}`}
+                  className="absolute chicken-car chicken-killcar"
+                  style={{
+                    left: `${stepCenterX(deathAnim.step)}px`,
+                    top: 8,
+                    width: `${CAR_SIZE}px`,
+                    height: `${CAR_SIZE * 1.7}px`,
+                    background: "#ef4444",
+                    opacity: 0.98,
+                    zIndex: 120,
+                    ["--drive-distance-y" as any]: `${ROAD_HEIGHT + 28}px`,
+                    animationDuration: `${(
+                      (deathAnim.carBaseDurationMs ?? 1500) /
+                      3 /
+                      2
+                    ).toFixed(0)}ms`,
+                    animationDelay: `${(deathAnim.carDelayMs ?? 0).toFixed(
+                      0
+                    )}ms`,
+                  }}
+                >
+                  <div className="car-window" />
+                  <div className="car-light car-light-left" />
+                  <div className="car-light car-light-right" />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1152,15 +1333,23 @@ export default function ChickenPage() {
 
       <style jsx global>{`
         @keyframes chicken-car-drive-down {
-          0% { transform: translate(-50%, -32px); opacity: 0; }
-          8% { opacity: 0.95; }
-          100% { transform: translate(-50%, var(--drive-distance-y)); opacity: 0.9; }
+          0% {
+            transform: translate(-50%, -32px);
+            opacity: 0;
+          }
+          8% {
+            opacity: 0.95;
+          }
+          100% {
+            transform: translate(-50%, var(--drive-distance-y));
+            opacity: 0.9;
+          }
         }
         .chicken-car {
           position: absolute;
           will-change: transform;
           border-radius: 12px;
-          border: 2px solid rgba(255,255,255,0.18);
+          border: 2px solid rgba(255, 255, 255, 0.18);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1169,13 +1358,14 @@ export default function ChickenPage() {
           animation-timing-function: linear;
           animation-iteration-count: 1;
           animation-fill-mode: forwards;
-          filter: drop-shadow(0 8px 12px rgba(0,0,0,0.45));
-          transition: opacity 260ms ease, transform 260ms ease, filter 260ms ease;
+          filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.45));
+          transition: opacity 260ms ease, transform 260ms ease,
+            filter 260ms ease;
         }
         .chicken-car.removing {
           opacity: 0;
           transform: translate(-50%, var(--drive-distance-y)) scale(0.92);
-          filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35));
+          filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
         }
         .chicken-car::before {
           content: "";
@@ -1185,7 +1375,7 @@ export default function ChickenPage() {
           right: 4px;
           height: 10px;
           border-radius: 10px;
-          background: rgba(255,255,255,0.18);
+          background: rgba(255, 255, 255, 0.18);
         }
         .chicken-car .car-window {
           position: absolute;
@@ -1194,9 +1384,9 @@ export default function ChickenPage() {
           right: 6px;
           height: 18px;
           border-radius: 10px;
-          background: rgba(15,33,46,0.65);
-          border: 1px solid rgba(255,255,255,0.12);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+          background: rgba(15, 33, 46, 0.65);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
         .chicken-car .car-light {
           position: absolute;
@@ -1204,22 +1394,35 @@ export default function ChickenPage() {
           width: 6px;
           height: 10px;
           border-radius: 6px;
-          background: rgba(255,255,255,0.7);
-          box-shadow: 0 0 10px rgba(255,255,255,0.25);
+          background: rgba(255, 255, 255, 0.7);
+          box-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
         }
-        .chicken-car .car-light-left { left: 6px; }
-        .chicken-car .car-light-right { right: 6px; }
+        .chicken-car .car-light-left {
+          left: 6px;
+        }
+        .chicken-car .car-light-right {
+          right: 6px;
+        }
         @keyframes chicken-fire-pulse {
-          0% { opacity: 0.35; transform: scale(0.9); }
-          50% { opacity: 0.9; transform: scale(1.08); }
-          100% { opacity: 0.35; transform: scale(0.9); }
+          0% {
+            opacity: 0.35;
+            transform: scale(0.9);
+          }
+          50% {
+            opacity: 0.9;
+            transform: scale(1.08);
+          }
+          100% {
+            opacity: 0.35;
+            transform: scale(0.9);
+          }
         }
         .chicken-fire {
           animation: chicken-fire-pulse 1s ease-in-out infinite;
         }
         .chicken-fire--death {
           animation-duration: 720ms;
-          filter: drop-shadow(0 0 10px rgba(249,115,22,0.55));
+          filter: drop-shadow(0 0 10px rgba(249, 115, 22, 0.55));
           opacity: 0.95;
         }
 
@@ -1243,7 +1446,12 @@ export default function ChickenPage() {
           position: absolute;
           inset: -10px;
           border-radius: 9999px;
-          background: radial-gradient(circle at 50% 60%, rgba(249,115,22,0.45) 0%, rgba(249,115,22,0.22) 35%, rgba(239,68,68,0.0) 70%);
+          background: radial-gradient(
+            circle at 50% 60%,
+            rgba(249, 115, 22, 0.45) 0%,
+            rgba(249, 115, 22, 0.22) 35%,
+            rgba(239, 68, 68, 0) 70%
+          );
           filter: blur(6px);
           animation: chicken-flame-glow 720ms ease-in-out infinite;
           opacity: 0.95;
@@ -1256,9 +1464,14 @@ export default function ChickenPage() {
           height: 34px;
           transform: translate(-50%, -50%);
           border-radius: 60% 40% 55% 45% / 62% 62% 38% 38%;
-          background:
-            radial-gradient(circle at 50% 75%, rgba(254,215,170,0.95) 0%, rgba(249,115,22,0.90) 34%, rgba(239,68,68,0.40) 62%, rgba(239,68,68,0.0) 78%);
-          filter: drop-shadow(0 0 10px rgba(249,115,22,0.45));
+          background: radial-gradient(
+            circle at 50% 75%,
+            rgba(254, 215, 170, 0.95) 0%,
+            rgba(249, 115, 22, 0.9) 34%,
+            rgba(239, 68, 68, 0.4) 62%,
+            rgba(239, 68, 68, 0) 78%
+          );
+          filter: drop-shadow(0 0 10px rgba(249, 115, 22, 0.45));
           animation: chicken-flame-flicker 520ms ease-in-out infinite;
           opacity: 0.95;
         }
@@ -1266,7 +1479,7 @@ export default function ChickenPage() {
           width: 30px;
           height: 40px;
           opacity: 0.55;
-          filter: blur(0.2px) drop-shadow(0 0 12px rgba(249,115,22,0.35));
+          filter: blur(0.2px) drop-shadow(0 0 12px rgba(249, 115, 22, 0.35));
           animation-duration: 650ms;
           transform: translate(-50%, -45%) scale(1.08);
         }
@@ -1274,16 +1487,32 @@ export default function ChickenPage() {
           position: absolute;
           inset: -6px;
           border-radius: 9999px;
-          background-image:
-            radial-gradient(circle, rgba(254,215,170,0.9) 0 1.2px, transparent 1.3px),
-            radial-gradient(circle, rgba(249,115,22,0.75) 0 1.1px, transparent 1.2px),
-            radial-gradient(circle, rgba(239,68,68,0.55) 0 1px, transparent 1.1px);
+          background-image: radial-gradient(
+              circle,
+              rgba(254, 215, 170, 0.9) 0 1.2px,
+              transparent 1.3px
+            ),
+            radial-gradient(
+              circle,
+              rgba(249, 115, 22, 0.75) 0 1.1px,
+              transparent 1.2px
+            ),
+            radial-gradient(
+              circle,
+              rgba(239, 68, 68, 0.55) 0 1px,
+              transparent 1.1px
+            );
           background-size: 14px 14px, 18px 18px, 22px 22px;
           background-position: 0 0, 6px 10px, 10px 4px;
           filter: blur(0.2px);
           opacity: 0.65;
           animation: chicken-flame-sparks 900ms linear infinite;
-          mask-image: radial-gradient(circle at 50% 65%, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0) 70%);
+          mask-image: radial-gradient(
+            circle at 50% 65%,
+            rgba(0, 0, 0, 1) 0%,
+            rgba(0, 0, 0, 0.85) 35%,
+            rgba(0, 0, 0, 0) 70%
+          );
         }
         .chicken-flame-smoke {
           position: absolute;
@@ -1293,104 +1522,210 @@ export default function ChickenPage() {
           height: 70px;
           transform: translate(-50%, -60%);
           border-radius: 9999px;
-          background: radial-gradient(circle at 50% 65%, rgba(15,33,46,0.0) 0%, rgba(15,33,46,0.0) 35%, rgba(15,33,46,0.35) 62%, rgba(15,33,46,0.0) 78%);
+          background: radial-gradient(
+            circle at 50% 65%,
+            rgba(15, 33, 46, 0) 0%,
+            rgba(15, 33, 46, 0) 35%,
+            rgba(15, 33, 46, 0.35) 62%,
+            rgba(15, 33, 46, 0) 78%
+          );
           filter: blur(6px);
           opacity: 0.55;
           animation: chicken-flame-smoke 900ms ease-in-out infinite;
           pointer-events: none;
         }
         @keyframes chicken-flame-flicker {
-          0% { transform: translate(-50%, -50%) rotate(-2deg) scale(0.96); }
-          35% { transform: translate(-50%, -54%) rotate(2deg) scale(1.06); }
-          70% { transform: translate(-50%, -48%) rotate(-1deg) scale(0.99); }
-          100% { transform: translate(-50%, -50%) rotate(-2deg) scale(0.96); }
+          0% {
+            transform: translate(-50%, -50%) rotate(-2deg) scale(0.96);
+          }
+          35% {
+            transform: translate(-50%, -54%) rotate(2deg) scale(1.06);
+          }
+          70% {
+            transform: translate(-50%, -48%) rotate(-1deg) scale(0.99);
+          }
+          100% {
+            transform: translate(-50%, -50%) rotate(-2deg) scale(0.96);
+          }
         }
         @keyframes chicken-flame-glow {
-          0% { transform: scale(0.92); opacity: 0.7; }
-          50% { transform: scale(1.06); opacity: 1; }
-          100% { transform: scale(0.92); opacity: 0.7; }
+          0% {
+            transform: scale(0.92);
+            opacity: 0.7;
+          }
+          50% {
+            transform: scale(1.06);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(0.92);
+            opacity: 0.7;
+          }
         }
         @keyframes chicken-flame-sparks {
-          0% { background-position: 0 16px, 6px 22px, 10px 18px; }
-          100% { background-position: 0 -10px, 6px -16px, 10px -12px; }
+          0% {
+            background-position: 0 16px, 6px 22px, 10px 18px;
+          }
+          100% {
+            background-position: 0 -10px, 6px -16px, 10px -12px;
+          }
         }
         @keyframes chicken-flame-smoke {
-          0% { transform: translate(-50%, -55%) scale(0.98); opacity: 0.35; }
-          50% { transform: translate(-50%, -70%) scale(1.06); opacity: 0.6; }
-          100% { transform: translate(-50%, -80%) scale(1.12); opacity: 0.25; }
+          0% {
+            transform: translate(-50%, -55%) scale(0.98);
+            opacity: 0.35;
+          }
+          50% {
+            transform: translate(-50%, -70%) scale(1.06);
+            opacity: 0.6;
+          }
+          100% {
+            transform: translate(-50%, -80%) scale(1.12);
+            opacity: 0.25;
+          }
         }
         @keyframes chicken-hop-keyframes {
-          0% { transform: translateY(0); }
-          50% { transform: translateY(-6px); }
-          100% { transform: translateY(0); }
+          0% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-6px);
+          }
+          100% {
+            transform: translateY(0);
+          }
         }
         .chicken-hop {
           animation: chicken-hop-keyframes 0.9s ease-in-out infinite;
         }
 
         @keyframes chicken-bob-keyframes {
-          0% { transform: translateY(0) rotate(0deg); }
-          35% { transform: translateY(-4px) rotate(-1deg); }
-          70% { transform: translateY(0) rotate(1deg); }
-          100% { transform: translateY(0) rotate(0deg); }
+          0% {
+            transform: translateY(0) rotate(0deg);
+          }
+          35% {
+            transform: translateY(-4px) rotate(-1deg);
+          }
+          70% {
+            transform: translateY(0) rotate(1deg);
+          }
+          100% {
+            transform: translateY(0) rotate(0deg);
+          }
         }
         .chicken-bob {
           animation: chicken-bob-keyframes 520ms ease-in-out infinite;
         }
         @keyframes chicken-flat-keyframes {
-          0% { transform: scale(1) translateY(0); }
-          70% { transform: scaleX(1.32) scaleY(0.30) translateY(17px); }
-          100% { transform: scaleX(1.22) scaleY(0.38) translateY(15px); }
+          0% {
+            transform: scale(1) translateY(0);
+          }
+          70% {
+            transform: scaleX(1.32) scaleY(0.3) translateY(17px);
+          }
+          100% {
+            transform: scaleX(1.22) scaleY(0.38) translateY(15px);
+          }
         }
         .chicken-flat {
           transform-origin: center bottom;
           animation: chicken-flat-keyframes 160ms ease-out both;
         }
         @keyframes chicken-flap-keyframes {
-          0% { transform: rotate(0deg) translateY(0); }
-          50% { transform: rotate(-10deg) translateY(-2px); }
-          100% { transform: rotate(0deg) translateY(0); }
+          0% {
+            transform: rotate(0deg) translateY(0);
+          }
+          50% {
+            transform: rotate(-10deg) translateY(-2px);
+          }
+          100% {
+            transform: rotate(0deg) translateY(0);
+          }
         }
         .chicken-flap {
           transform-origin: right bottom;
           animation: chicken-flap-keyframes 420ms ease-in-out infinite;
         }
         @keyframes chicken-crash-keyframes {
-          0% { transform: rotate(0deg) translateY(0); opacity: 1; }
-          100% { transform: rotate(80deg) translateY(8px); opacity: 0.9; }
+          0% {
+            transform: rotate(0deg) translateY(0);
+            opacity: 1;
+          }
+          100% {
+            transform: rotate(80deg) translateY(8px);
+            opacity: 0.9;
+          }
         }
         .chicken-crash {
           animation: chicken-crash-keyframes 280ms ease-out both;
         }
         @keyframes chicken-sparkle-keyframes {
-          0% { transform: scale(0.7); opacity: 0; }
-          35% { opacity: 0.9; }
-          100% { transform: scale(1.25); opacity: 0; }
+          0% {
+            transform: scale(0.7);
+            opacity: 0;
+          }
+          35% {
+            opacity: 0.9;
+          }
+          100% {
+            transform: scale(1.25);
+            opacity: 0;
+          }
         }
         .chicken-sparkle {
           border-radius: 9999px;
-          box-shadow: 0 0 0 0 rgba(0,231,1,0.0);
+          box-shadow: 0 0 0 0 rgba(0, 231, 1, 0);
           animation: chicken-sparkle-keyframes 260ms ease-out both;
-          background: radial-gradient(circle, rgba(0,231,1,0.35) 0%, rgba(0,231,1,0) 60%);
+          background: radial-gradient(
+            circle,
+            rgba(0, 231, 1, 0.35) 0%,
+            rgba(0, 231, 1, 0) 60%
+          );
           filter: blur(0.2px);
         }
 
         @keyframes chicken-killcar-drive-down {
-          0% { transform: translate(-50%, -32px); opacity: 0; }
-          8% { opacity: 0.98; }
-          85% { opacity: 0.95; }
-          100% { transform: translate(-50%, var(--drive-distance-y)); opacity: 0; }
+          0% {
+            transform: translate(-50%, -32px);
+            opacity: 0;
+          }
+          8% {
+            opacity: 0.98;
+          }
+          85% {
+            opacity: 0.95;
+          }
+          100% {
+            transform: translate(-50%, var(--drive-distance-y));
+            opacity: 0;
+          }
         }
         .chicken-killcar {
           z-index: 120;
           animation-name: chicken-killcar-drive-down;
-          filter: drop-shadow(0 10px 14px rgba(0,0,0,0.55));
+          filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55));
         }
         @keyframes chicken-burn-overlay-keyframes {
-          0% { opacity: 0; transform: scale(0.85) translateY(2px); filter: blur(0px); }
-          12% { opacity: 1; transform: scale(1.05) translateY(-2px); filter: blur(0px); }
-          70% { opacity: 0.85; transform: scale(1.08) translateY(-6px); filter: blur(0px); }
-          100% { opacity: 0; transform: scale(1.12) translateY(-10px); filter: blur(0.2px); }
+          0% {
+            opacity: 0;
+            transform: scale(0.85) translateY(2px);
+            filter: blur(0px);
+          }
+          12% {
+            opacity: 1;
+            transform: scale(1.05) translateY(-2px);
+            filter: blur(0px);
+          }
+          70% {
+            opacity: 0.85;
+            transform: scale(1.08) translateY(-6px);
+            filter: blur(0px);
+          }
+          100% {
+            opacity: 0;
+            transform: scale(1.12) translateY(-10px);
+            filter: blur(0.2px);
+          }
         }
         .chicken-burn-overlay {
           animation: chicken-burn-overlay-keyframes 720ms ease-out both;
@@ -1428,8 +1763,9 @@ export default function ChickenPage() {
         }
 
         .chicken-car-barrier-crash {
-          transition: opacity 260ms ease, transform 240ms cubic-bezier(0.2,0.9,0.2,1), filter 260ms ease;
-          filter: drop-shadow(0 10px 14px rgba(0,0,0,0.55));
+          transition: opacity 260ms ease,
+            transform 240ms cubic-bezier(0.2, 0.9, 0.2, 1), filter 260ms ease;
+          filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55));
         }
       `}</style>
     </div>

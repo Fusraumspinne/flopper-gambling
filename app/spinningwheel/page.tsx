@@ -232,8 +232,8 @@ function ringSlicePath(cx: number, cy: number, rOuter: number, rInner: number, s
 export default function SpinningWheelPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
 
-  const [betAmount, setBetAmount] = useState<number>(10);
-  const [betInput, setBetInput] = useState<string>("10");
+  const [betAmount, setBetAmount] = useState<number>(100);
+  const [betInput, setBetInput] = useState<string>("100");
 
   const [risk, setRisk] = useState<RiskLevel>("low");
   const [segmentsCount, setSegmentsCount] = useState<SegmentCount>(10);

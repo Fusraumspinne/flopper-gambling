@@ -14,8 +14,8 @@ export default function DicePage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
     useWallet();
 
-  const [betAmount, setBetAmount] = useState<number>(10);
-  const [betInput, setBetInput] = useState<string>("10");
+  const [betAmount, setBetAmount] = useState<number>(100);
+  const [betInput, setBetInput] = useState<string>("100");
 
   const [sliderValue, setSliderValue] = useState<number>(50);
   const [thresholdInput, setThresholdInput] = useState<string>("50.00");
@@ -252,7 +252,7 @@ export default function DicePage() {
         <button
           onClick={rollDice}
           disabled={gameState === "rolling"}
-          className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-4 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {gameState === "rolling" ? (
             <Refresh className="animate-spin" />
