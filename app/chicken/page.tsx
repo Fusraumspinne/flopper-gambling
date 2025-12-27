@@ -117,7 +117,13 @@ function Manhole({ active, fire }: { active: boolean; fire: boolean }) {
       </div>
       {fire && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <LocalFireDepartment className="chicken-fire" sx={{ fontSize: 26, color: "#f97316" }} />
+          <div className="chicken-flame-wrap" aria-hidden>
+            <div className="chicken-flame-glow" />
+            <div className="chicken-flame-sparks" />
+            <div className="chicken-flame" />
+            <div className="chicken-flame chicken-flame--back" />
+          </div>
+          <LocalFireDepartment className="chicken-fire" sx={{ fontSize: 18, color: "#fed7aa" }} />
         </div>
       )}
     </div>
@@ -633,7 +639,7 @@ export default function ChickenPage() {
 
   useEffect(() => {
     const riskFactor = risk === "low" ? 1 : risk === "medium" ? 1.2 : risk === "high" ? 1.45 : 1.7;
-    const intervalMs = Math.round(1300 / riskFactor);
+    const intervalMs = Math.round(1100 / riskFactor);
 
     const id = window.setInterval(() => {
       if (steps.length <= 0) return;
@@ -646,7 +652,7 @@ export default function ChickenPage() {
         const max = steps.length;
         if (min > max) return cleaned;
 
-        const spawnCount = Math.random() < 0.55 ? 0 : Math.random() < 0.85 ? 1 : 2;
+        const spawnCount = Math.random() < 0.40 ? 0 : Math.random() < 0.80 ? 1 : 2;
         const next = [...cleaned];
 
         for (let i = 0; i < spawnCount; i++) {
@@ -762,7 +768,7 @@ export default function ChickenPage() {
 
   return (
     <div className="p-1 sm:p-2 lg:p-3 max-w-350 mx-auto flex flex-col lg:flex-row gap-3 lg:gap-6 overflow-x-hidden">
-      <div className="w-full lg:w-87.5 flex flex-col gap-4 bg-[#0f212e] p-3 sm:p-4 rounded-xl h-fit">
+      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Einsatz</label>
           <div className="relative">
@@ -816,7 +822,7 @@ export default function ChickenPage() {
                 key={level}
                 onClick={() => setRisk(level)}
                 disabled={gameState === "walking"}
-                className={`flex-1 py-2 text-xs font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   risk === level ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
                 }`}
               >
@@ -1105,7 +1111,14 @@ export default function ChickenPage() {
 
                   {gameState === "crashed" && deathAnim?.type === "fire" && (
                     <div className="absolute inset-0 flex items-center justify-center chicken-burn-overlay">
-                      <LocalFireDepartment className="chicken-fire" sx={{ fontSize: 34, color: "#f97316" }} />
+                      <div className="chicken-flame-wrap chicken-flame-wrap--death" aria-hidden>
+                        <div className="chicken-flame-glow" />
+                        <div className="chicken-flame-sparks" />
+                        <div className="chicken-flame-smoke" />
+                        <div className="chicken-flame" />
+                        <div className="chicken-flame chicken-flame--back" />
+                      </div>
+                      <LocalFireDepartment className="chicken-fire chicken-fire--death" sx={{ fontSize: 40, color: "#fff7ed" }} />
                     </div>
                   )}
                 </div>
@@ -1203,6 +1216,108 @@ export default function ChickenPage() {
         }
         .chicken-fire {
           animation: chicken-fire-pulse 1s ease-in-out infinite;
+        }
+        .chicken-fire--death {
+          animation-duration: 720ms;
+          filter: drop-shadow(0 0 10px rgba(249,115,22,0.55));
+          opacity: 0.95;
+        }
+
+        /* richer manhole fire effect (glow + flame + sparks) */
+        .chicken-flame-wrap {
+          position: absolute;
+          width: 54px;
+          height: 54px;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -55%);
+          pointer-events: none;
+          z-index: 1;
+        }
+        .chicken-flame-wrap--death {
+          width: 74px;
+          height: 74px;
+          transform: translate(-50%, -60%);
+        }
+        .chicken-flame-glow {
+          position: absolute;
+          inset: -10px;
+          border-radius: 9999px;
+          background: radial-gradient(circle at 50% 60%, rgba(249,115,22,0.45) 0%, rgba(249,115,22,0.22) 35%, rgba(239,68,68,0.0) 70%);
+          filter: blur(6px);
+          animation: chicken-flame-glow 720ms ease-in-out infinite;
+          opacity: 0.95;
+        }
+        .chicken-flame {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 26px;
+          height: 34px;
+          transform: translate(-50%, -50%);
+          border-radius: 60% 40% 55% 45% / 62% 62% 38% 38%;
+          background:
+            radial-gradient(circle at 50% 75%, rgba(254,215,170,0.95) 0%, rgba(249,115,22,0.90) 34%, rgba(239,68,68,0.40) 62%, rgba(239,68,68,0.0) 78%);
+          filter: drop-shadow(0 0 10px rgba(249,115,22,0.45));
+          animation: chicken-flame-flicker 520ms ease-in-out infinite;
+          opacity: 0.95;
+        }
+        .chicken-flame--back {
+          width: 30px;
+          height: 40px;
+          opacity: 0.55;
+          filter: blur(0.2px) drop-shadow(0 0 12px rgba(249,115,22,0.35));
+          animation-duration: 650ms;
+          transform: translate(-50%, -45%) scale(1.08);
+        }
+        .chicken-flame-sparks {
+          position: absolute;
+          inset: -6px;
+          border-radius: 9999px;
+          background-image:
+            radial-gradient(circle, rgba(254,215,170,0.9) 0 1.2px, transparent 1.3px),
+            radial-gradient(circle, rgba(249,115,22,0.75) 0 1.1px, transparent 1.2px),
+            radial-gradient(circle, rgba(239,68,68,0.55) 0 1px, transparent 1.1px);
+          background-size: 14px 14px, 18px 18px, 22px 22px;
+          background-position: 0 0, 6px 10px, 10px 4px;
+          filter: blur(0.2px);
+          opacity: 0.65;
+          animation: chicken-flame-sparks 900ms linear infinite;
+          mask-image: radial-gradient(circle at 50% 65%, rgba(0,0,0,1) 0%, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0) 70%);
+        }
+        .chicken-flame-smoke {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 70px;
+          height: 70px;
+          transform: translate(-50%, -60%);
+          border-radius: 9999px;
+          background: radial-gradient(circle at 50% 65%, rgba(15,33,46,0.0) 0%, rgba(15,33,46,0.0) 35%, rgba(15,33,46,0.35) 62%, rgba(15,33,46,0.0) 78%);
+          filter: blur(6px);
+          opacity: 0.55;
+          animation: chicken-flame-smoke 900ms ease-in-out infinite;
+          pointer-events: none;
+        }
+        @keyframes chicken-flame-flicker {
+          0% { transform: translate(-50%, -50%) rotate(-2deg) scale(0.96); }
+          35% { transform: translate(-50%, -54%) rotate(2deg) scale(1.06); }
+          70% { transform: translate(-50%, -48%) rotate(-1deg) scale(0.99); }
+          100% { transform: translate(-50%, -50%) rotate(-2deg) scale(0.96); }
+        }
+        @keyframes chicken-flame-glow {
+          0% { transform: scale(0.92); opacity: 0.7; }
+          50% { transform: scale(1.06); opacity: 1; }
+          100% { transform: scale(0.92); opacity: 0.7; }
+        }
+        @keyframes chicken-flame-sparks {
+          0% { background-position: 0 16px, 6px 22px, 10px 18px; }
+          100% { background-position: 0 -10px, 6px -16px, 10px -12px; }
+        }
+        @keyframes chicken-flame-smoke {
+          0% { transform: translate(-50%, -55%) scale(0.98); opacity: 0.35; }
+          50% { transform: translate(-50%, -70%) scale(1.06); opacity: 0.6; }
+          100% { transform: translate(-50%, -80%) scale(1.12); opacity: 0.25; }
         }
         @keyframes chicken-hop-keyframes {
           0% { transform: translateY(0); }

@@ -259,7 +259,7 @@ export default function DragonTowerPage() {
 
   return (
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-4 sm:p-6 rounded-xl h-fit">
+      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -315,7 +315,7 @@ export default function DragonTowerPage() {
                 key={lvl}
                 onClick={() => changeRiskLevel(lvl)}
                 disabled={roundState === "active" || isBusy}
-                className={`flex-1 py-2 text-xs font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   riskLevel === lvl
                     ? "bg-[#213743] text-white shadow-sm"
                     : "text-[#b1bad3] hover:text-white"

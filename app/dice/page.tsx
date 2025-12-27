@@ -149,7 +149,7 @@ export default function DicePage() {
 
   return (
     <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-87.5 flex flex-col gap-6 bg-[#0f212e] p-4 sm:p-6 rounded-xl h-fit">
+      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <div className="flex justify-between">
             <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">

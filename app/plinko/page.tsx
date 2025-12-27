@@ -199,6 +199,38 @@ export default function PlinkoPage() {
   const ballsRef = useRef<Ball[]>([]);
   const lastTimeRef = useRef<number>(0);
 
+  const canvasDpiRef = useRef({ cssW: 0, cssH: 0, dpr: 1 });
+
+  const syncCanvasDpi = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const cssW = Math.max(0, rect.width);
+    const cssH = Math.max(0, rect.height);
+    if (cssW === 0 || cssH === 0) return;
+
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    const nextW = Math.round(cssW * dpr);
+    const nextH = Math.round(cssH * dpr);
+
+    const sizeChanged = canvas.width !== nextW || canvas.height !== nextH;
+    const metaChanged =
+      canvasDpiRef.current.cssW !== cssW ||
+      canvasDpiRef.current.cssH !== cssH ||
+      canvasDpiRef.current.dpr !== dpr;
+
+    if (!sizeChanged && !metaChanged) return;
+
+    canvasDpiRef.current = { cssW, cssH, dpr };
+    canvas.width = nextW;
+    canvas.height = nextH;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }, []);
+
   const dropBall = () => {
     if (betAmount <= 0) return;
     if (betAmount > balance) return;
@@ -233,6 +265,8 @@ export default function PlinkoPage() {
 
   const draw = useCallback(
     (time: number) => {
+      syncCanvasDpi();
+
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
@@ -241,8 +275,8 @@ export default function PlinkoPage() {
       const deltaTime = time - lastTimeRef.current;
       lastTimeRef.current = time;
 
-      const width = canvas.width;
-      const height = canvas.height;
+      const width = canvasDpiRef.current.cssW || canvas.clientWidth;
+      const height = canvasDpiRef.current.cssH || canvas.clientHeight;
       const centerX = width / 2;
 
       const paddingTop = 48;
@@ -385,8 +419,29 @@ export default function PlinkoPage() {
 
       ballsRef.current = nextBalls;
     },
-    [rows, risk, addToBalance]
+    [rows, risk, addToBalance, syncCanvasDpi]
   );
+
+  useEffect(() => {
+    syncCanvasDpi();
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onResize = () => syncCanvasDpi();
+    window.addEventListener("resize", onResize);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => syncCanvasDpi());
+      ro.observe(canvas);
+    }
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+      if (ro) ro.disconnect();
+    };
+  }, [syncCanvasDpi]);
 
   useEffect(() => {
     if (autoTimerRef.current) {
@@ -421,7 +476,7 @@ export default function PlinkoPage() {
 
   return (
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-[350px] flex flex-col gap-6 bg-[#0f212e] p-4 sm:p-6 rounded-xl h-fit">
+      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -478,7 +533,7 @@ export default function PlinkoPage() {
                 key={level}
                 onClick={() => !isDropping && setRisk(level)}
                 disabled={isDropping}
-                className={`flex-1 py-2 text-xs font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   risk === level
                     ? "bg-[#213743] text-white shadow-sm"
                     : "text-[#b1bad3] hover:text-white"
@@ -530,7 +585,7 @@ export default function PlinkoPage() {
         )}
       </div>
 
-      <div className="flex-1 bg-[#0f212e] p-4 sm:p-6 rounded-xl min-h-[400px] sm:min-h-[600px] flex flex-col items-center justify-center relative overflow-hidden">
+      <div className="flex-1 bg-[#0f212e] p-4 sm:p-6 rounded-xl min-h-[400px] sm:min-h-[600px] flex flex-col items-stretch justify-center relative overflow-hidden">
         <div className="flex sm:flex-col gap-2 absolute top-4 right-4 sm:top-1/2 sm:-translate-y-1/2 z-10 max-w-[200px] flex-wrap justify-end sm:justify-center">
           {history.map((mult, i) => (
             <div
@@ -547,7 +602,7 @@ export default function PlinkoPage() {
           ref={canvasRef}
           width={800}
           height={600}
-          className="w-full h-full object-contain max-w-[800px]"
+          className="w-full h-auto"
         />
       </div>
     </div>
