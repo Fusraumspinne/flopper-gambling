@@ -39,6 +39,8 @@ export default function LimboPage() {
   const [lastWin, setLastWin] = useState<number>(0);
   const [history, setHistory] = useState<{ mult: number; win: boolean }[]>([]);
 
+  const [resultAnimNonce, setResultAnimNonce] = useState(0);
+
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -93,6 +95,7 @@ export default function LimboPage() {
     setGameState("rolling");
     setRolledMultiplier(null);
     setRollingDisplayMultiplier(1);
+    setResultAnimNonce((n) => n + 1);
 
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
@@ -137,9 +140,11 @@ export default function LimboPage() {
       addToBalance(payout);
       setLastWin(payout);
       setGameState("won");
+      setResultAnimNonce((n) => n + 1);
     } else {
       finalizePendingLoss();
       setGameState("lost");
+      setResultAnimNonce((n) => n + 1);
     }
   };
 
@@ -232,15 +237,31 @@ export default function LimboPage() {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-8 relative h-[400px] sm:h-[600px] overflow-hidden">
-        
+
+        {gameState === "rolling" && (
+          <>
+            <div className="limbo-roll-glow" />
+          </>
+        )}
+
+        {gameState === "won" && <div className="limbo-win-flash" />}
+        {gameState === "lost" && <div className="limbo-lose-flash" />}
+
         <div className="relative z-10 flex flex-col items-center">
-           <div className={`text-[4rem] sm:text-[6rem] md:text-[8rem] lg:text-[10rem] font-black font-mono leading-none transition-all duration-300 ${
-              gameState === "won" ? "text-[#00e701] drop-shadow-[0_0_30px_rgba(0,231,1,0.4)] scale-110" :
-              gameState === "lost" ? "text-[#ef4444] drop-shadow-[0_0_30px_rgba(239,68,68,0.4)]" :
-              "text-white"
-           }`}>
-              {shownMultiplier === null ? "1.00x" : `${formatMultiplier(shownMultiplier)}x`}
-           </div>
+          <div
+            key={resultAnimNonce}
+            className={`text-[4rem] sm:text-[6rem] md:text-[8rem] lg:text-[10rem] font-black font-mono leading-none transition-all duration-300 ${
+              gameState === "rolling"
+                ? "text-white animate-limbo-multiplier-rolling"
+                : gameState === "won"
+                ? "text-[#00e701] drop-shadow-[0_0_30px_rgba(0,231,1,0.4)] scale-110 animate-limbo-win-pop"
+                : gameState === "lost"
+                ? "text-[#ef4444] drop-shadow-[0_0_30px_rgba(239,68,68,0.4)] animate-limbo-lose-shake"
+                : "text-white"
+            }`}
+          >
+            {shownMultiplier === null ? "1.00x" : `${formatMultiplier(shownMultiplier)}x`}
+          </div>
         </div>
        
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
@@ -258,7 +279,14 @@ export default function LimboPage() {
         </div>
         
         {gameState === "rolling" && (
-          <div className="absolute inset-0 bg-radial-gradient from-[#2f4553]/20 to-transparent animate-pulse pointer-events-none"></div>
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(circle at 50% 55%, rgba(47,69,83,0.22) 0%, rgba(15,33,46,0.0) 68%)",
+              opacity: 0.85,
+            }}
+          />
         )}
 
       </div>

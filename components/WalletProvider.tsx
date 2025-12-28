@@ -8,6 +8,13 @@ type LiveStatsPoint = {
   net: number;
 };
 
+function normalizeMoney(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  // Round to cents and avoid -0.
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+  return Object.is(rounded, -0) ? 0 : rounded;
+}
+
 export type LiveStatsState = {
   startedAt: number;
   net: number;
@@ -51,6 +58,7 @@ interface WalletContextType {
   currentGameId: GameKey;
   resetLiveStats: (gameId?: GameKey) => void;
   finalizePendingLoss: () => void;
+  lastBetAt: number | null;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -105,7 +113,7 @@ function buildAllAggregate(map: LiveStatsByGame): LiveStatsState {
     if (!isValidLiveStats(stats)) continue;
 
     startedAt = Math.min(startedAt, stats.startedAt);
-    wagered += stats.wagered;
+    wagered = normalizeMoney(wagered + stats.wagered);
     wins += stats.wins;
     losses += stats.losses;
 
@@ -125,14 +133,14 @@ function buildAllAggregate(map: LiveStatsByGame): LiveStatsState {
   let net = 0;
   const history: LiveStatsPoint[] = [{ t: startedAt, net }];
   for (const ev of events) {
-    net += ev.delta;
+    net = normalizeMoney(net + ev.delta);
     history.push({ t: ev.t, net });
   }
 
   return {
     startedAt,
-    net,
-    wagered,
+    net: normalizeMoney(net),
+    wagered: normalizeMoney(wagered),
     wins,
     losses,
     history: history.length > 0 ? history : [{ t: startedAt, net: 0 }],
@@ -153,11 +161,12 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const pendingBetsRef = useRef<number[]>([]);
   const pathname = usePathname();
   const currentGameId = useMemo(() => deriveGameId(pathname ?? "/"), [pathname]);
+  const [lastBetAt, setLastBetAt] = useState<number | null>(null);
 
   useEffect(() => {
     const storedBalance = localStorage.getItem("flopper_balance");
     if (storedBalance) {
-      setBalance(parseFloat(storedBalance));
+      setBalance(normalizeMoney(parseFloat(storedBalance)));
     } else {
       setBalance(1000.0);
       localStorage.setItem("flopper_balance", "1000.00");
@@ -183,10 +192,12 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
           if (isValidLiveStats(maybe)) {
             next[key as GameKey] = {
               ...maybe,
+              net: normalizeMoney(maybe.net),
+              wagered: normalizeMoney(maybe.wagered),
               history:
                 maybe.history.length > 0
-                  ? maybe.history.map((p) => ({ t: p.t, net: p.net }))
-                  : [{ t: Date.now(), net: maybe.net }],
+                  ? maybe.history.map((p) => ({ t: p.t, net: normalizeMoney(p.net) }))
+                  : [{ t: Date.now(), net: normalizeMoney(maybe.net) }],
             };
           }
         }
@@ -207,7 +218,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem("flopper_balance", balance.toFixed(2));
+      localStorage.setItem("flopper_balance", normalizeMoney(balance).toFixed(2));
     }
   }, [balance, isLoaded]);
 
@@ -234,20 +245,22 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const applyNetChange = (roundNet: number) => {
-    if (!Number.isFinite(roundNet) || roundNet === 0) return;
+    const delta = normalizeMoney(roundNet);
+    if (delta === 0) return;
     updateCurrentAndAll((prev, now) => {
-      const nextNet = prev.net + roundNet;
+      const nextNet = normalizeMoney(prev.net + delta);
       const nextHistory = [...prev.history, { t: now, net: nextNet }];
       return { ...prev, net: nextNet, history: nextHistory };
     });
   };
 
   const settleBetWithPayout = (payout: number) => {
-    if (!Number.isFinite(payout) || payout <= 0) return;
+    const normalizedPayout = normalizeMoney(payout);
+    if (normalizedPayout <= 0) return;
     const bet = pendingBetsRef.current.shift();
     if (typeof bet !== "number") return;
 
-    const roundNet = payout - bet;
+    const roundNet = normalizeMoney(normalizedPayout - bet);
     if (roundNet > 0) {
       updateCurrentAndAll((s) => ({ ...s, wins: s.wins + 1 }));
     } else if (roundNet < 0) {
@@ -260,7 +273,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     const bet = pendingBetsRef.current.shift();
     if (typeof bet !== "number") return;
     updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
-    applyNetChange(-bet);
+    applyNetChange(-normalizeMoney(bet));
   };
 
   const resetLiveStats = (gameId: GameKey = currentGameId) => {
@@ -283,23 +296,30 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const addToBalance = (amount: number) => {
-    if (!Number.isFinite(amount) || amount <= 0) return;
-    setBalance((prev) => prev + amount);
+    const a = normalizeMoney(amount);
+    if (a <= 0) return;
+    setBalance((prev) => normalizeMoney(prev + a));
 
     // If this is a game payout, settle one pending bet to count win/loss.
-    settleBetWithPayout(amount);
+    settleBetWithPayout(a);
   };
 
   const subtractFromBalance = (amount: number) => {
-    if (!Number.isFinite(amount) || amount <= 0) return;
+    const a = normalizeMoney(amount);
+    if (a <= 0) return;
     // Bets should not affect net until the round is settled (payout or loss).
     // IMPORTANT: avoid side-effects inside the state-updater (React dev/StrictMode may invoke it twice).
     // All games already check `betAmount > balance` before calling this, so we can treat `amount` as the bet.
-    if (amount > balance) return;
-    pendingBetsRef.current.push(amount);
-    setBalance((prev) => prev - amount);
+    if (a > balance) return;
+    pendingBetsRef.current.push(a);
+    setBalance((prev) => normalizeMoney(prev - a));
 
-    updateCurrentAndAll((s) => ({ ...s, wagered: s.wagered + amount }));
+    // record last bet timestamp for activity tracking
+    try {
+      setLastBetAt(Date.now());
+    } catch {}
+
+    updateCurrentAndAll((s) => ({ ...s, wagered: normalizeMoney(s.wagered + a) }));
   };
 
   if (!isLoaded) {
@@ -319,6 +339,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         currentGameId,
         resetLiveStats,
         finalizePendingLoss,
+        lastBetAt,
       }}
     >
       {children}

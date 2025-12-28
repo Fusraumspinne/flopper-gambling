@@ -129,9 +129,13 @@ export default function PumpPage() {
 
   const [plannedSafeSteps, setPlannedSafeSteps] = useState<number | null>(null);
 
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
+  const resultTimeoutRef = useRef<number | null>(null);
+
   const [scale, setScale] = useState(1);
   const [isPumping, setIsPumping] = useState(false);
   const [hasPumped, setHasPumped] = useState(false);
+  const [isFlyingAway, setIsFlyingAway] = useState(false);
 
   const currentData = GAME_DATA[difficulty];
   const currentStep = currentData[currentStepIndex];
@@ -169,6 +173,15 @@ export default function PumpPage() {
     }
   }, [currentStepIndex, gameState]);
 
+  useEffect(() => {
+    return () => {
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const startGame = () => {
     if (balance < betAmount) {
       return;
@@ -176,6 +189,7 @@ export default function PumpPage() {
     if (gameState === "playing") return;
 
     subtractFromBalance(betAmount);
+    setIsFlyingAway(false);
     setGameState("playing");
     setCurrentStepIndex(0);
     setLastWin(0);
@@ -198,6 +212,12 @@ export default function PumpPage() {
     setHasPumped(false);
     setScale(1);
     setPlannedSafeSteps(null);
+    setIsFlyingAway(false);
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+    setResultFx(null);
   };
 
   const changeDifficulty = (level: Difficulty) => {
@@ -209,12 +229,16 @@ export default function PumpPage() {
   const pump = () => {
     if (gameState !== "playing") return;
     if (!nextStep) return;
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+    setResultFx("rolling");
 
     setHasPumped(true);
 
     setIsPumping(true);
 
-    // Use the precomputed single-roll safe limit (cumulative probabilities).
     const safeLimit = plannedSafeSteps ?? currentData.length;
     const nextIndex = currentStepIndex + 1;
 
@@ -224,8 +248,12 @@ export default function PumpPage() {
         setCurrentStepIndex((prev) => prev + 1);
         setScale((prev) => prev + 0.1);
       } else {
+        setIsFlyingAway(false);
         setGameState("popped");
         finalizePendingLoss();
+        // popped -> red flash
+        setResultFx("lose");
+        resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
       }
     }, 300);
   };
@@ -236,11 +264,31 @@ export default function PumpPage() {
     addToBalance(potentialWin);
     setLastWin(potentialWin);
     setGameState("cashed_out");
+    setIsFlyingAway(true);
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+    setResultFx("win");
+    resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
+    window.setTimeout(() => {
+      setIsFlyingAway(false);
+      setCurrentStepIndex(0);
+      setHasPumped(false);
+      setPlannedSafeSteps(null);
+    }, 900);
   };
 
+  const isDeflated = !hasPumped && gameState !== "popped";
+
+  const balloonBaseScale = isDeflated ? 0.62 : 1 + currentStepIndex * 0.055;
+
+  const difficultyIndex = (["Low", "Medium", "High", "Expert"] as Difficulty[]).indexOf(difficulty);
+  const stageColors = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6"];
+
   return (
-    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+    <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
+      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -364,7 +412,20 @@ export default function PumpPage() {
         )}
       </div>
 
-      <div className="flex-1 bg-[#0f212e] p-4 sm:p-6 rounded-xl min-h-[400px] sm:min-h-[600px] flex flex-col items-center justify-center relative overflow-hidden">
+      <div className="flex-1 bg-[#0f212e] p-4 sm:p-6 rounded-xl min-h-100 sm:min-h-150 flex flex-col items-center justify-center relative overflow-hidden">
+        {resultFx === "rolling" && <div className="limbo-roll-glow" />}
+        {resultFx === "win" && <div className="limbo-win-flash" />}
+        {resultFx === "lose" && <div className="limbo-lose-flash" />}
+        {resultFx === "rolling" && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(circle at 50% 55%, rgba(47,69,83,0.18) 0%, rgba(15,33,46,0.0) 68%)",
+              opacity: 0.9,
+            }}
+          />
+        )}
         <div className="absolute top-10 text-center z-10">
           <div className="text-6xl font-black text-white drop-shadow-lg">
             {currentStep.multiplier}x
@@ -372,54 +433,98 @@ export default function PumpPage() {
         </div>
 
         <div className="relative w-full h-full flex items-center justify-center">
-          <div
-            className={`transition-transform duration-300 ease-out ${
-              isPumping ? "scale-105" : "scale-100"
-            }`}
-            style={{
-              transform: `scale(${
-                gameState === "popped" ? 1.5 : 1 + currentStepIndex * 0.05
-              })`,
-              opacity: gameState === "popped" ? 0 : 1,
-              transition:
-                gameState === "popped"
-                  ? "opacity 0.1s, transform 0.1s"
-                  : "transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-            }}
-          >
-            <svg
-              width="200"
-              height="240"
-              viewBox="0 0 100 120"
-              className="drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
-            >
-              <path
-                d="M50 0 C 20 0 0 30 0 60 C 0 90 40 110 48 118 L 46 120 L 54 120 L 52 118 C 60 110 100 90 100 60 C 100 30 80 0 50 0 Z"
-                fill={
-                  gameState === "popped"
-                    ? "#ef4444"
-                    : BALLOON_COLORS[difficulty]
-                }
-              />
-              <ellipse
-                cx="30"
-                cy="30"
-                rx="10"
-                ry="20"
-                fill="white"
-                fillOpacity="0.2"
-                transform="rotate(-20 30 30)"
-              />
-            </svg>
+          <div className="relative w-full max-w-205 h-95 sm:h-130">
+            <div className="absolute left-0 right-0 bottom-6 sm:bottom-7 h-9 sm:h-10 bg-[#2f4553] rounded-2xl" />
 
-            <div className="absolute top-[100%] left-1/2 -translate-x-1/2 w-[2px] h-[50px] bg-white/20 origin-top animate-swing"></div>
-          </div>
-
-          {gameState === "popped" && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-[#ef4444] font-black text-4xl">POP!</div>
+            <div className="absolute right-6 sm:right-8 bottom-9 sm:bottom-10 flex items-center gap-2">
+              {stageColors.map((col, idx) => (
+                <div
+                  key={col}
+                  title={["Low", "Medium", "High", "Expert"][idx]}
+                  style={idx === difficultyIndex ? { backgroundColor: col } : undefined}
+                  className={`w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full transition-transform ${
+                    idx === difficultyIndex ? 'scale-110' : 'bg-[#0f212e]'
+                  }`}
+                />
+              ))}
             </div>
-          )}
+
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-6 sm:bottom-7">
+              <div className="absolute left-1/2 -translate-x-1/2 -top-22 sm:-top-24">
+                <div className="w-3 h-22 sm:h-24 bg-[#2f4553] rounded-full" />
+              </div>
+            </div>
+
+            <div className="absolute left-8 sm:left-10 bottom-6 sm:bottom-7">
+              <div className="relative w-28 sm:w-32 h-44 sm:h-48">
+                <div className="absolute bottom-7 left-12 sm:left-14 -translate-x-1/2 w-7 sm:w-8 h-26 sm:h-28 bg-[#2f4553]" />
+
+                <div
+                  className={`absolute left-12 sm:left-14 top-6 sm:top-7 -translate-x-1/2 w-20 sm:w-22 h-6 sm:h-7 bg-[#213743] rounded-md ${isPumping ? "animate-pump-press" : ""}`}
+                />
+              </div>
+            </div>
+
+            <div
+              className={`absolute left-1/2 -translate-x-1/2 bottom-22 sm:bottom-26 flex items-center justify-center ${
+                isFlyingAway && gameState === "cashed_out"
+                  ? "animate-balloon-fly-away"
+                  : ""
+              }`}
+            >
+              <div className="relative">
+                <div className="absolute left-1/2 -translate-x-1/2 top-52.5">
+                  <div className="w-12 h-4 bg-[#213743] rounded-full" />
+                </div>
+
+                <div style={{ transform: `scale(${balloonBaseScale})`, transformOrigin: "50% 100%", transition: "transform 260ms cubic-bezier(0.2,0.9,0.2,1)" }}>
+                  <div
+                    className={
+                      isPumping
+                        ? "animate-balloon-pump"
+                        : gameState === "popped"
+                          ? "animate-balloon-pop"
+                          : ""
+                    }
+                  >
+                    <svg
+                      width="220"
+                      height="260"
+                      viewBox="0 0 100 120"
+                      className="drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
+                      style={{ transformOrigin: "50% 85%" }}
+                    >
+                      <path
+                        d="M50 0 C 20 0 0 30 0 60 C 0 90 40 110 48 118 L 46 120 L 54 120 L 52 118 C 60 110 100 90 100 60 C 100 30 80 0 50 0 Z"
+                        fill={
+                          gameState === "popped"
+                            ? "#ef4444"
+                            : BALLOON_COLORS[difficulty]
+                        }
+                      />
+                      <ellipse
+                        cx="30"
+                        cy="30"
+                        rx="10"
+                        ry="20"
+                        fill="white"
+                        fillOpacity={0.2}
+                        transform="rotate(-20 30 30)"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {gameState === "popped" && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-[#ef4444] font-black text-4xl animate-shake">
+                  POP!
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="w-full mt-4">
@@ -431,7 +536,7 @@ export default function PumpPage() {
                   ref={(el) => {
                     stepRefs.current[idx] = el;
                   }}
-                  className={`min-w-[96px] flex-shrink-0 bg-[#213743] p-2 rounded-md border transition-transform ${
+                  className={`min-w-24 shrink-0 bg-[#213743] p-2 rounded-md border transition-transform ${
                     idx === currentStepIndex
                       ? "border-[#00e701] scale-105"
                       : "border-[#2f4553]"

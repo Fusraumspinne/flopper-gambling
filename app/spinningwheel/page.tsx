@@ -86,6 +86,63 @@ function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const raw = hex.trim();
+  if (!raw.startsWith("#")) return null;
+  const h = raw.slice(1);
+  if (h.length === 3) {
+    const r = Number.parseInt(h[0] + h[0], 16);
+    const g = Number.parseInt(h[1] + h[1], 16);
+    const b = Number.parseInt(h[2] + h[2], 16);
+    if ([r, g, b].some((v) => Number.isNaN(v))) return null;
+    return { r, g, b };
+  }
+  if (h.length === 6) {
+    const r = Number.parseInt(h.slice(0, 2), 16);
+    const g = Number.parseInt(h.slice(2, 4), 16);
+    const b = Number.parseInt(h.slice(4, 6), 16);
+    if ([r, g, b].some((v) => Number.isNaN(v))) return null;
+    return { r, g, b };
+  }
+  return null;
+}
+
+function rgbaFromHex(hex: string, alpha: number) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
+  const a = Math.min(1, Math.max(0, alpha));
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`;
+}
+
+function readElementRotationDeg(el: HTMLElement): number {
+  const t = window.getComputedStyle(el).transform;
+  if (!t || t === "none") return 0;
+
+  if (t.startsWith("matrix(")) {
+    const nums = t
+      .slice(7, -1)
+      .split(",")
+      .map((s) => Number.parseFloat(s.trim()));
+    const a = nums[0] ?? 1;
+    const b = nums[1] ?? 0;
+    const deg = (Math.atan2(b, a) * 180) / Math.PI;
+    return ((deg % 360) + 360) % 360;
+  }
+
+  if (t.startsWith("matrix3d(")) {
+    const nums = t
+      .slice(9, -1)
+      .split(",")
+      .map((s) => Number.parseFloat(s.trim()));
+    const a = nums[0] ?? 1;
+    const b = nums[1] ?? 0;
+    const deg = (Math.atan2(b, a) * 180) / Math.PI;
+    return ((deg % 360) + 360) % 360;
+  }
+
+  return 0;
+}
+
 function formatMultiplierShort(mult: number) {
   if (!Number.isFinite(mult)) return "0";
   const rounded = Number.parseFloat(mult.toFixed(6));
@@ -229,6 +286,13 @@ function ringSlicePath(cx: number, cy: number, rOuter: number, rInner: number, s
   ].join(" ");
 }
 
+function topIndexFromRotation(rotationDeg: number, anglePer: number, len: number) {
+  if (len <= 0 || !Number.isFinite(anglePer) || anglePer <= 0) return 0;
+  const rot = ((rotationDeg % 360) + 360) % 360;
+  const wheelAngleAtPointer = ((360 - rot) % 360 + 360) % 360;
+  return Math.floor(wheelAngleAtPointer / anglePer) % len;
+}
+
 export default function SpinningWheelPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
 
@@ -242,18 +306,39 @@ export default function SpinningWheelPage() {
   const [rotationDeg, setRotationDeg] = useState(0);
   const [lastMultiplier, setLastMultiplier] = useState<number | null>(null);
   const [lastWin, setLastWin] = useState(0);
+  const [lastColor, setLastColor] = useState<string | null>(null);
+  const [topPointerColor, setTopPointerColor] = useState<string | null>(null);
+  const [topPointerIndex, setTopPointerIndex] = useState<number | null>(null);
 
   const [layoutSeed, setLayoutSeed] = useState<number>(() => (Date.now() >>> 0));
 
   const settleTimerRef = useRef<number | null>(null);
+  const wheelRef = useRef<HTMLDivElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastTopIndexRef = useRef<number | null>(null);
+  const resultTimeoutRef = useRef<number | null>(null);
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
 
   useEffect(() => {
     setLayoutSeed((Date.now() + Math.floor(Math.random() * 1_000_000)) >>> 0);
+    setLastMultiplier(null);
+    setLastColor(null);
+    setTopPointerColor(null);
+    setTopPointerIndex(null);
+    if (rafRef.current) {
+      window.cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
   }, [risk, segmentsCount]);
 
   useEffect(() => {
     return () => {
       if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
+      if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -294,6 +379,58 @@ export default function SpinningWheelPage() {
 
   const anglePer = 360 / segments.length;
 
+  useEffect(() => {
+    if (!isSpinning) {
+      setTopPointerColor(null);
+      setTopPointerIndex(null);
+      lastTopIndexRef.current = null;
+      if (rafRef.current) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      return;
+    }
+
+    const tick = () => {
+      const el = wheelRef.current;
+      if (el && segments.length > 0) {
+        const rot = readElementRotationDeg(el);
+
+        const wheelAngleAtPointer = ((360 - rot) % 360 + 360) % 360;
+        const idx = Math.floor(wheelAngleAtPointer / anglePer) % segments.length;
+
+        if (lastTopIndexRef.current !== idx) {
+          lastTopIndexRef.current = idx;
+          setTopPointerColor(segments[idx]?.color ?? null);
+          setTopPointerIndex(idx);
+        }
+      }
+      rafRef.current = window.requestAnimationFrame(tick);
+    };
+
+    rafRef.current = window.requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [anglePer, isSpinning, segments]);
+
+  const showWheelHighlight = !isSpinning && lastMultiplier !== null;
+  const highlightInner = lastColor ? rgbaFromHex(lastColor, 0.55) : null;
+  const highlightOuter = lastColor ? rgbaFromHex(lastColor, 0.35) : null;
+  const wheelShadow =
+    showWheelHighlight && highlightInner && highlightOuter
+      ? `0 0 18px ${highlightInner}, 0 0 54px ${highlightOuter}`
+      : "0 0 18px rgba(0,0,0,0.35)";
+
+  const spinningBehindWheel = isSpinning && topPointerColor ? rgbaFromHex(topPointerColor, 0.22) : null;
+
+  const activeSegmentIndex = isSpinning
+    ? (topPointerIndex ?? topIndexFromRotation(rotationDeg, anglePer, segments.length))
+    : topIndexFromRotation(rotationDeg, anglePer, segments.length);
+
   const canSpin = !isSpinning && betAmount > 0 && betAmount <= balance;
 
   const spin = useCallback(() => {
@@ -302,6 +439,7 @@ export default function SpinningWheelPage() {
     subtractFromBalance(betAmount);
     setLastWin(0);
     setLastMultiplier(null);
+    setLastColor(null);
 
     const chosenIndex = Math.floor(Math.random() * segments.length);
     const chosen = segments[chosenIndex];
@@ -318,11 +456,13 @@ export default function SpinningWheelPage() {
 
     setIsSpinning(true);
     setRotationDeg(nextRotation);
+    setResultFx("rolling");
 
     if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
     settleTimerRef.current = window.setTimeout(() => {
       setIsSpinning(false);
       setLastMultiplier(chosen.multiplier);
+      setLastColor(chosen.color);
 
       const win = betAmount * chosen.multiplier;
       if (chosen.multiplier > 0) {
@@ -331,6 +471,10 @@ export default function SpinningWheelPage() {
       } else {
         finalizePendingLoss();
       }
+      if (resultTimeoutRef.current) clearTimeout(resultTimeoutRef.current);
+      if (chosen.multiplier < 1) setResultFx("lose");
+      else setResultFx("win");
+      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
     }, 4200);
   }, [addToBalance, anglePer, betAmount, canSpin, finalizePendingLoss, rotationDeg, segments, subtractFromBalance]);
 
@@ -339,7 +483,7 @@ export default function SpinningWheelPage() {
 
   return (
     <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
           <div className="relative">
@@ -442,7 +586,7 @@ export default function SpinningWheelPage() {
       </div>
 
       <div className="flex-1 flex flex-col gap-4">
-        <div className="bg-[#0f212e] rounded-xl p-4 sm:p-6">
+        <div className="bg-[#0f212e] rounded-xl p-4 sm:p-6 pt-8 sm:pt-10">
           <div className="max-w-130 w-full mx-auto">
             <div className="relative aspect-square">
               <div className="absolute left-1/2 -translate-x-1/2 -top-3 z-30">
@@ -456,19 +600,37 @@ export default function SpinningWheelPage() {
                 </div>
               </div>
 
-              <div className="absolute inset-0 rounded-full bg-[#0f212e] border border-[#2f4553] shadow-[0_20px_60px_rgba(0,0,0,0.55)]" />
-              <div className="absolute inset-2 rounded-full bg-[#213743] border border-[#2f4553]" />
+                {resultFx === "rolling" && <div className="limbo-roll-glow absolute inset-0 pointer-events-none z-20" />}
+                {resultFx === "win" && <div className="limbo-win-flash absolute inset-0 pointer-events-none z-20" />}
+                {resultFx === "lose" && <div className="limbo-lose-flash absolute inset-0 pointer-events-none z-20" />}
+
+                {resultFx === "rolling" && (
+                  <div
+                    className="absolute inset-0 pointer-events-none z-18"
+                    style={{
+                      background:
+                        "radial-gradient(circle at 50% 55%, rgba(47,69,83,0.22) 0%, rgba(15,33,46,0.0) 68%)",
+                      opacity: 0.85,
+                    }}
+                  />
+                )}
+
+                <div className="absolute inset-0 rounded-full bg-[#0f212e] border border-[#2f4553] shadow-[0_20px_60px_rgba(0,0,0,0.55)]" />
+              <div
+                className="absolute inset-2 rounded-full border border-[#2f4553] transition-colors duration-75"
+                style={{ backgroundColor: spinningBehindWheel ?? "#213743" }}
+              />
 
               <div
-                className={cn(
-                  "absolute inset-3 rounded-full",
-                  isSpinning ? "shadow-[0_0_26px_rgba(0,231,1,0.18)]" : "shadow-[0_0_18px_rgba(0,0,0,0.35)]"
-                )}
+                ref={wheelRef}
+                className={cn("absolute inset-3 rounded-full")}
                 style={{
                   transform: `rotate(${rotationDeg}deg)`,
                   transition: isSpinning
                     ? "transform 4.1s cubic-bezier(0.12, 0.7, 0.12, 1)"
                     : "transform 0.15s ease-out",
+                  boxShadow: wheelShadow,
+                  zIndex: 10,
                 }}
               >
                 <svg viewBox="0 0 200 200" className="w-full h-full rounded-full">
@@ -486,6 +648,7 @@ export default function SpinningWheelPage() {
                       const start = i * anglePer;
                       const end = (i + 1) * anglePer;
                       const path = ringSlicePath(100, 100, 92, 44, start, end);
+                      const isActive = i === activeSegmentIndex;
                       return (
                         <path
                           key={i}
@@ -493,6 +656,12 @@ export default function SpinningWheelPage() {
                           fill={seg.color}
                           stroke="#0f212e"
                           strokeWidth={1.2}
+                          style={{
+                            transform: isActive
+                              ? "translate(100px, 100px) scale(1.05) translate(-100px, -100px)"
+                              : "translate(100px, 100px) scale(1) translate(-100px, -100px)",
+                            transition: "transform 120ms ease-out",
+                          }}
                         />
                       );
                     })}
@@ -526,7 +695,13 @@ export default function SpinningWheelPage() {
 
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30">
                 <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-[#0f212e] border border-[#2f4553] flex flex-col items-center justify-center shadow-[inset_0_0_0_2px_#1a2c38,0_0_22px_rgba(0,0,0,0.55)]">
-                  
+                  {!isSpinning && lastMultiplier !== null && (
+                    <>
+                      <div className="text-2xl sm:text-3xl font-extrabold text-white leading-none">
+                        {formatMultiplierShort(lastMultiplier)}x
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

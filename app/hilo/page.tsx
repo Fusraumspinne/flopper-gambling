@@ -26,6 +26,7 @@ type Rank =
   | "K";
 
 interface Card {
+  id: string;
   suit: Suit;
   rank: Rank;
   value: number;
@@ -54,10 +55,11 @@ const getCardValue = (rank: Rank): number => {
   return RANKS.indexOf(rank) + 1;
 };
 
+let __cardId = 0;
 const generateCard = (): Card => {
   const suit = SUITS[Math.floor(Math.random() * SUITS.length)];
   const rank = RANKS[Math.floor(Math.random() * RANKS.length)];
-  return { suit, rank, value: getCardValue(rank) };
+  return { id: String(__cardId++), suit, rank, value: getCardValue(rank) };
 };
 
 export default function HiloPage() {
@@ -72,10 +74,47 @@ export default function HiloPage() {
   const [history, setHistory] = useState<Card[]>([]);
   const [multiplier, setMultiplier] = useState<number>(1);
   const [lastWin, setLastWin] = useState<number>(0);
+  const [revealedCards, setRevealedCards] = useState<Record<string, boolean>>(
+    {}
+  );
+  const revealTimeouts = React.useRef<number[]>([]);
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(
+    null
+  );
+  const resultTimeoutRef = React.useRef<number | null>(null);
 
   useEffect(() => {
     setCurrentCard(generateCard());
   }, []);
+
+  useEffect(() => {
+    return () => {
+      revealTimeouts.current.forEach((t) => clearTimeout(t));
+      revealTimeouts.current = [];
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentCard) return;
+    setRevealedCards((r) => ({ ...r, [currentCard.id]: false }));
+    const t = window.setTimeout(() => {
+      setRevealedCards((r) => ({ ...r, [currentCard.id]: true }));
+    }, 140);
+    revealTimeouts.current.push(t);
+  }, [currentCard]);
+
+  useEffect(() => {
+    if (!nextCard) return;
+    setRevealedCards((r) => ({ ...r, [nextCard.id]: false }));
+    const t = window.setTimeout(() => {
+      setRevealedCards((r) => ({ ...r, [nextCard.id]: true }));
+    }, 140);
+    revealTimeouts.current.push(t);
+  }, [nextCard]);
 
   const probabilities = useMemo(() => {
     if (!currentCard) return { higher: 0, lower: 0, equal: 0, lowerOrEqual: 0 };
@@ -142,6 +181,12 @@ export default function HiloPage() {
 
     setHistory((prev) => [...prev, currentCard].slice(-5));
 
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+    setResultFx("rolling");
+
     setTimeout(() => {
       const isHigher = newCard.value > currentCard.value;
       const isLower = newCard.value < currentCard.value;
@@ -152,12 +197,15 @@ export default function HiloPage() {
       if (direction === "lower" && (isLower || isEqual)) won = true;
 
       if (won) {
-        const stepMult =
-          direction === "higher" ? multipliers.higher : multipliers.lower;
-        setMultiplier((prev) => Number((prev * stepMult).toFixed(2)));
+        setMultiplier((prev) => Number((prev * (direction === "higher" ? multipliers.higher : multipliers.lower)).toFixed(2)));
         setCurrentCard(newCard);
         setNextCard(null);
       } else {
+        if (resultTimeoutRef.current) {
+          clearTimeout(resultTimeoutRef.current);
+        }
+        setResultFx("lose");
+        resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
         setGameState("idle");
         setCurrentCard(newCard);
         setNextCard(null);
@@ -173,6 +221,11 @@ export default function HiloPage() {
     addToBalance(winAmount);
     setLastWin(winAmount);
     setGameState("cashed_out");
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+    }
+    setResultFx("win");
+    resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
   };
 
   const getSuitIcon = (suit: Suit) => {
@@ -195,30 +248,44 @@ export default function HiloPage() {
   };
 
   const renderCard = (card: Card, isLarge = false) => {
+    const isRevealed = !!revealedCards?.[card.id];
+
     return (
       <div
-        className={`
-          ${isLarge ? "w-32 h-48 sm:w-40 sm:h-56" : "w-16 h-24"} 
-          bg-white rounded-xl flex flex-col items-center justify-between p-2 shadow-xl select-none 
-          ${getCardColor(card.suit)} transition-all duration-300
-        `}
+        className={`bj-card ${
+          isLarge
+            ? "w-32 h-48 sm:w-40 sm:h-56"
+            : "w-12 h-16 sm:w-16 sm:h-24 md:w-20 md:h-28"
+        } rounded-xl shadow-xl animate-slide-in card-deal ${
+          isRevealed ? "bj-flipped" : ""
+        }`}
       >
-        <div
-          className={`self-start font-bold ${
-            isLarge ? "text-2xl" : "text-lg"
-          } leading-none`}
-        >
-          {card.rank}
-        </div>
-        <div className={`${isLarge ? "text-6xl" : "text-3xl"}`}>
-          {getSuitIcon(card.suit)}
-        </div>
-        <div
-          className={`self-end font-bold ${
-            isLarge ? "text-2xl" : "text-lg"
-          } leading-none rotate-180`}
-        >
-          {card.rank}
+        <div className="bj-card-inner">
+          <div className="bj-card-face bj-card-back rounded-lg border-2 border-[#0f212e] bg-[#2f4553]" />
+
+          <div
+            className={`bj-card-face bj-card-front rounded-lg bg-white ${getCardColor(
+              card.suit
+            )} p-2 sm:p-3`}
+          >
+            <div
+              className={`self-start font-bold ${
+                isLarge ? "text-2xl" : "text-lg"
+              } leading-none`}
+            >
+              {card.rank}
+            </div>
+            <div className={`${isLarge ? "text-6xl" : "text-3xl"}`}>
+              {getSuitIcon(card.suit)}
+            </div>
+            <div
+              className={`self-end font-bold ${
+                isLarge ? "text-2xl" : "text-lg"
+              } leading-none rotate-180`}
+            >
+              {card.rank}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -320,9 +387,24 @@ export default function HiloPage() {
       </div>
 
       <div className="flex-1 bg-[#0f212e] p-4 sm:p-6 rounded-xl min-h-[500px] flex flex-col items-center justify-center relative overflow-hidden gap-8">
-        <div className="absolute top-4 right-4 flex gap-2 opacity-50">
+        {resultFx === "rolling" && (
+          <div className="limbo-roll-glow absolute inset-0 pointer-events-none z-0" />
+        )}
+        {resultFx === "win" && (
+          <div className="limbo-win-flash absolute inset-0 pointer-events-none z-0" />
+        )}
+        {resultFx === "lose" && (
+          <div className="limbo-lose-flash absolute inset-0 pointer-events-none z-0" />
+        )}
+
+        <div className="absolute top-4 right-4 flex justify-center items-center opacity-60">
           {history.map((card, i) => (
-            <div key={i} className="scale-75 origin-top-right">
+            <div
+              key={card.id}
+              className={`relative scale-75 origin-top-right ${
+                i > 0 ? "-ml-6 sm:-ml-8 md:-ml-10" : ""
+              }`}
+            >
               {renderCard(card)}
             </div>
           ))}

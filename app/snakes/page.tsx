@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import {
   Casino,
-  Autorenew,
   Flag,
   PlayArrow,
   LocalFireDepartment,
@@ -198,8 +197,60 @@ export default function SnakesPage() {
   const [lastWin, setLastWin] = useState<number>(0);
   const [dice, setDice] = useState<[number | null, number | null]>([1, 1]);
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
+  const [isRolling, setIsRolling] = useState<boolean>(false);
+  const [displayMultiplier, setDisplayMultiplier] = useState<number>(1);
+  const prevMultRef = useRef<number>(1);
+  const [deadFx, setDeadFx] = useState<boolean>(false);
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
+  const resultTimeoutRef = React.useRef<number | null>(null);
 
   const board = useMemo(() => BOARD_BY_RISK[risk], [risk]);
+
+  useEffect(() => {
+    if (gameState === "idle") {
+      prevMultRef.current = 1;
+      setDisplayMultiplier(1);
+      return;
+    }
+
+    const from = prevMultRef.current;
+    const to = totalMultiplier;
+    if (from === to) return;
+
+    const start = performance.now();
+    const durationMs = 260;
+    let raf = 0;
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const next = from + (to - from) * eased;
+      setDisplayMultiplier(next);
+      if (t < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        prevMultRef.current = to;
+      }
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [gameState, totalMultiplier]);
+
+  useEffect(() => {
+    if (!deadFx) return;
+    const t = window.setTimeout(() => setDeadFx(false), 560);
+    return () => window.clearTimeout(t);
+  }, [deadFx]);
+
+  useEffect(() => {
+    return () => {
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const startNewRound = useCallback(() => {
     if (betAmount <= 0) return false;
@@ -210,6 +261,9 @@ export default function SnakesPage() {
     setGameState("playing");
     setCurrentPos(-1);
     setTotalMultiplier(1);
+    prevMultRef.current = 1;
+    setDisplayMultiplier(1);
+    setIsRolling(false);
     setRolls([]);
     setLastWin(0);
     setDice([1, 1]);
@@ -242,6 +296,12 @@ export default function SnakesPage() {
       if (payout > 0) {
         addToBalance(payout);
         setLastWin(payout);
+        if (resultTimeoutRef.current) {
+          clearTimeout(resultTimeoutRef.current);
+          resultTimeoutRef.current = null;
+        }
+        setResultFx("win");
+        resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
       } else {
         finalizePendingLoss();
       }
@@ -294,7 +354,9 @@ export default function SnakesPage() {
     }
 
     setIsAnimating(true);
+    setIsRolling(true);
     setCurrentPos(-1);
+    setResultFx("rolling");
 
     const finalDie1 = Math.floor(Math.random() * 6) + 1;
     const finalDie2 = Math.floor(Math.random() * 6) + 1;
@@ -306,6 +368,7 @@ export default function SnakesPage() {
       await sleep(90);
     }
     setDice([finalDie1, finalDie2]);
+    setIsRolling(false);
 
     const steps = finalDie1 + finalDie2;
     const landing = (steps - 1) % board.length;
@@ -332,18 +395,26 @@ export default function SnakesPage() {
 
     if (newState === "dead") {
       setGameState("dead");
+      setDeadFx(true);
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+      setResultFx("lose");
+      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
       finalizePendingLoss();
       setIsAnimating(false);
+      setIsRolling(false);
       return;
     }
 
     setGameState("playing");
     setIsAnimating(false);
+    setIsRolling(false);
   }, [
     board,
     finalizePendingLoss,
     gameState,
-    handleCashout,
     isAnimating,
     landOnTile,
     rolls,
@@ -493,9 +564,15 @@ export default function SnakesPage() {
       </div>
 
       <div className="flex-1 flex flex-col gap-4">
-        <div className="bg-[#0f212e] rounded-xl p-4 sm:p-6">
+        <div className="bg-[#0f212e] rounded-xl p-4 sm:p-6 relative overflow-hidden">
+          {resultFx === "rolling" && <div className="limbo-roll-glow" />}
+          {resultFx === "win" && <div className="limbo-win-flash" />}
+          {resultFx === "lose" && <div className="limbo-lose-flash" />}
           <div
-            className="grid gap-2 sm:gap-2 max-w-[390px] w-full mx-auto aspect-square"
+            className={cn(
+              "relative z-10 grid gap-2 sm:gap-2 max-w-[390px] w-full mx-auto aspect-square",
+              deadFx && "sn-dead-flash"
+            )}
             style={{
               gridTemplateAreas: GRID_TEMPLATE,
               gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
@@ -534,6 +611,7 @@ export default function SnakesPage() {
                       ? tileLandedMulti
                       : ""
                     : "";
+                const pop = !isAnimating && isCurrent ? "sn-pop" : "";
                 const pulse = isTravel
                   ? isDead
                     ? tileTravelHighlightDead
@@ -551,6 +629,7 @@ export default function SnakesPage() {
                       tile3d,
                       pulse,
                       landed,
+                      pop,
                       active,
                       visited
                     )}
@@ -596,7 +675,12 @@ export default function SnakesPage() {
                     "flex flex-col items-center justify-center p-3"
                   )}
                 >
-                  <div className="w-full flex items-center justify-center gap-3">
+                  <div
+                    className={cn(
+                      "w-full flex items-center justify-center gap-3",
+                      isRolling && "sn-dice-jitter"
+                    )}
+                  >
                     <div className="w-[42%]">
                       <DiceFace value={dice[0]} />
                     </div>
@@ -606,7 +690,7 @@ export default function SnakesPage() {
                   </div>
                   <div className="mt-3 bg-[#0f212e] border border-[#2f4553] rounded-md px-4 py-2">
                     <div className="text-lg font-bold text-white">
-                      {formatMultiplierShort(totalMultiplier)}x
+                      {formatMultiplierShort(displayMultiplier)}x
                     </div>
                   </div>
                 </div>

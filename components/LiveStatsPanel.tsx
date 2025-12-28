@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import PlayTimeTracker from "./PlayTimeTracker";
 import { Close, RestartAlt, QueryStats } from "@mui/icons-material";
 import { DROPDOWN_GAME_OPTIONS, useWallet } from "./WalletProvider";
 
@@ -260,6 +261,8 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
                 </ResponsiveContainer>
               </div>
             </div>
+
+            <PlayTimeTracker />
 
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs text-[#557086]">Start: {new Date(selectedStats.startedAt).toLocaleString()}</div>

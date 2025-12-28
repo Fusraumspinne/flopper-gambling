@@ -28,6 +28,11 @@ export default function DicePage() {
 
   const animationRef = useRef<number | null>(null);
   const isPointerDraggingRef = useRef<boolean>(false);
+  const [resultAnimNonce, setResultAnimNonce] = useState(0);
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(
+    null
+  );
+  const resultTimeoutRef = useRef<number | null>(null);
 
   const winChance = useMemo(() => {
     if (rollOver) {
@@ -81,6 +86,31 @@ export default function DicePage() {
     setThresholdInput(clamped.toFixed(2));
   };
 
+  const liveThresholdNum = useMemo(() => {
+    const raw = thresholdInput.trim().replace(",", ".");
+    const num = Number(raw);
+    if (!Number.isFinite(num)) return NaN;
+    return round2(clamp(num, MIN_THRESHOLD, MAX_THRESHOLD));
+  }, [thresholdInput]);
+
+  const liveWinChance = useMemo(() => {
+    if (!Number.isFinite(liveThresholdNum)) return NaN;
+    return rollOver ? 100 - liveThresholdNum : liveThresholdNum;
+  }, [liveThresholdNum, rollOver]);
+
+  const liveMultiplier = useMemo(() => {
+    if (!Number.isFinite(liveWinChance) || liveWinChance <= 0) return Infinity;
+    const raw = (100 - HOUSE_EDGE) / liveWinChance;
+    return Math.max(1.01, raw);
+  }, [liveWinChance]);
+
+  const formatLiveMultiplier = (m: number) => {
+    if (!Number.isFinite(m)) return "—";
+    if (m > 1_000_000) return m.toExponential(2);
+    if (m >= 1000) return Math.round(m).toString();
+    return m.toFixed(2);
+  };
+
   const toggleMode = () => {
     setRollOver(!rollOver);
     const next = round2(100 - sliderValue);
@@ -96,6 +126,11 @@ export default function DicePage() {
     setLastWin(0);
     setGameState("rolling");
     setLastResult(null);
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+    setResultFx("rolling");
 
     const duration = 600;
     const startTime = performance.now();
@@ -135,15 +170,31 @@ export default function DicePage() {
       addToBalance(potentialProfit);
       setLastWin(potentialProfit);
       setGameState("won");
+      setResultAnimNonce((n) => n + 1);
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+      }
+      setResultFx("win");
+      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
     } else {
       finalizePendingLoss();
       setGameState("lost");
+      setResultAnimNonce((n) => n + 1);
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+      }
+      setResultFx("lose");
+      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
     }
   };
 
   useEffect(() => {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -155,9 +206,6 @@ export default function DicePage() {
             <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
               Bet Amount
             </label>
-            <span className="text-xs font-bold text-[#b1bad3]">
-              ${balance.toFixed(2)}
-            </span>
           </div>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
@@ -247,6 +295,9 @@ export default function DicePage() {
             disabled={gameState === "rolling"}
             className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 px-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
           />
+          <div className="text-xs text-[#b1bad3] mt-1">
+            Multi: <span className="font-mono text-white">{formatLiveMultiplier(liveMultiplier)}x</span>
+          </div>
         </div>
 
         <button
@@ -272,19 +323,31 @@ export default function DicePage() {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-100 sm:min-h-125 overflow-hidden">
+        {resultFx === "rolling" && (
+          <div className="limbo-roll-glow absolute inset-0 pointer-events-none z-0" />
+        )}
+        {resultFx === "win" && (
+          <div className="limbo-win-flash absolute inset-0 pointer-events-none z-0" />
+        )}
+        {resultFx === "lose" && (
+          <div className="limbo-lose-flash absolute inset-0 pointer-events-none z-0" />
+        )}
+
         <div className="relative z-10 mb-16 text-center">
           <div
-            className={`text-[5rem] sm:text-[7rem] font-black font-mono leading-none transition-all duration-100 tabular-nums tracking-tighter ${
-              gameState === "won"
-                ? "text-[#00e701] drop-shadow-[0_0_30px_rgba(0,231,1,0.4)]"
+            key={resultAnimNonce}
+            className={`text-[5rem] sm:text-[7rem] font-black font-mono leading-none transition-all duration-200 tabular-nums tracking-tighter ${
+              gameState === "rolling"
+                ? "text-white animate-limbo-multiplier-rolling"
+                : gameState === "won"
+                ? "text-[#00e701] drop-shadow-[0_0_30px_rgba(0,231,1,0.4)] scale-110 animate-limbo-win-pop"
                 : gameState === "lost"
-                ? "text-[#ef4444] drop-shadow-[0_0_30px_rgba(239,68,68,0.4)]"
+                ? "text-[#ef4444] drop-shadow-[0_0_30px_rgba(239,68,68,0.4)] animate-limbo-lose-shake"
                 : "text-white"
             }`}
           >
             {displayNumber.toFixed(2)}
           </div>
-          
         </div>
 
         <div className="w-full max-w-4xl relative select-none">

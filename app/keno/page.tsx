@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { PlayArrow, Refresh, Delete, Bolt, Diamond } from "@mui/icons-material";
 
@@ -51,7 +51,8 @@ const GRID_SIZE = 40;
 const DRAW_COUNT = 10;
 
 export default function KenoPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
+    useWallet();
 
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>([]);
   const [drawnNumbers, setDrawnNumbers] = useState<number[]>([]);
@@ -60,6 +61,20 @@ export default function KenoPage() {
   const [betInput, setBetInput] = useState<string>(betAmount.toString());
   const [riskLevel, setRiskLevel] = useState<RiskLevel>("low");
   const [lastWin, setLastWin] = useState<number>(0);
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(
+    null
+  );
+  const resultTimeoutRef = React.useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+      
+    };
+  }, []);
 
   const toggleNumber = (num: number) => {
     if (isAnimating) return;
@@ -116,8 +131,8 @@ export default function KenoPage() {
   };
 
   const probabilityForHits = (k: number, hits: number) => {
-    const n = GRID_SIZE; 
-    const draw = DRAW_COUNT; 
+    const n = GRID_SIZE;
+    const draw = DRAW_COUNT;
     if (k <= 0) return 0;
     const total = comb(n, draw);
     const favourable = comb(k, hits) * comb(n - k, draw - hits);
@@ -130,14 +145,14 @@ export default function KenoPage() {
     if (pct >= 0.01) return `${pct.toFixed(2)}%`;
 
     const fixed = pct.toFixed(30);
-    const parts = fixed.split('.');
+    const parts = fixed.split(".");
     const intPart = parts[0];
-    let dec = parts[1] || '';
+    let dec = parts[1] || "";
 
     let nonZeroCount = 0;
     let cut = dec.length;
     for (let i = 0; i < dec.length; i++) {
-      if (dec[i] !== '0') nonZeroCount++;
+      if (dec[i] !== "0") nonZeroCount++;
       if (nonZeroCount === 2) {
         cut = i + 1;
         break;
@@ -145,12 +160,15 @@ export default function KenoPage() {
     }
 
     if (nonZeroCount < 2) {
-      dec = dec.replace(/0+$/g, '');
+      dec = dec.replace(/0+$/g, "");
       return dec ? `${intPart}.${dec}%` : `${intPart}%`;
     }
 
     const nextDigit = dec[cut] ? parseInt(dec[cut], 10) : 0;
-    let sliceArr = dec.slice(0, cut).split('').map((c) => parseInt(c, 10));
+    let sliceArr = dec
+      .slice(0, cut)
+      .split("")
+      .map((c) => parseInt(c, 10));
     if (nextDigit >= 5) {
       let carry = 1;
       for (let i = sliceArr.length - 1; i >= 0; i--) {
@@ -166,8 +184,11 @@ export default function KenoPage() {
       }
       if (carry === 1) {
         const newInt = String(Number(intPart) + 1);
-        while (sliceArr.length && sliceArr[sliceArr.length - 1] === 0) sliceArr.pop();
-        return sliceArr.length ? `${newInt}.${sliceArr.join('')}%` : `${newInt}%`;
+        while (sliceArr.length && sliceArr[sliceArr.length - 1] === 0)
+          sliceArr.pop();
+        return sliceArr.length
+          ? `${newInt}.${sliceArr.join("")}%`
+          : `${newInt}%`;
       }
     }
 
@@ -175,7 +196,7 @@ export default function KenoPage() {
     while (lastNonZero >= 0 && sliceArr[lastNonZero] === 0) lastNonZero--;
     if (lastNonZero < 0) return `${intPart}%`;
     sliceArr = sliceArr.slice(0, lastNonZero + 1);
-    return `${intPart}.${sliceArr.join('')}%`;
+    return `${intPart}.${sliceArr.join("")}%`;
   };
 
   const playGame = useCallback(async () => {
@@ -192,6 +213,7 @@ export default function KenoPage() {
     setLastWin(0);
     setDrawnNumbers([]);
     setIsAnimating(true);
+    setResultFx("rolling");
 
     const newDrawn: number[] = [];
     while (newDrawn.length < DRAW_COUNT) {
@@ -212,8 +234,18 @@ export default function KenoPage() {
       await new Promise((resolve) => setTimeout(resolve, 300));
       addToBalance(winAmount);
       setLastWin(winAmount);
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+      }
+      setResultFx("win");
+      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
     } else {
       finalizePendingLoss();
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+      }
+      setResultFx("lose");
+      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
     }
 
     setIsAnimating(false);
@@ -225,6 +257,7 @@ export default function KenoPage() {
     riskLevel,
     subtractFromBalance,
     addToBalance,
+    finalizePendingLoss,
   ]);
 
   const getTileStatus = (num: number) => {
@@ -239,7 +272,7 @@ export default function KenoPage() {
   const getTileStyles = (status: string) => {
     switch (status) {
       case "hit":
-        return "bg-[#00e701] text-black shadow-[0_0_20px_rgba(0,231,1,0.5)] scale-110 z-10 border border-[#ccffcc]";
+        return "bg-[#213743] text-black shadow-[0_4px_0_0_#1a2c38] scale-110 z-10 border border-[#ccffcc]";
       case "selected":
         return "bg-[#6b21a8] text-white shadow-[0_4px_0_#4c1d95] -translate-y-1 hover:bg-[#7e22ce] active:translate-y-0 active:shadow-none";
       case "miss":
@@ -369,7 +402,12 @@ export default function KenoPage() {
 
       <div className="flex-1 flex flex-col gap-6">
         <div className="bg-[#0f212e] p-6 rounded-xl relative overflow-hidden">
-          <div className="grid grid-cols-5 sm:grid-cols-8 gap-2 sm:gap-3 max-w-[600px] mx-auto">
+            {resultFx === "rolling" && <div className="limbo-roll-glow" />}
+            {resultFx === "win" && <div className="limbo-win-flash" />}
+            {resultFx === "lose" && <div className="limbo-lose-flash" />}
+
+            <div className="relative z-10">
+              <div className="grid grid-cols-5 sm:grid-cols-8 gap-2 sm:gap-3 max-w-[600px] mx-auto">
             {Array.from({ length: GRID_SIZE }, (_, i) => i + 1).map((num) => {
               const status = getTileStatus(num);
               const drawIndex = drawnNumbers.indexOf(num);
@@ -384,8 +422,8 @@ export default function KenoPage() {
                 position: "relative",
                 transformStyle: "preserve-3d",
                 transition: "transform 420ms cubic-bezier(.2,.9,.2,1)",
-                  transitionDelay: isDrawn ? `${drawIndex * 140}ms` : "0ms",
-                  transform: isDrawn ? "rotateX(180deg)" : "rotateX(0deg)",
+                transitionDelay: "0ms",
+                transform: isDrawn ? "rotateX(180deg)" : "rotateX(0deg)",
               };
 
               const frontBackFaceStyle: React.CSSProperties = {
@@ -409,7 +447,7 @@ export default function KenoPage() {
                   style={{ perspective: 900 }}
                   className={`aspect-square rounded-lg font-bold text-sm sm:text-base p-0 border-0 relative transition-all duration-200 ${getTileStyles(
                     status
-                  )}`}
+                  )} ${isHit && isDrawn ? "animate-mines-gem" : ""}`}
                 >
                   <div style={innerStyles}>
                     <div style={frontBackFaceStyle}>
@@ -422,19 +460,125 @@ export default function KenoPage() {
                       }}
                     >
                       {isHit ? (
-                        <div className="animate-pulse drop-shadow-md">
-                          <Diamond
-                            sx={{ color: "#000", fontSize: 24 }}
-                            className={gemClasses}
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          <div
+                            className={`mines-gem-flash absolute inset-0`}
                             style={{
-                              transitionDelay: isDrawn
-                                ? `${drawIndex * 140 + 200}ms`
-                                : "0ms",
+                              background:
+                                "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.85) 0%, rgba(0,231,1,0.35) 38%, rgba(0,231,1,0.0) 70%)",
+                              animationDelay: "0ms",
                             }}
                           />
+
+                          <div
+                            className={`mines-gem-glow absolute inset-0 rounded-lg`}
+                            style={{
+                              boxShadow: "0 0 0 0 rgba(0,231,1,0.0)",
+                              border: "2px solid rgba(0,231,1,0.35)",
+                              animationDelay: "0ms",
+                            }}
+                          />
+
+                          <div
+                            className={
+                              isDrawn ? "animate-mines-icon-pop" : undefined
+                            }
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: "35%",
+                              height: "35%",
+                              animationDelay: "0ms",
+                            }}
+                          >
+                            <Diamond
+                              style={{
+                                width: "125%",
+                                height: "125%",
+                                color: "#00ff17",
+                                filter:
+                                  "drop-shadow(0 0 16px rgba(0,231,1,0.85))",
+                              }}
+                            />
+                          </div>
                         </div>
                       ) : isMiss ? (
-                        <span className="text-[#ef4444] font-bold">{num}</span>
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          <div
+                            className="mines-mine-flash absolute inset-0 rounded-lg"
+                            style={{
+                              background:
+                                "radial-gradient(circle at 50% 45%, rgba(239,68,68,0.55) 0%, rgba(239,68,68,0.22) 35%, rgba(239,68,68,0.0) 72%)",
+                            }}
+                          />
+
+                          <div
+                            className={
+                              isDrawn ? "animate-mines-mine" : undefined
+                            }
+                            style={{
+                              width: "64%",
+                              height: "64%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              filter:
+                                "drop-shadow(0 0 14px rgba(239,68,68,0.55))",
+                            }}
+                          >
+                            <div
+                              className="relative"
+                              style={{ width: "100%", height: "100%" }}
+                            >
+                              <div
+                                className="absolute inset-0 rounded-full"
+                                style={{
+                                  border: "2px solid rgba(239,68,68,0.35)",
+                                  boxShadow:
+                                    "inset 0 0 0 1px rgba(239,68,68,0.12)",
+                                }}
+                              />
+
+                              <div
+                                className="absolute left-1/2 top-1/2 rounded"
+                                style={{
+                                  width: "92%",
+                                  height: "3px",
+                                  background: "#ef4444",
+                                  transform:
+                                    "translate(-50%, -50%) rotate(45deg)",
+                                  opacity: 0.9,
+                                }}
+                              />
+                              <div
+                                className="absolute left-1/2 top-1/2 rounded"
+                                style={{
+                                  width: "92%",
+                                  height: "3px",
+                                  background: "#ef4444",
+                                  transform:
+                                    "translate(-50%, -50%) rotate(-45deg)",
+                                  opacity: 0.9,
+                                }}
+                              />
+
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span
+                                  className="font-extrabold"
+                                  style={{
+                                    color: "#ef4444",
+                                    textShadow:
+                                      "0 0 12px rgba(239,68,68,0.55)",
+                                    lineHeight: 1,
+                                  }}
+                                >
+                                  {num}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       ) : isUnrevealed ? (
                         <Diamond
                           sx={{ color: "#557086", fontSize: 24 }}
@@ -450,9 +594,18 @@ export default function KenoPage() {
             })}
           </div>
         </div>
-
-        <div className="bg-[#213743] p-4 rounded-xl">
-          {selectedNumbers.length > 0 ? (
+        {resultFx === "rolling" && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(circle at 50% 55%, rgba(47,69,83,0.22) 0%, rgba(15,33,46,0.0) 68%)",
+              opacity: 0.85,
+            }}
+          />
+        )}
+        <div className="p-4 pb-0 rounded-xl">
+          {selectedNumbers.length > 0 && (
             (() => {
               const payouts = MULTIPLIERS[riskLevel][selectedNumbers.length] || [];
               const cols = payouts.length || 1;
@@ -475,10 +628,10 @@ export default function KenoPage() {
                     return (
                       <div
                         key={hits}
-                        className={`flex flex-col items-center px-2 py-2 rounded text-center ${
+                        className={`flex flex-col items-center p-2 rounded-md border text-center bg-[#213743] ${
                           isCurrent
-                            ? "bg-[#2f4553] text-white scale-105"
-                            : "bg-[#0f212e] text-[#b1bad3]"
+                            ? "border-[#00e701] scale-105"
+                            : "border-[#2f4553]"
                         }`}
                       >
                         <span className="text-xs opacity-70">{hits}x</span>
@@ -492,13 +645,10 @@ export default function KenoPage() {
                 </div>
               );
             })()
-          ) : (
-            <div className="text-[#b1bad3] text-sm w-full text-center">
-              Select numbers to see payouts
-            </div>
           )}
         </div>
       </div>
     </div>
+     </div>
   );
 }

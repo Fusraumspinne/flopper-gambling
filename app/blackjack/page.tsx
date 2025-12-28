@@ -21,6 +21,7 @@ type Rank =
   | "A";
 
 interface Card {
+  id: string;
   suit: Suit;
   rank: Rank;
   value: number;
@@ -59,11 +60,12 @@ const getCardValue = (rank: Rank): number => {
   return parseInt(rank);
 };
 
+let __cardId = 0;
 const createDeck = (): Card[] => {
   const deck: Card[] = [];
   for (const suit of SUITS) {
     for (const rank of RANKS) {
-      deck.push({ suit, rank, value: getCardValue(rank) });
+      deck.push({ id: String(__cardId++), suit, rank, value: getCardValue(rank) });
     }
   }
   return deck.sort(() => Math.random() - 0.5);
@@ -94,6 +96,21 @@ export default function BlackjackPage() {
   const [playerHands, setPlayerHands] = useState<Hand[]>([]);
   const [currentHandIndex, setCurrentHandIndex] = useState<number>(0);
   const [lastWin, setLastWin] = useState<number>(0);
+  const [revealedCards, setRevealedCards] = useState<Record<string, boolean>>({});
+  const dealTimeouts = React.useRef<number[]>([]);
+  const resultTimeoutRef = React.useRef<number | null>(null);
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+      dealTimeouts.current.forEach((t) => clearTimeout(t));
+      dealTimeouts.current = [];
+    };
+  }, []);
 
   const dealGame = () => {
     if (betAmount <= 0 || betAmount > balance) return;
@@ -120,6 +137,20 @@ export default function BlackjackPage() {
     setCurrentHandIndex(0);
     setGameState("playing");
     setLastWin(0);
+    setResultFx("rolling");
+
+    setRevealedCards({});
+    dealTimeouts.current.forEach((t) => clearTimeout(t));
+    dealTimeouts.current = [];
+
+    const dealtOrder = [pCard1, dCard1, pCard2];
+    dealtOrder.forEach((c, i) => {
+      const delay = 120 + i * 80;
+      const t = window.setTimeout(() => {
+        setRevealedCards((r) => ({ ...r, [c.id]: true }));
+      }, delay);
+      dealTimeouts.current.push(t);
+    });
 
     const pValue = calculateHandValue([pCard1, pCard2]);
     if (pValue === 21) {
@@ -144,6 +175,11 @@ export default function BlackjackPage() {
     const newHands = [...playerHands];
     const currentHand = newHands[currentHandIndex];
     currentHand.cards.push(card);
+
+    const t = window.setTimeout(() => {
+      setRevealedCards((r) => ({ ...r, [card.id]: true }));
+    }, 160);
+    dealTimeouts.current.push(t);
 
     const value = calculateHandValue(currentHand.cards);
     if (value > 21) {
@@ -182,6 +218,11 @@ export default function BlackjackPage() {
     hand.bet *= 2;
     hand.isDoubled = true;
     hand.cards.push(card);
+
+    const t = window.setTimeout(() => {
+      setRevealedCards((r) => ({ ...r, [card.id]: true }));
+    }, 160);
+    dealTimeouts.current.push(t);
 
     const value = calculateHandValue(hand.cards);
     if (value > 21) {
@@ -234,6 +275,10 @@ export default function BlackjackPage() {
     newHands.splice(currentHandIndex, 1, hand1, hand2);
 
     setPlayerHands(newHands);
+
+    const t1 = window.setTimeout(() => setRevealedCards((r) => ({ ...r, [card1.id]: true })), 140);
+    const t2 = window.setTimeout(() => setRevealedCards((r) => ({ ...r, [card2.id]: true })), 280);
+    dealTimeouts.current.push(t1, t2);
   };
 
   const processNextHand = (hands: Hand[]) => {
@@ -283,6 +328,13 @@ export default function BlackjackPage() {
         let currentDeck = [...deck];
         let dValue = calculateHandValue(dHand);
 
+        if (dHand[1] && !revealedCards[dHand[1].id]) {
+          const tHole = window.setTimeout(() => {
+            setRevealedCards((r) => ({ ...r, [dHand[1].id]: true }));
+          }, 160);
+          dealTimeouts.current.push(tHole);
+        }
+
         while (dValue < 17) {
           await new Promise((r) => setTimeout(r, 800));
           const card = currentDeck.pop();
@@ -291,6 +343,14 @@ export default function BlackjackPage() {
           setDealerHand(dHand);
           setDeck(currentDeck);
           dValue = calculateHandValue(dHand);
+
+          const latest = dHand[dHand.length - 1];
+          if (latest && !revealedCards[latest.id]) {
+            const t = window.setTimeout(() => {
+              setRevealedCards((r) => ({ ...r, [latest.id]: true }));
+            }, 180);
+            dealTimeouts.current.push(t);
+          }
         }
 
         finishGame(dHand);
@@ -347,6 +407,12 @@ export default function BlackjackPage() {
     setPlayerHands(newHands);
     setLastWin(totalWin);
     setGameState("finished");
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+    }
+    const anyWin = totalWin > 0;
+    setResultFx(anyWin ? "win" : "lose");
+    resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
   };
 
   const getSuitIcon = (suit: Suit) => {
@@ -362,36 +428,44 @@ export default function BlackjackPage() {
     }
   };
 
+  const getVisibleDealerValue = () => {
+    if (dealerHand.length === 0) return 0;
+    const hole = dealerHand[1];
+    const holeRevealed = hole && !!revealedCards?.[hole.id];
+    if (gameState === "dealerTurn" || holeRevealed) {
+      return calculateHandValue(dealerHand);
+    }
+    return calculateHandValue([dealerHand[0]]);
+  };
+
   const getCardColor = (suit: Suit) => {
     return suit === "hearts" || suit === "diamonds"
       ? "text-red-500"
       : "text-black";
   };
 
-  const renderCard = (card: Card, hidden = false, index = 0) => {
-    if (hidden) {
-      return (
-        <div 
-          className="w-12 h-16 sm:w-16 sm:h-24 md:w-20 md:h-28 bg-[#2f4553] rounded-lg border-2 border-[#0f212e] flex items-center justify-center shadow-lg animate-slide-in"
-          style={{ animationDelay: `${index * 0.1}s` }}
-        >
-          <div className="w-full h-full bg-[url('/card-back.png')] bg-cover opacity-50"></div>
-        </div>
-      );
-    }
+  const renderCard = (card: Card, index = 0) => {
+    const translateY = index * -8;
+    const zIndex = 100 + index;
+    const animationDelay = `${index * 0.06}s`;
+    const isRevealed = !!revealedCards?.[card.id];
+
     return (
       <div
-        className={`w-12 h-16 sm:w-16 sm:h-24 md:w-20 md:h-28 bg-white rounded-lg flex flex-col items-center justify-between p-1 sm:p-2 shadow-lg select-none ${getCardColor(
-          card.suit
-        )} animate-slide-in hover:-translate-y-2 transition-transform duration-200`}
-        style={{ animationDelay: `${index * 0.1}s` }}
+        className={`bj-card w-12 h-16 sm:w-16 sm:h-24 md:w-20 md:h-28 rounded-lg shadow-lg animate-slide-in card-deal ${
+          isRevealed ? "bj-flipped" : ""
+        }`}
+        style={{ animationDelay, marginTop: `${translateY}px`, zIndex }}
       >
-        <div className="self-start font-bold text-xs sm:text-lg leading-none">
-          {card.rank}
-        </div>
-        <div className="text-xl sm:text-2xl md:text-3xl">{getSuitIcon(card.suit)}</div>
-        <div className="self-end font-bold text-xs sm:text-lg leading-none rotate-180">
-          {card.rank}
+        <div className="bj-card-inner">
+          <div className="bj-card-face bj-card-back rounded-lg border-2 border-[#0f212e] bg-[#2f4553]">
+          </div>
+
+          <div className={`bj-card-face bj-card-front rounded-lg bg-white ${getCardColor(card.suit)} p-1 sm:p-2`}>
+            <div className="self-start font-bold text-xs sm:text-lg leading-none">{card.rank}</div>
+            <div className="text-xl sm:text-2xl md:text-3xl">{getSuitIcon(card.suit)}</div>
+            <div className="self-end font-bold text-xs sm:text-lg leading-none rotate-180">{card.rank}</div>
+          </div>
         </div>
       </div>
     );
@@ -506,6 +580,9 @@ export default function BlackjackPage() {
       </div>
 
       <div className="flex-1 bg-[#0f212e] p-2 sm:p-6 rounded-xl min-h-[500px] flex flex-col justify-between relative overflow-hidden">
+        {resultFx === "rolling" && <div className="limbo-roll-glow" />}
+        {resultFx === "win" && <div className="limbo-win-burst" />}
+        {resultFx === "lose" && <div className="limbo-lose-flash" />}
         <div className="flex flex-col items-center gap-4">
           <div className="text-[#b1bad3] font-bold uppercase tracking-wider text-sm">
             Dealer
@@ -513,7 +590,7 @@ export default function BlackjackPage() {
           <div className="flex justify-center items-center">
             {dealerHand.map((card, i) => (
               <div key={i} className={`relative ${i > 0 ? "-ml-6 sm:-ml-8 md:-ml-10" : ""}`}>
-                {renderCard(card, gameState === "playing" && i === 1, i)}
+                {renderCard(card, i)}
               </div>
             ))}
             {dealerHand.length === 0 && (
@@ -523,16 +600,26 @@ export default function BlackjackPage() {
               </div>
             )}
           </div>
-          {dealerHand.length > 0 &&
-            (gameState !== "playing" || dealerHand.length > 2) && (
-              <div className="bg-[#213743] px-3 py-1 rounded-full text-white font-bold text-sm animate-scale-in">
-                {calculateHandValue(dealerHand)}
-              </div>
-            )}
+          {dealerHand.length > 0 && (
+            <div className="bg-[#213743] px-3 py-1 rounded-full text-white font-bold text-sm animate-scale-in">
+              {getVisibleDealerValue()}
+            </div>
+          )}
         </div>
 
         {gameState === "finished" && (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10"></div>
+        )}
+
+        {resultFx === "rolling" && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(circle at 50% 55%, rgba(47,69,83,0.22) 0%, rgba(15,33,46,0.0) 68%)",
+              opacity: 0.85,
+            }}
+          />
         )}
 
         <div className="flex justify-center gap-4 sm:gap-8 flex-wrap">
@@ -554,7 +641,7 @@ export default function BlackjackPage() {
                       key={i}
                       className={`relative ${i > 0 ? "-ml-6 sm:-ml-8 md:-ml-10" : ""}`}
                     >
-                      {renderCard(card, false, i)}
+                      {renderCard(card, i)}
                     </div>
                   ))}
                 </div>

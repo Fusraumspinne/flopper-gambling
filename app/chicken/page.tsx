@@ -322,7 +322,8 @@ function generateCarWave(args: {
       id: Date.now() + i,
       stepIndex,
       lane: Math.floor(Math.random() * LANES),
-      duration: 1100 + Math.random() * 700,
+      // increased base duration for a slower, smoother spawn
+      duration: 1600 + Math.random() * 900,
       delay: Math.random() * 900,
       size: 28 + Math.random() * 12,
       color: colors[Math.floor(Math.random() * colors.length)],
@@ -376,6 +377,20 @@ export default function ChickenPage() {
     return () => {
       crashTimersRef.current.forEach((t) => window.clearTimeout(t));
       crashTimersRef.current = [];
+    };
+  }, []);
+
+  const resultTimeoutRef = useRef<number | null>(null);
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(
+    null
+  );
+
+  useEffect(() => {
+    return () => {
+      if (resultTimeoutRef.current) {
+        window.clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -435,6 +450,11 @@ export default function ChickenPage() {
     const safeSteps = computeSafePath();
     setPlannedSafeSteps(safeSteps);
     resetVisuals();
+    if (resultTimeoutRef.current) {
+      window.clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+    setResultFx("rolling");
   }, [balance, betAmount, subtractFromBalance, computeSafePath, resetVisuals]);
 
   const handleCrash = useCallback(
@@ -444,8 +464,8 @@ export default function ChickenPage() {
       const lane = Math.floor(Math.random() * LANES);
 
       const carBaseDurationMs =
-        type === "car" ? 1200 + Math.random() * 600 : undefined;
-      const carDelayMs = type === "car" ? Math.random() * 300 : undefined;
+        type === "car" ? 1800 + Math.random() * 800 : undefined;
+      const carDelayMs = type === "car" ? Math.random() * 400 : undefined;
 
       setDeathAnim({
         type,
@@ -455,6 +475,11 @@ export default function ChickenPage() {
         carBaseDurationMs,
         carDelayMs,
       });
+      if (resultTimeoutRef.current) {
+        window.clearTimeout(resultTimeoutRef.current);
+      }
+      setResultFx("lose");
+      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
       setGameState("crashed");
       finalizePendingLoss();
     },
@@ -471,6 +496,11 @@ export default function ChickenPage() {
       if (auto) {
         setIsAnimatingStep(false);
       }
+      if (resultTimeoutRef.current) {
+        window.clearTimeout(resultTimeoutRef.current);
+      }
+      setResultFx("win");
+      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
     },
     [addToBalance, betAmount, currentMultiplier, currentStep]
   );
@@ -530,12 +560,14 @@ export default function ChickenPage() {
     const laneRate =
       TARGET_CARS_PER_SEC_PER_LANE * SPAWN_RATE_SCALE * riskFactor;
 
-    const SPEED_MULTIPLIER = 2;
+    // lower speed multiplier to slow down drive timing
+    const SPEED_MULTIPLIER = 1.3;
 
     const spawnCarAt = (args: { stepIndex: number; lane: number }) => {
       const { stepIndex, lane } = args;
       const now = Date.now();
-      const duration = 1200 + Math.random() * 600;
+      // slower cars for nicer pacing
+      const duration = 1800 + Math.random() * 800;
       const car: CarAnim = {
         id: now + stepIndex + Math.floor(Math.random() * 10000),
         stepIndex,
@@ -826,7 +858,7 @@ export default function ChickenPage() {
       const startY = -32;
       const endY = ROAD_HEIGHT + 28;
 
-      const base = deathAnim.carBaseDurationMs ?? 1500;
+      const base = deathAnim.carBaseDurationMs ?? 2100;
       const delay = deathAnim.carDelayMs ?? 0;
       const animDurationMs = base / 3 / 2;
 
@@ -848,11 +880,11 @@ export default function ChickenPage() {
   }, [chickenTopPx, deathAnim?.startedAt, deathAnim?.type, gameState]);
 
   return (
-    <div className="p-1 sm:p-2 lg:p-3 max-w-350 mx-auto flex flex-col lg:flex-row gap-3 lg:gap-6 overflow-x-hidden">
+    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8 overflow-x-hidden">
       <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-            Einsatz
+            Bet Amount
           </label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
@@ -901,7 +933,7 @@ export default function ChickenPage() {
 
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-            Risiko
+            Risk
           </label>
           <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
             {(["low", "medium", "high", "expert"] as RiskLevel[]).map(
@@ -977,6 +1009,16 @@ export default function ChickenPage() {
 
       <div className="flex-1 min-w-0 flex flex-col gap-4 overflow-x-hidden">
         <div className="bg-[#0f212e] rounded-xl p-3 sm:p-4 relative overflow-hidden min-h-125 border border-[#152a38]">
+            {resultFx === "rolling" && (
+              <div className="limbo-roll-glow absolute inset-0 pointer-events-none z-0" />
+            )}
+            {resultFx === "win" && (
+              <div className="limbo-win-flash absolute inset-0 pointer-events-none z-0" />
+            )}
+            {resultFx === "lose" && (
+              <div className="limbo-lose-flash absolute inset-0 pointer-events-none z-0" />
+            )}
+
           <div
             className="relative w-full min-w-0"
             style={{ minHeight: ROAD_HEIGHT + 32 }}
@@ -1312,7 +1354,7 @@ export default function ChickenPage() {
                     zIndex: 120,
                     ["--drive-distance-y" as any]: `${ROAD_HEIGHT + 28}px`,
                     animationDuration: `${(
-                      (deathAnim.carBaseDurationMs ?? 1500) /
+                      (deathAnim.carBaseDurationMs ?? 2100) /
                       3 /
                       2
                     ).toFixed(0)}ms`,
@@ -1357,7 +1399,8 @@ export default function ChickenPage() {
           animation-name: chicken-car-drive-down;
           animation-timing-function: linear;
           animation-iteration-count: 1;
-          animation-fill-mode: forwards;
+          /* Apply 0% keyframe during animation-delay to prevent a brief "frozen"/offset render before the car starts moving */
+          animation-fill-mode: both;
           filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.45));
           transition: opacity 260ms ease, transform 260ms ease,
             filter 260ms ease;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { PlayArrow, Refresh } from "@mui/icons-material";
 
@@ -132,6 +132,34 @@ const COLORS = {
   background: "#111827",
 };
 
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const raw = hex.trim();
+  if (!raw.startsWith("#")) return null;
+  const h = raw.slice(1);
+  if (h.length === 3) {
+    const r = Number.parseInt(h[0] + h[0], 16);
+    const g = Number.parseInt(h[1] + h[1], 16);
+    const b = Number.parseInt(h[2] + h[2], 16);
+    if ([r, g, b].some((v) => Number.isNaN(v))) return null;
+    return { r, g, b };
+  }
+  if (h.length === 6) {
+    const r = Number.parseInt(h.slice(0, 2), 16);
+    const g = Number.parseInt(h.slice(2, 4), 16);
+    const b = Number.parseInt(h.slice(4, 6), 16);
+    if ([r, g, b].some((v) => Number.isNaN(v))) return null;
+    return { r, g, b };
+  }
+  return null;
+}
+
+function rgbaFromHex(hex: string, alpha: number) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
+  const a = Math.min(1, Math.max(0, alpha));
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`;
+}
+
 const getSegmentPattern = (risk: RiskLevel) => {
   const config = RISK_CONFIG[risk];
   const counts = config.segments;
@@ -168,6 +196,8 @@ export default function DartsPage() {
   const [risk, setRisk] = useState<RiskLevel>("Low");
   const [isPlaying, setIsPlaying] = useState(false);
   const [lastWin, setLastWin] = useState<number | null>(null);
+  const [lastHitColor, setLastHitColor] = useState<string | null>(null);
+  const [lastMultiplier, setLastMultiplier] = useState<number | null>(null);
   const [dartPosition, setDartPosition] = useState<{
     x: number;
     y: number;
@@ -186,14 +216,13 @@ export default function DartsPage() {
 
   const radius = 150;
   const center = 150;
+  const config = RISK_CONFIG[risk];
 
-  const rGreen = 10;
+  const rGreen = 10 * config.segmentWidthFactor;
   const rRing1 = 60;
   const baseRingInner = 85;
   const baseRingOuter = 125;
   const rRing4 = 150;
-
-  const config = RISK_CONFIG[risk];
 
   const segThickness =
     (baseRingOuter - baseRingInner) * config.segmentThicknessFactor;
@@ -248,11 +277,20 @@ export default function DartsPage() {
     return s.replace(/\.?0+$/, "");
   };
 
+  const boardGlowInner = lastHitColor ? rgbaFromHex(lastHitColor, 0.22) : null;
+  const boardGlowOuter = lastHitColor ? rgbaFromHex(lastHitColor, 0.16) : null;
+  const boardGlowShadow =
+    boardGlowInner && boardGlowOuter
+      ? `0 0 28px ${boardGlowInner}, 0 0 90px ${boardGlowOuter}`
+      : "0 0 0 rgba(0,0,0,0)";
+
   const handlePlay = async () => {
     if (bet <= 0 || bet > balance || isPlaying) return;
 
     setIsPlaying(true);
     setLastWin(null);
+    setLastHitColor(null);
+    setLastMultiplier(null);
     setDartPosition(null);
     setIsFlying(true);
     subtractFromBalance(bet);
@@ -336,8 +374,10 @@ export default function DartsPage() {
     }, 380);
 
     setTimeout(() => {
-      setIsFlying(false);
-      setDartPosition({ x, y });
+        setIsFlying(false);
+        setLastHitColor(COLORS[outcome]);
+        setLastMultiplier(multiplier);
+        setDartPosition({ x, y });
 
       setTimeout(() => {
         if (winAmount > 0) addToBalance(winAmount);
@@ -349,6 +389,11 @@ export default function DartsPage() {
       }, 300);
     }, 520);
   };
+
+  useEffect(() => {
+    setLastMultiplier(null);
+    setLastHitColor(null);
+  }, [risk]);
 
   const renderSegmentedRing = () => {
     const paths = [];
@@ -477,6 +522,14 @@ export default function DartsPage() {
         <div className="bg-[#0f212e] rounded-xl p-4 sm:p-6">
           <div className="max-w-130 w-full mx-auto">
             <div className="relative aspect-square">
+              <div
+                aria-hidden
+                className="absolute inset-0 rounded-full pointer-events-none"
+                style={{
+                  boxShadow: boardGlowShadow,
+                  transition: "box-shadow 220ms ease",
+                }}
+              />
               <div className="absolute inset-0 rounded-full bg-[#0f212e] border border-[#2f4553] shadow-[0_20px_60px_rgba(0,0,0,0.55)]" />
               <div className="absolute inset-2 rounded-full bg-[#213743] border border-[#2f4553]" />
 
@@ -565,6 +618,20 @@ export default function DartsPage() {
                     strokeWidth="1"
                   />
                 </svg>
+                {lastMultiplier !== null && (
+                  <div
+                    aria-hidden
+                    className="absolute text-center"
+                    style={{
+                      left: `${(center / (radius * 2)) * 100}%`,
+                      top: `${((center + rGreen + 14) / (radius * 2)) * 100}%`,
+                      transform: "translate(-50%, -50%)",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    <div className="text-lg font-extrabold text-white">{String(lastMultiplier) + "x"}</div>
+                  </div>
+                )}
                 {showArrow && arrowPos && (
                   <div
                     aria-hidden

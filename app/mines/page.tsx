@@ -114,8 +114,20 @@ export default function MinesPage() {
   const [revealedCount, setRevealedCount] = useState<number>(0);
   const [lastWin, setLastWin] = useState<number>(0);
 
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
+  const resultTimeoutRef = React.useRef<number | null>(null);
+
   useEffect(() => {
     resetGrid();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+    };
   }, []);
 
   const resetGrid = () => {
@@ -126,6 +138,11 @@ export default function MinesPage() {
       revealedByPlayer: false,
     }));
     setGrid(newGrid);
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+    setResultFx(null);
   };
 
   const currentMultiplier = useMemo(() => {
@@ -183,6 +200,12 @@ export default function MinesPage() {
     const tile = grid[id];
     if (tile.isRevealed) return;
 
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+    setResultFx("rolling");
+
     const newGrid = [...grid];
     newGrid[id] = { ...tile, isRevealed: true, revealedByPlayer: true };
     setGrid(newGrid);
@@ -190,6 +213,9 @@ export default function MinesPage() {
     if (tile.isMine) {
       setGameState("game_over");
       setGrid(newGrid.map((t) => ({ ...t, isRevealed: true })));
+      // popped on mine -> red flash
+      setResultFx("lose");
+      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
       finalizePendingLoss();
     } else {
       const newRevealedCount = revealedCount + 1;
@@ -201,6 +227,13 @@ export default function MinesPage() {
           betAmount * MULTIPLIERS[mineCount][newRevealedCount - 1];
         addToBalance(winAmount);
         setLastWin(winAmount);
+        // final win -> green flash
+        if (resultTimeoutRef.current) {
+          clearTimeout(resultTimeoutRef.current);
+          resultTimeoutRef.current = null;
+        }
+        setResultFx("win");
+        resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
         setGameState("cashed_out");
 
         setGrid(newGrid.map((t) => ({ ...t, isRevealed: true })));
@@ -216,6 +249,13 @@ export default function MinesPage() {
     addToBalance(winAmount);
     setLastWin(winAmount);
     setGameState("cashed_out");
+
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+    setResultFx("win");
+    resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
 
     setGrid((prev) => prev.map((t) => ({ ...t, isRevealed: true })));
   };
@@ -332,17 +372,27 @@ export default function MinesPage() {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px]">
-        <div className="grid grid-cols-5 gap-2 sm:gap-3 w-full max-w-[500px] aspect-square">
+            {resultFx === "rolling" && <div className="limbo-roll-glow" />}
+            {resultFx === "win" && <div className="limbo-win-flash" />}
+            {resultFx === "lose" && <div className="limbo-lose-flash" />}
+            {resultFx === "rolling" && (
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    "radial-gradient(circle at 50% 55%, rgba(47,69,83,0.18) 0%, rgba(15,33,46,0.0) 68%)",
+                  opacity: 0.9,
+                }}
+              />
+            )}
+            <div className="grid grid-cols-5 gap-2 sm:gap-3 w-full max-w-[500px] aspect-square">
           {grid.map((tile) => {
             const isAutoRevealed = tile.isRevealed && !tile.revealedByPlayer;
             const baseSafe = "#213743";
-            const baseMine = "#ef4444";
             const target = "#0f212e";
             const blendedBg = tile.isRevealed
               ? isAutoRevealed
-                ? blendHexColors(tile.isMine ? baseMine : baseSafe, target, 0.5)
-                : tile.isMine
-                ? baseMine
+                ? blendHexColors(baseSafe, target, 0.5)
                 : baseSafe
               : undefined;
 
@@ -352,11 +402,14 @@ export default function MinesPage() {
                 onClick={() => revealTile(tile.id)}
                 disabled={gameState !== "playing" || tile.isRevealed}
                 className={`relative rounded-lg transition-all duration-200 flex items-center justify-center aspect-square
+                  overflow-hidden
                   ${
                     !tile.isRevealed
                       ? "bg-[#2f4553] hover:bg-[#3c5566] hover:-translate-y-1 cursor-pointer shadow-[0_4px_0_0_#1a2c38]"
                       : tile.isMine && tile.revealedByPlayer
-                      ? "animate-shake"
+                      ? "animate-mines-mine"
+                      : !tile.isMine && tile.revealedByPlayer
+                      ? "animate-mines-gem"
                       : ""
                   }
                   ${
@@ -366,8 +419,42 @@ export default function MinesPage() {
                   }`}
                 style={blendedBg ? { backgroundColor: blendedBg } : undefined}
               >
+                {tile.isRevealed && tile.revealedByPlayer && !tile.isMine && (
+                  <div
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                  >
+                    <div
+                      className="mines-gem-flash absolute inset-0"
+                      style={{
+                        background:
+                          "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.85) 0%, rgba(0,231,1,0.35) 38%, rgba(0,231,1,0.0) 70%)",
+                      }}
+                    />
+                    <div
+                      className="mines-gem-glow absolute inset-0 rounded-lg"
+                      style={{
+                        boxShadow: "0 0 0 0 rgba(0,231,1,0.0)",
+                        border: "2px solid rgba(0,231,1,0.35)",
+                      }}
+                    />
+                  </div>
+                )}
+
+                {tile.isRevealed && tile.revealedByPlayer && tile.isMine && (
+                  <div
+                    className="pointer-events-none absolute inset-0 mines-mine-flash"
+                    style={{
+                      background:
+                        "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.75) 0%, rgba(239,68,68,0.35) 45%, rgba(239,68,68,0.0) 70%)",
+                    }}
+                  />
+                )}
+
                 {tile.isRevealed && (
                   <div
+                    className={
+                      tile.revealedByPlayer ? "animate-mines-icon-pop" : undefined
+                    }
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -381,10 +468,10 @@ export default function MinesPage() {
                         style={{
                           width: tile.revealedByPlayer ? "100%" : "75%",
                           height: tile.revealedByPlayer ? "100%" : "75%",
-                          color: tile.revealedByPlayer ? "#4c0f0f" : "#4c0f0f",
+                          color: "#ef4444",
                           filter: tile.revealedByPlayer
-                            ? "drop-shadow(0 0 12px rgba(127,29,29,0.45))"
-                            : undefined,
+                            ? "drop-shadow(0 0 14px rgba(239,68,68,0.55))"
+                            : "brightness(0.75)",
                         }}
                       />
                     ) : (

@@ -16,6 +16,18 @@ interface Ball {
   path: number[];
   x: number;
   y: number;
+  trail?: { x: number; y: number; a: number }[];
+}
+
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number; // ms
+  size: number;
+  color: string;
 }
 
 const drawRoundedRect = (
@@ -42,6 +54,32 @@ const getColorForMultiplier = (val: number): string => {
   if (val >= 2) return "#eab308";
   if (val >= 1) return "#84cc16";
   return "#2f4553";
+};
+
+const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
+  const h = hex.trim();
+  if (!h.startsWith("#")) return null;
+  const raw = h.slice(1);
+  if (raw.length === 3) {
+    const r = parseInt(raw[0] + raw[0], 16);
+    const g = parseInt(raw[1] + raw[1], 16);
+    const b = parseInt(raw[2] + raw[2], 16);
+    return { r, g, b };
+  }
+  if (raw.length === 6) {
+    const r = parseInt(raw.slice(0, 2), 16);
+    const g = parseInt(raw.slice(2, 4), 16);
+    const b = parseInt(raw.slice(4, 6), 16);
+    return { r, g, b };
+  }
+  return null;
+};
+
+const rgbaFromHex = (hex: string, a: number) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return `rgba(255,255,255,${Math.max(0, Math.min(1, a))})`;
+  const aa = Math.max(0, Math.min(1, a));
+  return `rgba(${rgb.r},${rgb.g},${rgb.b},${aa})`;
 };
 
 const FIXED_MULTIPLIERS: Record<RiskLevel, Record<number, number[]>> = {
@@ -119,7 +157,6 @@ const getMultipliers = (rows: number, risk: RiskLevel): number[] => {
   return result;
 };
 
-// Kombinatorik: n choose r
 const comb = (n: number, r: number) => {
   if (r < 0 || r > n) return 0;
   r = Math.min(r, n - r);
@@ -197,9 +234,14 @@ export default function PlinkoPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const ballsRef = useRef<Ball[]>([]);
+  const particlesRef = useRef<Particle[]>([]);
+  const lastWinSlotRef = useRef<{ idx: number | null; timer: number; force?: number }>({ idx: null, timer: 0, force: 0 });
   const lastTimeRef = useRef<number>(0);
 
   const canvasDpiRef = useRef({ cssW: 0, cssH: 0, dpr: 1 });
+  const resultTimeoutRef = useRef<number | null>(null);
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
+  const [resultKey, setResultKey] = useState(0);
 
   const syncCanvasDpi = useCallback(() => {
     const canvas = canvasRef.current;
@@ -237,6 +279,8 @@ export default function PlinkoPage() {
 
     subtractFromBalance(betAmount);
     setLastWin(0);
+    setResultFx("rolling");
+    setResultKey((k) => k + 1);
 
     const path: number[] = [];
     for (let i = 0; i < rows; i++) {
@@ -259,6 +303,7 @@ export default function PlinkoPage() {
         path,
         x: 0,
         y: 0,
+        trail: [],
       },
     ];
   };
@@ -279,16 +324,27 @@ export default function PlinkoPage() {
       const height = canvasDpiRef.current.cssH || canvas.clientHeight;
       const centerX = width / 2;
 
-      const paddingTop = 48;
-      const paddingBottom = 58;
+      const multipliers = getMultipliers(rows, risk);
+      const slotsCount = multipliers.length;
+
+      const paddingTop = Math.max(24, Math.min(64, height * 0.08));
+      const paddingBottom = Math.max(30, Math.min(72, height * 0.09));
       const usableHeight = height - paddingTop - paddingBottom;
 
       const rowSpacing = usableHeight / (rows + 1);
-      const pegSpacing = rowSpacing * 1.18;
-      const pegRadius = 4;
-      const ballRadius = 6;
+      const approxSpacingFromRows = rowSpacing * 1.18;
+      const maxPegSpacingByWidth = (width * 0.92) / Math.max(1, slotsCount - 1);
+      const pegSpacing = Math.min(approxSpacingFromRows, maxPegSpacingByWidth);
+
+      const pegRadius = Math.max(2, Math.round(pegSpacing * 0.12));
+      const ballRadius = Math.max(3, Math.round(pegSpacing * 0.22));
+
+      const slotBoxW = Math.min(pegSpacing * 0.9, 120);
+      const slotBoxH = Math.max(24, Math.min(40, pegSpacing * 0.85));
 
       ctx.clearRect(0, 0, width, height);
+
+      ctx.save();
 
       ctx.fillStyle = "#ffffff";
       for (let r = 0; r < rows; r++) {
@@ -298,14 +354,15 @@ export default function PlinkoPage() {
         const y = paddingTop + r * rowSpacing;
         for (let c = 0; c < pegsInRow; c++) {
           const x = startX + c * pegSpacing;
+          const pulse = 1 + 0.06 * Math.sin(time * 0.006 + r * 0.9 + c * 0.7);
+          const pr = Math.max(1, Math.round(pegRadius * pulse));
+          const alpha = 0.9 - (r / rows) * 0.35;
           ctx.beginPath();
-          ctx.arc(x, y, pegRadius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,255,255,${alpha.toFixed(3)})`;
+          ctx.arc(x, y, pr, 0, Math.PI * 2);
           ctx.fill();
         }
       }
-
-      const multipliers = getMultipliers(rows, risk);
-      const slotsCount = multipliers.length;
       const bottomWidth = (slotsCount - 1) * pegSpacing;
       const startXSlots = centerX - bottomWidth / 2;
       const slotY = paddingTop + rows * rowSpacing;
@@ -313,19 +370,40 @@ export default function PlinkoPage() {
       for (let i = 0; i < slotsCount; i++) {
         const x = startXSlots + i * pegSpacing;
         const val = multipliers[i];
-        const boxW = pegSpacing * 0.92;
-        const boxH = 34;
+        const slotColor = getColorForMultiplier(val);
 
-        ctx.fillStyle = getColorForMultiplier(val);
-        drawRoundedRect(ctx, x - boxW / 2, slotY, boxW, boxH, 5);
-        ctx.fill();
+        let drawW = slotBoxW;
+        let drawH = slotBoxH;
+        let drawY = slotY;
+
+        if (lastWinSlotRef.current.idx === i && lastWinSlotRef.current.timer > 0) {
+            const t = Math.max(0, Math.min(1, lastWinSlotRef.current.timer / 2500));
+          const pulse = 0.6 + 0.4 * Math.sin((1 - t) * Math.PI * 3);
+          const p = 1 - t;
+          const drop = Math.sin(Math.min(1, p * 1.15) * Math.PI);
+
+          const force = Math.max(0, Math.min(3, lastWinSlotRef.current.force ?? 1));
+          const baseDrop = 8;
+          drawY = slotY + baseDrop * drop * (0.6 + 0.8 * force);
+          ctx.save();
+          ctx.shadowBlur = (22 + 26 * pulse) * (0.6 + 0.6 * force);
+          ctx.shadowColor = rgbaFromHex(slotColor, Math.min(0.85, 0.45 + 0.18 * force));
+          ctx.fillStyle = slotColor;
+          drawRoundedRect(ctx, x - slotBoxW / 2, drawY, slotBoxW, slotBoxH, 5);
+          ctx.fill();
+          ctx.restore();
+        } else {
+          ctx.fillStyle = slotColor;
+          drawRoundedRect(ctx, x - slotBoxW / 2, slotY, slotBoxW, slotBoxH, 5);
+          ctx.fill();
+        }
 
         ctx.fillStyle = "#000";
         ctx.font =
           "bold 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(`${val}x`, x, slotY + boxH * 0.36);
+        ctx.fillText(`${val}x`, x, drawY + drawH * 0.36);
 
         const favourable = comb(rows, i);
         const totalPaths = Math.pow(2, rows);
@@ -335,7 +413,7 @@ export default function PlinkoPage() {
         ctx.fillStyle = "#071826";
         ctx.font =
           "9px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
-        ctx.fillText(probText, x, slotY + boxH * 0.74);
+        ctx.fillText(probText, x, drawY + drawH * 0.74);
       }
 
       const getPegPos = (r: number, c: number) => {
@@ -355,9 +433,39 @@ export default function PlinkoPage() {
         };
       };
 
+      const spawnParticles = (
+        x: number,
+        y: number,
+        baseColor: string,
+        count = 26,
+        strength = 1
+      ) => {
+        const maxParticles = 120;
+        if (particlesRef.current.length > maxParticles) {
+          particlesRef.current.splice(0, particlesRef.current.length - maxParticles);
+        }
+
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = (0.35 + Math.random() * 0.75) * (0.6 + strength * 0.35);
+          particlesRef.current.push({
+            id: Date.now() + Math.random() + i,
+            x: x + (Math.random() - 0.5) * 8,
+            y: y + (Math.random() - 0.6) * 6,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 0.55 * strength,
+            life: 380 + Math.random() * 420,
+            size: 0.6 + Math.random() * 1.6 * (0.6 + strength * 0.25),
+            color: baseColor,
+          });
+        }
+      };
+
       const balls = ballsRef.current;
       const nextBalls: Ball[] = [];
       const speed = 0.005;
+
+      const easeInOutQuad = (t: number) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
 
       for (const ball of balls) {
         ball.progress += speed * deltaTime;
@@ -370,15 +478,48 @@ export default function PlinkoPage() {
           if (ball.currentRow >= rows) {
             const slotIndex = ball.currentCol - 1;
             const mult = multipliers[slotIndex] ?? 0;
-            
+
             setHistory((prev) => [mult, ...prev].slice(0, 7));
 
             const win = ball.bet * mult;
             if (win > 0) {
               addToBalance(win);
               setLastWin(win);
+
+              const slotPos = getSlotPos(slotIndex);
+              const strength = Math.min(2.0, Math.max(0.85, Math.log10(win + 1)));
+              spawnParticles(
+                slotPos.x,
+                slotPos.y + slotBoxH * 0.35,
+                getColorForMultiplier(mult),
+                10 + Math.round(6 * strength),
+                strength
+              );
+              lastWinSlotRef.current.idx = slotIndex;
+              lastWinSlotRef.current.force = strength;
+              lastWinSlotRef.current.timer = 700;
+
+              if (resultTimeoutRef.current) clearTimeout(resultTimeoutRef.current);
+              if (mult < 1) {
+                setResultFx("lose");
+              } else {
+                setResultFx("win");
+              }
+              setResultKey((k) => k + 1);
+              resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
+
+              if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+                try {
+                  (navigator as Navigator & { vibrate?: (pattern: number | number[]) => boolean }).vibrate?.(12);
+                } catch {
+                }
+              }
             } else {
               finalizePendingLoss();
+              if (resultTimeoutRef.current) clearTimeout(resultTimeoutRef.current);
+              setResultFx("lose");
+              setResultKey((k) => k + 1);
+              resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
             }
             continue;
           } else {
@@ -387,21 +528,17 @@ export default function PlinkoPage() {
           }
         }
 
-        let p0, p2;
-
-        p0 = getPegPos(ball.currentRow, ball.currentCol);
-
-        if (ball.currentRow === rows - 1) {
-          const slotIndex = ball.targetCol - 1;
-          p2 = getSlotPos(slotIndex);
-        } else {
-          p2 = getPegPos(ball.currentRow + 1, ball.targetCol);
-        }
+        const p0 = getPegPos(ball.currentRow, ball.currentCol);
+        const p2 =
+          ball.currentRow === rows - 1
+            ? getSlotPos(ball.targetCol - 1)
+            : getPegPos(ball.currentRow + 1, ball.targetCol);
 
         const p1x = (p0.x + p2.x) / 2;
         const p1y = p0.y - rowSpacing * 0.5;
 
-        const t = ball.progress;
+        const tRaw = Math.max(0, Math.min(1, ball.progress));
+        const t = easeInOutQuad(tRaw);
         const oneMinusT = 1 - t;
 
         ball.x =
@@ -409,17 +546,78 @@ export default function PlinkoPage() {
         ball.y =
           oneMinusT * oneMinusT * p0.y + 2 * oneMinusT * t * p1y + t * t * p2.y;
 
-        ctx.fillStyle = "#00e701";
+        if (!ball.trail) ball.trail = [];
+        ball.trail.push({ x: ball.x, y: ball.y, a: 1 });
+        if (ball.trail.length > 10) ball.trail.shift();
+        for (let i = 0; i < ball.trail.length; i++) ball.trail[i].a *= 0.92;
+
+        for (let i = 0; i < ball.trail.length; i++) {
+          const p = ball.trail[i];
+          const rr = ballRadius * (0.6 * (i / ball.trail.length) + 0.25);
+          ctx.beginPath();
+          ctx.fillStyle = `rgba(0,231,1,${(p.a * 0.22).toFixed(3)})`;
+          ctx.arc(p.x, p.y + 1, rr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.save();
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = "rgba(0,231,1,0.6)";
+        const grad = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, ballRadius * 2.6);
+        grad.addColorStop(0, "#e8ffea");
+        grad.addColorStop(0.2, "#00e701");
+        grad.addColorStop(1, "rgba(0,231,1,0.03)");
+        ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
 
         nextBalls.push(ball);
       }
 
+      const particles = particlesRef.current;
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        const dt = deltaTime / 16.666;
+
+        p.vy += 0.05 * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= deltaTime;
+
+        const a = Math.max(0, Math.min(1, p.life / 520));
+        ctx.save();
+        ctx.globalAlpha = a * 0.24;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = rgbaFromHex(p.color, 0.25);
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 5);
+        g.addColorStop(0, rgbaFromHex(p.color, 0.9));
+        g.addColorStop(0.55, rgbaFromHex(p.color, 0.25));
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 1.15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+
       ballsRef.current = nextBalls;
+
+      ctx.restore();
+
+      if (lastWinSlotRef.current.timer > 0) {
+        lastWinSlotRef.current.timer = Math.max(0, lastWinSlotRef.current.timer - deltaTime);
+        if (lastWinSlotRef.current.timer === 0) {
+          lastWinSlotRef.current.idx = null;
+          lastWinSlotRef.current.force = 0;
+        }
+      }
     },
-    [rows, risk, addToBalance, syncCanvasDpi]
+    [rows, risk, addToBalance, finalizePendingLoss, syncCanvasDpi, setResultKey]
   );
 
   useEffect(() => {
@@ -471,8 +669,23 @@ export default function PlinkoPage() {
     };
   }, [loop]);
 
+  useEffect(() => {
+    return () => {
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const isDropping =
     (ballsRef.current && ballsRef.current.length > 0);
+
+  const resultFxClassName: Record<NonNullable<typeof resultFx>, string> = {
+    rolling: "limbo-roll-glow",
+    win: "limbo-win-flash",
+    lose: "limbo-lose-flash",
+  };
 
   return (
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
@@ -586,24 +799,47 @@ export default function PlinkoPage() {
       </div>
 
       <div className="flex-1 bg-[#0f212e] p-4 sm:p-6 rounded-xl min-h-[400px] sm:min-h-[600px] flex flex-col items-stretch justify-center relative overflow-hidden">
-        <div className="flex sm:flex-col gap-2 absolute top-4 right-4 sm:top-1/2 sm:-translate-y-1/2 z-10 max-w-[200px] flex-wrap justify-end sm:justify-center">
-          {history.map((mult, i) => (
-            <div
-              key={i}
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[10px] font-bold text-black shadow-md animate-scale-in"
-              style={{ backgroundColor: getColorForMultiplier(mult) }}
-            >
-              {mult}x
+        {resultFx && (
+          <div
+            key={`${resultFx}-${resultKey}`}
+            className={resultFxClassName[resultFx]}
+          />
+        )}
+        {resultFx === "rolling" && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(circle at 50% 55%, rgba(47,69,83,0.22) 0%, rgba(15,33,46,0.0) 68%)",
+              opacity: 0.85,
+            }}
+          />
+        )}
+        <div
+          className="mx-auto w-full"
+          style={{ maxWidth: 1200, aspectRatio: "4/3", display: "block" }}
+        >
+          <div className="relative" style={{ height: "100%" }}>
+            <div className="flex sm:flex-col gap-2 absolute top-4 right-4 sm:top-1/2 sm:-translate-y-1/2 z-10 max-w-[200px] flex-wrap justify-end sm:justify-center">
+              {history.map((mult, i) => (
+                <div
+                  key={i}
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[10px] font-bold text-black shadow-md animate-scale-in"
+                  style={{ backgroundColor: getColorForMultiplier(mult) }}
+                >
+                  {mult}x
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <canvas
-          ref={canvasRef}
-          width={800}
-          height={600}
-          className="w-full h-auto"
-        />
+            <canvas
+              ref={canvasRef}
+              width={800}
+              height={600}
+              style={{ width: "100%", height: "100%", display: "block" }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

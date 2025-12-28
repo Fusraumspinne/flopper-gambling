@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
-import { MonetizationOn } from "@mui/icons-material";
 
 type CoinSide = "heads" | "tails";
 type GameState = "idle" | "playing" | "cashed_out" | "lost";
@@ -21,6 +20,12 @@ export default function CoinFlipPage() {
   const [isFlipping, setIsFlipping] = useState<boolean>(false);
   const [lastResult, setLastResult] = useState<CoinSide | null>(null);
   const [lastWin, setLastWin] = useState<number>(0);
+  const [lastChoice, setLastChoice] = useState<CoinSide | null>(null);
+  const [fx, setFx] = useState<"win" | "lose" | null>(null);
+  const [fxKey, setFxKey] = useState<number>(0);
+  const resultTimeoutRef = React.useRef<number | null>(null);
+  const [pendingResult, setPendingResult] = useState<CoinSide | null>(null);
+  const [flipKey, setFlipKey] = useState<number>(0);
 
   const currentMultiplier = Math.pow(HOUSE_EDGE_MULTIPLIER, streak);
   const nextMultiplier = Math.pow(HOUSE_EDGE_MULTIPLIER, streak + 1);
@@ -47,27 +52,48 @@ export default function CoinFlipPage() {
     setStreak(0);
     setHistory([]);
     setLastWin(0);
+    setLastChoice(choice);
+    setFx(null);
     flipCoin(choice);
   };
 
   const continueGame = (choice: CoinSide) => {
     if (gameState !== "playing") return;
+    setLastChoice(choice);
     flipCoin(choice);
   };
 
   const flipCoin = async (choice: CoinSide) => {
     if (isFlipping) return;
     setIsFlipping(true);
+    setFx(null);
 
     const result: CoinSide = Math.random() > 0.5 ? "heads" : "tails";
+    setPendingResult(result);
+    setFlipKey((k) => k + 1);
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     setLastResult(result);
     setHistory((prev) => [...prev, result]);
     setIsFlipping(false);
+    setPendingResult(null);
 
-    if (result === choice) {
+    const didWin = result === choice;
+    if (didWin) {
+      // do not show green on each win; only show on cashout
+      setFx(null);
+    } else {
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+      setFx("lose");
+      setFxKey((k) => k + 1);
+      resultTimeoutRef.current = window.setTimeout(() => setFx(null), 900);
+    }
+
+    if (didWin) {
       setStreak((prev) => prev + 1);
     } else {
       setGameState("lost");
@@ -82,11 +108,18 @@ export default function CoinFlipPage() {
     addToBalance(currentPayout);
     setLastWin(currentPayout);
     setGameState("cashed_out");
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+    setFx("win");
+    setFxKey((k) => k + 1);
+    resultTimeoutRef.current = window.setTimeout(() => setFx(null), 900);
   };
 
   return (
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs cf-ui-float">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -112,7 +145,7 @@ export default function CoinFlipPage() {
                 setBetInput(String(newBet));
               }}
               disabled={gameState === "playing"}
-              className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
+              className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50 cf-press"
             >
               ½
             </button>
@@ -123,7 +156,7 @@ export default function CoinFlipPage() {
                 setBetInput(String(newBet));
               }}
               disabled={gameState === "playing"}
-              className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
+              className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50 cf-press"
             >
               2×
             </button>
@@ -135,7 +168,7 @@ export default function CoinFlipPage() {
             <button
               onClick={cashOut}
               disabled={isFlipping || streak === 0}
-              className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cf-press"
             >
               Cashout
             </button>
@@ -164,41 +197,90 @@ export default function CoinFlipPage() {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px]">
-        <div className="relative w-32 h-32 sm:w-48 sm:h-48 mb-8 sm:mb-12 cf-perspective">
-          <div
-            className={`w-full h-full relative cf-3d ${
-              isFlipping ? "cf-flip" : ""
-            }`}
-          >
-            <div
-              className={`w-full h-full rounded-full flex items-center justify-center border-4 transition-all duration-300 ${
-                lastResult === "tails"
-                  ? "shadow-[0_0_30px_rgba(59,130,246,0.25)] bg-linear-to-br from-blue-300 to-blue-600 border-blue-400"
-                  : "shadow-[0_0_30px_rgba(234,179,8,0.25)] bg-linear-to-br from-yellow-300 to-yellow-600 border-yellow-400"
-              }`}
-            >
-              {isFlipping ? (
-                <span className="text-4xl sm:text-6xl font-bold text-white/80">
-                  ?
-                </span>
-              ) : (
-                <MonetizationOn
-                  className={`w-20! h-20! sm:w-32! sm:h-32! ${
-                    lastResult === "tails" ? "text-blue-100" : "text-yellow-100"
-                  }`}
-                />
-              )}
-            </div>
-          </div>
-          {lastResult && !isFlipping && (
-            <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-xl font-bold uppercase tracking-widest text-white cf-pop animate-bounce-in">
-              {lastResult}
-            </div>
-          )}
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px] overflow-hidden">
+        {isFlipping && <div className="limbo-roll-glow" />}
+        {!isFlipping && fx === "win" && <div key={`win-${fxKey}`} className="limbo-win-flash" />}
+        {!isFlipping && fx === "lose" && <div key={`lose-${fxKey}`} className="limbo-lose-flash" />}
+
+        <div className="relative w-32 h-32 sm:w-48 sm:h-48 mb-8 sm:mb-12 cf-perspective z-10">
+          {(() => {
+            const fromSide: CoinSide = lastResult ?? "heads";
+            const toSide: CoinSide = pendingResult ?? lastResult ?? "heads";
+            const fromDeg = fromSide === "tails" ? 180 : 0;
+            const baseDeg = toSide === "tails" ? 180 : 0;
+            const delta = (baseDeg - fromDeg + 360) % 360;
+            const fullTurns = 5;
+            const toDeg = fromDeg + fullTurns * 360 + delta;
+
+            const faceBorder = "border-4";
+            const headsFace =
+              "shadow-[0_0_30px_rgba(234,179,8,0.25)] bg-linear-to-br from-yellow-300 to-yellow-600 border-yellow-400";
+            const tailsFace =
+              "shadow-[0_0_30px_rgba(59,130,246,0.25)] bg-linear-to-br from-blue-300 to-blue-600 border-blue-400";
+
+            return (
+              <div className="cf-coin">
+                <div
+                  key={flipKey}
+                  className={`cf-coin-inner ${isFlipping ? "cf-coin-flipping" : ""}`}
+                  style={
+                    {
+                      transform: `rotateY(${isFlipping ? fromDeg : baseDeg}deg)`,
+                      ["--cf-from" as any]: `${fromDeg}deg`,
+                      ["--cf-to" as any]: `${toDeg}deg`,
+                    } as React.CSSProperties
+                  }
+                >
+                  {Array.from({ length: 16 }).map((_, i) => (
+                    <div
+                      key={`edge-${i}`}
+                      className={
+                        isFlipping
+                          ? "absolute inset-0 rounded-full bg-gray-600"
+                          : "absolute inset-0 rounded-full bg-[#2f4553] border border-[#557086]"
+                      }
+                      style={{
+                        transform: `translateZ(${i - 7.5}px)`,
+                      }}
+                    />
+                  ))}
+
+                  <div
+                    className={`cf-coin-face ${faceBorder} ${
+                      isFlipping ? "bg-gray-400 border-0 shadow-none" : headsFace
+                    }`}
+                    style={{ transform: "translateZ(8px)" }}
+                  >
+                    <div
+                      className={
+                        isFlipping
+                          ? "hidden"
+                          : "w-[55%] h-[55%] rounded-full bg-[#2f4553]"
+                      }
+                    />
+                  </div>
+
+                  <div
+                    className={`cf-coin-face ${faceBorder} ${
+                      isFlipping ? "bg-gray-400 border-0 shadow-none" : tailsFace
+                    }`}
+                    style={{ transform: "rotateY(180deg) translateZ(8px)" }}
+                  >
+                    <div
+                      className={
+                        isFlipping
+                          ? "hidden"
+                          : "w-[45%] h-[45%] bg-[#2f4553] transform rotate-45"
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
-        <div className="flex gap-4 w-full max-w-md">
+        <div className="flex gap-4 w-full max-w-md justify-center">
           <button
             onClick={() =>
               gameState === "playing"
@@ -206,12 +288,10 @@ export default function CoinFlipPage() {
                 : startGame("heads")
             }
             disabled={isFlipping || (gameState === "playing" && streak === 0)}
-            className="flex-1 bg-[#eab308] hover:bg-[#ca8a04] disabled:opacity-50 disabled:cursor-not-allowed text-black py-4 rounded-xl font-bold text-lg sm:text-xl shadow-[0_0_20px_rgba(234,179,8,0.2)] transition-all active:scale-95 flex flex-col items-center gap-2"
+            aria-label="Heads"
+            className="w-20 sm:w-24 h-12 sm:h-14 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 disabled:cursor-not-allowed text-black rounded-xl shadow-[0_0_8px_rgba(0,0,0,0.25)] transition-all active:scale-95 flex items-center justify-center cf-press"
           >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-yellow-200 flex items-center justify-center">
-              <MonetizationOn className="text-yellow-700" />
-            </div>
-            HEADS
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#eab308]" />
           </button>
 
           <button
@@ -221,12 +301,10 @@ export default function CoinFlipPage() {
                 : startGame("tails")
             }
             disabled={isFlipping || (gameState === "playing" && streak === 0)}
-            className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-black py-4 rounded-xl font-bold text-lg sm:text-xl shadow-[0_0_20px_rgba(59,130,246,0.2)] transition-all active:scale-95 flex flex-col items-center gap-2"
+            aria-label="Tails"
+            className="w-20 sm:w-24 h-12 sm:h-14 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 disabled:cursor-not-allowed text-black rounded-xl shadow-[0_0_8px_rgba(0,0,0,0.25)] transition-all active:scale-95 flex items-center justify-center cf-press"
           >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-200 flex items-center justify-center">
-              <MonetizationOn className="text-blue-700" />
-            </div>
-            TAILS
+            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-[#3b82f6] transform rotate-45" />
           </button>
         </div>
 
@@ -234,14 +312,18 @@ export default function CoinFlipPage() {
           {history.map((side, i) => (
             <div
               key={i}
-              className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 animate-scale-in ${
+              className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center border-2 animate-scale-in ${
                 side === "heads"
-                  ? "bg-yellow-500 border-yellow-300 text-yellow-900"
-                  : "bg-blue-500 border-blue-300 text-blue-950"
+                  ? "bg-yellow-500 border-yellow-300"
+                  : "bg-blue-500 border-blue-300"
               }`}
               style={{ animationDelay: `${i * 0.05}s` }}
             >
-              {side === "heads" ? "H" : "T"}
+              {side === "heads" ? (
+                <div className="w-3.5 h-3.5 rounded-full bg-[#2f4553]" />
+              ) : (
+                <div className="w-3 h-3 bg-[#2f4553] transform rotate-45" />
+              )}
             </div>
           ))}
         </div>

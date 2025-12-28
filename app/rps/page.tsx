@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useWallet } from "@/components/WalletProvider";
 
 type Choice = "rock" | "paper" | "scissors";
@@ -25,6 +25,19 @@ export default function RPSPage() {
   const [computerChoice, setComputerChoice] = useState<Choice | null>(null);
   const [lastResult, setLastResult] = useState<GameResult | null>(null);
   const [lastWin, setLastWin] = useState<number>(0);
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(
+    null
+  );
+  const resultTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const currentMultiplier = Math.pow(HOUSE_EDGE_MULTIPLIER, streak);
   const nextMultiplier = Math.pow(HOUSE_EDGE_MULTIPLIER, streak + 1);
@@ -82,6 +95,11 @@ export default function RPSPage() {
     setUserChoice(choice);
     setComputerChoice(null);
     setLastResult(null);
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+    setResultFx("rolling");
 
     await new Promise((resolve) => setTimeout(resolve, 600));
 
@@ -99,6 +117,11 @@ export default function RPSPage() {
       setGameState("lost");
       setStreak(0);
       finalizePendingLoss();
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+      }
+      setResultFx("lose");
+      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
     }
   };
 
@@ -108,6 +131,11 @@ export default function RPSPage() {
     addToBalance(currentPayout);
     setLastWin(currentPayout);
     setGameState("cashed_out");
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+    }
+    setResultFx("win");
+    resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
   };
 
   const getEmoji = (c: Choice | null) => {
@@ -122,8 +150,29 @@ export default function RPSPage() {
     }
   };
 
+  const userRingAnimClass =
+    lastResult === "win"
+      ? "rps-win"
+      : lastResult === "lose"
+      ? "rps-lose"
+      : lastResult === "draw"
+      ? "rps-draw"
+      : "";
+
+  const computerRingAnimClass =
+    lastResult === "lose"
+      ? "rps-win"
+      : lastResult === "win"
+      ? "rps-lose"
+      : lastResult === "draw"
+      ? "rps-draw"
+      : "";
+
+  const thinkingClass = isProcessing ? "rps-thinking" : "";
+  const computerRevealClass = computerChoice ? "rps-reveal" : "";
+
   return (
-    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
+    <main className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
       <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
@@ -202,8 +251,25 @@ export default function RPSPage() {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px]">
-        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-8 mb-8 sm:mb-12 min-h-[200px]">
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px] overflow-hidden">
+        {resultFx === "rolling" && (
+          <div className="limbo-roll-glow absolute inset-0 pointer-events-none z-0" />
+        )}
+        {resultFx === "win" && (
+          <div
+            key={`rps-win-${history.length}`}
+            className="limbo-win-flash absolute inset-0 pointer-events-none z-0"
+          />
+        )}
+        {resultFx === "lose" && (
+          <div
+            key={`rps-lose-${history.length}`}
+            className="limbo-lose-flash absolute inset-0 pointer-events-none z-0"
+          />
+        )}
+
+        <div className="relative z-10 w-full">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-8 mb-8 sm:mb-12 min-h-[200px]">
           <div className="flex flex-col items-center gap-2 sm:gap-4">
             <div className="text-[#b1bad3] text-xs sm:text-sm uppercase tracking-wider">
               You
@@ -215,11 +281,17 @@ export default function RPSPage() {
                     ? "border-[#00e701] shadow-[0_0_20px_rgba(0,231,1,0.2)] scale-110"
                     : ""
                 }
-                ${isProcessing ? "animate-shake" : ""}
+                ${thinkingClass}
+                ${userRingAnimClass}
              `}
             >
               {userChoice ? (
-                getEmoji(userChoice)
+                <span
+                  key={`u-${history.length}-${userChoice}`}
+                  className={lastResult ? "rps-emoji-pop" : ""}
+                >
+                  {getEmoji(userChoice)}
+                </span>
               ) : (
                 <span className="text-4xl opacity-20">👤</span>
               )}
@@ -236,7 +308,9 @@ export default function RPSPage() {
             </div>
             <div
               className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-[#213743] border-4 border-[#2f4553] flex items-center justify-center text-4xl sm:text-6xl shadow-lg transition-all duration-300
-                ${isProcessing ? "animate-shake" : ""}
+                ${thinkingClass}
+                ${computerRingAnimClass}
+                ${computerRevealClass}
                 ${
                   lastResult === "lose"
                     ? "border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)] scale-110"
@@ -245,7 +319,12 @@ export default function RPSPage() {
              `}
             >
               {computerChoice ? (
-                getEmoji(computerChoice)
+                <span
+                  key={`c-${history.length}-${computerChoice}`}
+                  className={lastResult ? "rps-emoji-pop" : ""}
+                >
+                  {getEmoji(computerChoice)}
+                </span>
               ) : (
                 <span className="text-4xl opacity-20">🤖</span>
               )}
@@ -253,31 +332,28 @@ export default function RPSPage() {
           </div>
         </div>
 
-        <div className="flex gap-2 sm:gap-4 w-full max-w-2xl">
+        <div className="flex gap-2 sm:gap-4 w-full max-w-2xl mx-auto justify-center">
           {CHOICES.map((choice) => (
             <button
               key={choice}
               onClick={() =>
-                gameState === "playing"
-                  ? continueGame(choice)
-                  : startGame(choice)
+          gameState === "playing"
+            ? continueGame(choice)
+            : startGame(choice)
               }
               disabled={
-                isProcessing ||
-                (gameState === "playing" &&
-                  streak === 0 &&
-                  lastResult !== "draw")
+          isProcessing ||
+          (gameState === "playing" &&
+            streak === 0 &&
+            lastResult !== "draw")
               }
               className={`
-                flex-1 py-4 sm:py-6 rounded-xl font-bold text-lg sm:text-xl transition-all active:scale-95 flex flex-col items-center gap-1 sm:gap-2
-                disabled:opacity-50 disabled:cursor-not-allowed
-                bg-[#213743] hover:bg-[#2f4553] text-white shadow-lg border-b-4 border-[#0f212e]
+          px-6 min-w-[88px] py-4 sm:py-6 rounded-xl font-bold text-lg sm:text-xl transition-all active:scale-95 flex flex-col items-center gap-1 sm:gap-2
+          disabled:opacity-50 disabled:cursor-not-allowed
+          bg-[#213743] hover:bg-[#2f4553] text-white shadow-lg border-b-4 border-[#0f212e]
               `}
             >
               <span className="text-2xl sm:text-4xl">{getEmoji(choice)}</span>
-              <span className="uppercase text-[10px] sm:text-sm tracking-wider opacity-80">
-                {choice}
-              </span>
             </button>
           ))}
         </div>
@@ -301,5 +377,6 @@ export default function RPSPage() {
         </div>
       </div>
     </div>
+    </main>
   );
 }
