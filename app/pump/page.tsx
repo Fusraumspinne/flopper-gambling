@@ -239,7 +239,7 @@ export default function PumpPage() {
 
     setIsPumping(true);
 
-    const safeLimit = plannedSafeSteps ?? currentData.length;
+    const safeLimit = plannedSafeSteps ?? (currentData.length - 1);
     const nextIndex = currentStepIndex + 1;
 
     setTimeout(() => {
@@ -247,11 +247,15 @@ export default function PumpPage() {
       if (nextIndex <= safeLimit) {
         setCurrentStepIndex((prev) => prev + 1);
         setScale((prev) => prev + 0.1);
+
+        if(nextIndex === safeLimit)
+        {
+          cashOut();
+        }
       } else {
         setIsFlyingAway(false);
         setGameState("popped");
         finalizePendingLoss();
-        // popped -> red flash
         setResultFx("lose");
         resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
       }
@@ -397,7 +401,7 @@ export default function PumpPage() {
               ${potentialWin.toFixed(2)}
             </div>
             <div className="text-sm text-[#b1bad3] mt-1">
-              Next: {nextStep.multiplier}x
+              Next: {nextStep ? `${nextStep.multiplier}x` : "—"}
             </div>
           </div>
         )}
@@ -473,10 +477,6 @@ export default function PumpPage() {
               }`}
             >
               <div className="relative">
-                <div className="absolute left-1/2 -translate-x-1/2 top-52.5">
-                  <div className="w-12 h-4 bg-[#213743] rounded-full" />
-                </div>
-
                 <div style={{ transform: `scale(${balloonBaseScale})`, transformOrigin: "50% 100%", transition: "transform 260ms cubic-bezier(0.2,0.9,0.2,1)" }}>
                   <div
                     className={

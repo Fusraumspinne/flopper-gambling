@@ -6,9 +6,9 @@ import { PlayArrow, Refresh, SwapHoriz } from "@mui/icons-material";
 
 type GameState = "idle" | "rolling" | "won" | "lost";
 
-const HOUSE_EDGE = 1.0; 
-const MIN_THRESHOLD = 0.01;
-const MAX_THRESHOLD = 99.99;
+const HOUSE_EDGE = 1.0;
+const MIN_THRESHOLD = 2;
+const MAX_THRESHOLD = 98;
 
 export default function DicePage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =

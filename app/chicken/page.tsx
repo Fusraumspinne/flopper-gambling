@@ -560,13 +560,11 @@ export default function ChickenPage() {
     const laneRate =
       TARGET_CARS_PER_SEC_PER_LANE * SPAWN_RATE_SCALE * riskFactor;
 
-    // lower speed multiplier to slow down drive timing
     const SPEED_MULTIPLIER = 1.3;
 
     const spawnCarAt = (args: { stepIndex: number; lane: number }) => {
       const { stepIndex, lane } = args;
       const now = Date.now();
-      // slower cars for nicer pacing
       const duration = 1800 + Math.random() * 800;
       const car: CarAnim = {
         id: now + stepIndex + Math.floor(Math.random() * 10000),
