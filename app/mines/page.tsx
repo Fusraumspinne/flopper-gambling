@@ -286,7 +286,7 @@ export default function MinesPage() {
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
             />
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => {
                 const newBet = Number((betAmount / 2).toFixed(2));
@@ -308,6 +308,17 @@ export default function MinesPage() {
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               2×
+            </button>
+            <button
+              onClick={() => {
+                const newBet = Number(balance.toFixed(2));
+                setBetAmount(newBet);
+                setBetInput(String(newBet));
+              }}
+              disabled={gameState === "playing"}
+              className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
+            >
+              All In
             </button>
           </div>
         </div>

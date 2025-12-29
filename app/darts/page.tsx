@@ -455,7 +455,7 @@ export default function DartsPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => setBet(Number((bet / 2).toFixed(2)))}
               disabled={isPlaying}
@@ -469,6 +469,13 @@ export default function DartsPage() {
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               2×
+            </button>
+            <button
+              onClick={() => setBet(Number(balance.toFixed(2)))}
+              disabled={isPlaying}
+              className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
+            >
+              All In
             </button>
           </div>
         </div>

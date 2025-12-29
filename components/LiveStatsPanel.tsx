@@ -154,7 +154,7 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
   const netClass = selectedStats.net >= 0 ? "text-[#00e701]" : "text-red-500";
 
   const onDrag = (_e: DraggableEvent, data: DraggableData) => {
-    setPos({ x: data.x, y: data.y });
+    // no-op: avoid updating controlled position during drag to prevent cursor drift
   };
 
   const onStop = (_e: DraggableEvent, data: DraggableData) => {
@@ -169,35 +169,22 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
       <Draggable
         nodeRef={nodeRef}
         handle=".livestats-handle"
-        position={pos}
-        onDrag={onDrag}
+        defaultPosition={pos}
         onStop={onStop}
       >
         <section
           ref={nodeRef as React.RefObject<HTMLElement>}
-          className="pointer-events-auto rounded-lg border border-[#2f4553] bg-[#0f212e] shadow-lg"
-          style={{ width: 320 }}
+          className="pointer-events-auto rounded-lg border border-[#2f4553] bg-[#0f212e] shadow-lg w-48 xl:w-80"
         >
-          <header className="flex items-center justify-between gap-3 rounded-t-lg border-b border-[#213743] bg-[#1a2c38] px-2 py-2">
-            <div className="livestats-handle flex cursor-move items-center gap-2 text-white font-bold">
+          <header className="livestats-handle cursor-move flex items-center justify-between gap-3 rounded-t-lg border-b border-[#213743] bg-[#1a2c38] px-2 py-1 xl:py-2">
+            <div className="flex items-center gap-2 text-white font-bold text-sm xl:text-base">
               <QueryStats sx={{ fontSize: 20 }} />
               <span>Live Stats</span>
             </div>
             <div className="flex items-center gap-2">
-              <select
-                value={selectedGameId}
-                onChange={(e) => handleGameChange(e.target.value as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"])}
-                className="rounded-md bg-[#0f212e] border border-[#2f4553] px-2 py-1 text-sm text-white focus:outline-none focus:border-[#00e701]"
-              >
-                {DROPDOWN_GAME_OPTIONS.map((game) => (
-                  <option key={game.id} value={game.id}>
-                    {game.label}
-                  </option>
-                ))}
-              </select>
               <button
                 onClick={onClose}
-                className="rounded-md px-2 py-1 text-[#b1bad3] hover:bg-[#213743] hover:text-white"
+                className="rounded-md px-2 py-1 xl:py-1 text-[#b1bad3] hover:bg-[#213743] hover:text-white"
                 aria-label="Close live stats"
               >
                 <Close sx={{ fontSize: 18 }} />
@@ -205,34 +192,47 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
             </div>
           </header>
 
-          <div className="p-3 space-y-3">
+          <div className="p-3 space-y-2">
+            <div className="w-full">
+              <select
+                value={selectedGameId}
+                onChange={(e) => handleGameChange(e.target.value as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"])}
+                className="w-full rounded-md bg-[#0f212e] border border-[#2f4553] px-1 py-0.5 text-xs xl:text-sm text-white focus:outline-none focus:border-[#00e701]"
+              >
+                {DROPDOWN_GAME_OPTIONS.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {game.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col gap-2">
-                <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-2">
+                <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-1">
                   <div className="text-xs text-[#8399aa]">Profit</div>
-                  <div className={`mt-1 font-mono font-bold ${netClass}`}>{formatMoney(selectedStats.net)}</div>
+                  <div className={`mt-0.5 font-mono font-bold ${netClass} text-sm xl:text-base`}>{formatMoney(selectedStats.net)}</div>
                 </div>
-                <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-2">
+                <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-1">
                   <div className="text-xs text-[#8399aa]">Wagered</div>
-                  <div className="mt-1 font-mono font-bold text-white">{formatMoney(selectedStats.wagered)}</div>
+                  <div className="mt-0.5 font-mono font-bold text-white text-sm xl:text-base">{formatMoney(selectedStats.wagered)}</div>
                 </div>
               </div>
 
               <div className="flex flex-col gap-2">
-                <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-2">
+                <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-1">
                   <div className="text-xs text-[#8399aa]">Wins</div>
-                  <div className="mt-1 font-mono font-bold text-white">{selectedStats.wins}</div>
+                  <div className="mt-0.5 font-mono font-bold text-white text-sm xl:text-base">{selectedStats.wins}</div>
                 </div>
-                <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-2">
+                <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-1">
                   <div className="text-xs text-[#8399aa]">Losses</div>
-                  <div className="mt-1 font-mono font-bold text-white">{selectedStats.losses}</div>
+                  <div className="mt-0.5 font-mono font-bold text-white text-sm xl:text-base">{selectedStats.losses}</div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-2">
-              <div className="text-xs text-[#8399aa] mb-2">History</div>
-              <div style={{ height: 130 }}>
+            <div className="rounded-md border border-[#213743] bg-[#1a2c38] p-0.5">
+              <div className="text-xs text-[#8399aa] mb-0.5">History</div>
+              <div className="h-12 xl:h-32">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                     <XAxis dataKey="t" hide />

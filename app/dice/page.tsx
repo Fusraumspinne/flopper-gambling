@@ -202,11 +202,9 @@ export default function DicePage() {
     <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
       <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
-          <div className="flex justify-between">
-            <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-              Bet Amount
-            </label>
-          </div>
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Bet Amount
+          </label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
               $
@@ -220,7 +218,7 @@ export default function DicePage() {
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
             />
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => {
                 const newBet = Number((betAmount / 2).toFixed(2));
@@ -242,6 +240,17 @@ export default function DicePage() {
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               2×
+            </button>
+            <button
+              onClick={() => {
+                const newBet = Number(balance.toFixed(2));
+                setBetAmount(newBet);
+                setBetInput(String(newBet));
+              }}
+              disabled={gameState === "rolling"}
+              className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
+            >
+              All In
             </button>
           </div>
         </div>
