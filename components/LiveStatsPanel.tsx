@@ -159,6 +159,7 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
 
   const onStop = (_e: DraggableEvent, data: DraggableData) => {
     const nextPos = { x: data.x, y: data.y };
+    setPos(nextPos);
     localStorage.setItem(POS_KEY, JSON.stringify(nextPos));
   };
 
@@ -169,6 +170,7 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
       <Draggable
         nodeRef={nodeRef}
         handle=".livestats-handle"
+        cancel=".livestats-cancel"
         defaultPosition={pos}
         onStop={onStop}
       >
@@ -184,7 +186,7 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
             <div className="flex items-center gap-2">
               <button
                 onClick={onClose}
-                className="rounded-md px-2 py-1 xl:py-1 text-[#b1bad3] hover:bg-[#213743] hover:text-white"
+                className="livestats-cancel rounded-md px-2 py-1 xl:py-1 text-[#b1bad3] hover:bg-[#213743] hover:text-white"
                 aria-label="Close live stats"
               >
                 <Close sx={{ fontSize: 18 }} />

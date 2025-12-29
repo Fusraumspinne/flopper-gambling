@@ -54,6 +54,24 @@ export default function KenoPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
     useWallet();
 
+  const normalizeMoney = (value: number) => {
+    if (!Number.isFinite(value)) return 0;
+    const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+    return Object.is(rounded, -0) ? 0 : rounded;
+  };
+
+  const parseNumberLoose = (raw: string) => {
+    const normalized = raw.replace(",", ".").trim();
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const setBetBoth = (next: number) => {
+    const v = normalizeMoney(next);
+    setBetAmount(v);
+    setBetInput(String(v));
+  };
+
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>([]);
   const [drawnNumbers, setDrawnNumbers] = useState<number[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -61,6 +79,41 @@ export default function KenoPage() {
   const [betInput, setBetInput] = useState<string>(betAmount.toString());
   const [riskLevel, setRiskLevel] = useState<RiskLevel>("low");
   const [lastWin, setLastWin] = useState<number>(0);
+
+  const [playMode, setPlayMode] = useState<"manual" | "auto">("manual");
+  const [onWinMode, setOnWinMode] = useState<"reset" | "raise">("reset");
+  const [onWinPctInput, setOnWinPctInput] = useState<string>("0");
+  const [onLoseMode, setOnLoseMode] = useState<"reset" | "raise">("reset");
+  const [onLosePctInput, setOnLosePctInput] = useState<string>("0");
+  const [stopProfitInput, setStopProfitInput] = useState<string>("0");
+  const [stopLossInput, setStopLossInput] = useState<string>("0");
+  const [isAutoBetting, setIsAutoBetting] = useState(false);
+
+  const selectedNumbersRef = React.useRef<number[]>([]);
+  const riskLevelRef = React.useRef<RiskLevel>("low");
+  const betAmountRef = React.useRef<number>(100);
+  const balanceRef = React.useRef<number>(0);
+  const isAnimatingRef = React.useRef(false);
+  const isAutoBettingRef = React.useRef(false);
+  const autoOriginalBetRef = React.useRef<number>(0);
+  const autoNetRef = React.useRef<number>(0);
+
+  useEffect(() => {
+    selectedNumbersRef.current = selectedNumbers;
+  }, [selectedNumbers]);
+  useEffect(() => {
+    riskLevelRef.current = riskLevel;
+  }, [riskLevel]);
+  useEffect(() => {
+    betAmountRef.current = betAmount;
+  }, [betAmount]);
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
+  useEffect(() => {
+    isAutoBettingRef.current = isAutoBetting;
+  }, [isAutoBetting]);
+
   const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(
     null
   );
@@ -76,8 +129,14 @@ export default function KenoPage() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      isAutoBettingRef.current = false;
+    };
+  }, []);
+
   const toggleNumber = (num: number) => {
-    if (isAnimating) return;
+    if (isAnimating || isAutoBetting) return;
     if (drawnNumbers.length > 0) {
       setDrawnNumbers([]);
     }
@@ -91,7 +150,7 @@ export default function KenoPage() {
   };
 
   const clearSelection = () => {
-    if (!isAnimating) {
+    if (!isAnimating && !isAutoBetting) {
       setSelectedNumbers([]);
       setDrawnNumbers([]);
       setLastWin(0);
@@ -99,7 +158,7 @@ export default function KenoPage() {
   };
 
   const pickRandom = () => {
-    if (isAnimating) return;
+    if (isAnimating || isAutoBetting) return;
     const count = 10;
     const newSelection: number[] = [];
     while (newSelection.length < count) {
@@ -199,66 +258,217 @@ export default function KenoPage() {
     return `${intPart}.${sliceArr.join("")}%`;
   };
 
+  const playRound = useCallback(
+    async (opts?: { betAmount?: number }) => {
+      const currentSelected = selectedNumbersRef.current;
+      const currentRisk = riskLevelRef.current;
+      const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
+
+      if (
+        currentSelected.length === 0 ||
+        bet <= 0 ||
+        bet > balanceRef.current ||
+        isAnimatingRef.current
+      ) {
+        return null as null | { betAmount: number; matches: number; multiplier: number; winAmount: number };
+      }
+
+      subtractFromBalance(bet);
+      setLastWin(0);
+      setDrawnNumbers([]);
+      isAnimatingRef.current = true;
+      setIsAnimating(true);
+      setResultFx("rolling");
+
+      const newDrawn: number[] = [];
+      while (newDrawn.length < DRAW_COUNT) {
+        const r = Math.floor(Math.random() * GRID_SIZE) + 1;
+        if (!newDrawn.includes(r)) newDrawn.push(r);
+      }
+
+      for (let i = 0; i < newDrawn.length; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        setDrawnNumbers((prev) => [...prev, newDrawn[i]]);
+      }
+
+      const matches = currentSelected.filter((n) => newDrawn.includes(n)).length;
+      const table = MULTIPLIERS[currentRisk][currentSelected.length];
+      const multiplier = table && table[matches] ? table[matches] : 0;
+      const winAmount = normalizeMoney(bet * multiplier);
+
+      if (winAmount > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        addToBalance(winAmount);
+        setLastWin(winAmount);
+        if (resultTimeoutRef.current) {
+          clearTimeout(resultTimeoutRef.current);
+          resultTimeoutRef.current = null;
+        }
+        setResultFx("win");
+        // allow immediate manual re-play while result FX still shows
+        isAnimatingRef.current = false;
+        setIsAnimating(false);
+        await new Promise<void>((resolve) => {
+          resultTimeoutRef.current = window.setTimeout(() => {
+            setResultFx(null);
+            resultTimeoutRef.current = null;
+            resolve();
+          }, 900);
+        });
+      } else {
+        finalizePendingLoss();
+        if (resultTimeoutRef.current) {
+          clearTimeout(resultTimeoutRef.current);
+          resultTimeoutRef.current = null;
+        }
+        setResultFx("lose");
+        isAnimatingRef.current = false;
+        setIsAnimating(false);
+        await new Promise<void>((resolve) => {
+          resultTimeoutRef.current = window.setTimeout(() => {
+            setResultFx(null);
+            resultTimeoutRef.current = null;
+            resolve();
+          }, 900);
+        });
+      }
+
+      isAnimatingRef.current = false;
+      setIsAnimating(false);
+      return { betAmount: bet, matches, multiplier, winAmount };
+    },
+    [
+      subtractFromBalance,
+      addToBalance,
+      finalizePendingLoss,
+    ]
+  );
+
   const playGame = useCallback(async () => {
-    if (
-      selectedNumbers.length === 0 ||
-      betAmount <= 0 ||
-      betAmount > balance ||
-      isAnimating
-    ) {
-      return;
-    }
+    await playRound();
+  }, [playRound]);
 
-    subtractFromBalance(betAmount);
-    setLastWin(0);
-    setDrawnNumbers([]);
-    setIsAnimating(true);
-    setResultFx("rolling");
+  const stopAutoBet = useCallback(() => {
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+  }, []);
 
-    const newDrawn: number[] = [];
-    while (newDrawn.length < DRAW_COUNT) {
-      const r = Math.floor(Math.random() * GRID_SIZE) + 1;
-      if (!newDrawn.includes(r)) newDrawn.push(r);
-    }
+  const startAutoBet = useCallback(async () => {
+    if (isAutoBettingRef.current) return;
 
-    for (let i = 0; i < newDrawn.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      setDrawnNumbers((prev) => [...prev, newDrawn[i]]);
-    }
+    const currentSelected = selectedNumbersRef.current;
+    const startingBet = normalizeMoney(betAmountRef.current);
+    if (currentSelected.length === 0) return;
+    if (startingBet <= 0 || startingBet > balanceRef.current) return;
+    if (isAnimatingRef.current) return;
 
-    const matches = selectedNumbers.filter((n) => newDrawn.includes(n)).length;
-    const multiplier = getMultiplier(matches);
-    const winAmount = betAmount * multiplier;
+    autoOriginalBetRef.current = startingBet;
+    autoNetRef.current = 0;
 
-    if (winAmount > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      addToBalance(winAmount);
-      setLastWin(winAmount);
-      if (resultTimeoutRef.current) {
-        clearTimeout(resultTimeoutRef.current);
+    // Critical: set ref immediately so the loop actually starts.
+    isAutoBettingRef.current = true;
+    setIsAutoBetting(true);
+
+    while (isAutoBettingRef.current) {
+      const stopProfit = Math.max(0, normalizeMoney(parseNumberLoose(stopProfitInput)));
+      const stopLoss = Math.max(0, normalizeMoney(parseNumberLoose(stopLossInput)));
+      const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
+      const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
+
+      const roundBet = normalizeMoney(betAmountRef.current);
+      if (roundBet <= 0) break;
+      if (roundBet > balanceRef.current) break;
+      if (selectedNumbersRef.current.length === 0) break;
+
+      const result = await playRound({ betAmount: roundBet });
+      if (!result) break;
+
+      const lastNet = normalizeMoney(result.winAmount - result.betAmount);
+      autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
+
+      if (result.winAmount > 0) {
+        if (onWinMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+          betAmountRef.current = autoOriginalBetRef.current;
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+          setBetBoth(next);
+          betAmountRef.current = next;
+        }
+      } else {
+        if (onLoseMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+          betAmountRef.current = autoOriginalBetRef.current;
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+          setBetBoth(next);
+          betAmountRef.current = next;
+        }
       }
-      setResultFx("win");
-      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
-    } else {
-      finalizePendingLoss();
-      if (resultTimeoutRef.current) {
-        clearTimeout(resultTimeoutRef.current);
+
+      if (stopProfit > 0 && lastNet >= stopProfit) {
+        stopAutoBet();
+        break;
       }
-      setResultFx("lose");
-      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
+      if (stopLoss > 0 && lastNet <= -stopLoss) {
+        stopAutoBet();
+        break;
+      }
     }
 
-    setIsAnimating(false);
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
   }, [
-    selectedNumbers,
-    betAmount,
-    balance,
-    isAnimating,
-    riskLevel,
-    subtractFromBalance,
-    addToBalance,
-    finalizePendingLoss,
+    onLoseMode,
+    onLosePctInput,
+    onWinMode,
+    onWinPctInput,
+    playRound,
+    stopLossInput,
+    stopProfitInput,
+    stopAutoBet,
   ]);
+
+  const changePlayMode = useCallback((mode: "manual" | "auto") => {
+    try {
+      stopAutoBet();
+    } catch (e) {
+    }
+
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+
+    isAnimatingRef.current = false;
+    setIsAnimating(false);
+    setDrawnNumbers([]);
+    setSelectedNumbers([]);
+    selectedNumbersRef.current = [];
+    setLastWin(0);
+    setResultFx(null);
+
+    setBetBoth(100);
+    betAmountRef.current = 100;
+    setRiskLevel("low");
+
+    setOnWinMode("reset");
+    setOnWinPctInput("0");
+    setOnLoseMode("reset");
+    setOnLosePctInput("0");
+    setStopProfitInput("0");
+    setStopLossInput("0");
+
+    try {
+      stopAutoBet();
+    } catch (e) {}
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+    autoOriginalBetRef.current = 0;
+    autoNetRef.current = 0;
+
+    setPlayMode(mode);
+  }, [stopAutoBet]);
 
   const getTileStatus = (num: number) => {
     const isSelected = selectedNumbers.includes(num);
@@ -284,9 +494,33 @@ export default function KenoPage() {
     }
   };
 
+  const isBusy = isAnimating || isAutoBetting;
+
   return (
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
       <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Mode
+          </label>
+          <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+            {(["manual", "auto"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => !isBusy && changePlayMode(mode)}
+                disabled={isBusy}
+                className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  playMode === mode
+                    ? "bg-[#213743] text-white shadow-sm"
+                    : "text-[#b1bad3] hover:text-white"
+                }`}
+              >
+                {mode === "manual" ? "Manual" : "Auto"}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -303,9 +537,9 @@ export default function KenoPage() {
                 const raw = betInput.trim();
                 const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
                 const num = Number(sanitized);
-                setBetAmount(num);
-                setBetInput(sanitized);
+                setBetBoth(num);
               }}
+              disabled={isBusy}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
             />
           </div>
@@ -313,9 +547,9 @@ export default function KenoPage() {
             <button
               onClick={() => {
                 const newBet = Number((betAmount / 2).toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
               }}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3]"
             >
               ½
@@ -323,9 +557,9 @@ export default function KenoPage() {
             <button
               onClick={() => {
                 const newBet = Number((betAmount * 2).toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
               }}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3]"
             >
               2×
@@ -333,9 +567,9 @@ export default function KenoPage() {
             <button
               onClick={() => {
                 const newBet = Number(balance.toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
               }}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3]"
             >
               All In
@@ -351,8 +585,8 @@ export default function KenoPage() {
             {(["low", "medium", "high"] as RiskLevel[]).map((level) => (
               <button
                 key={level}
-                onClick={() => !isAnimating && setRiskLevel(level)}
-                disabled={isAnimating}
+                onClick={() => !isBusy && setRiskLevel(level)}
+                disabled={isBusy}
                 className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   riskLevel === level
                     ? "bg-[#213743] text-white shadow-sm"
@@ -372,14 +606,14 @@ export default function KenoPage() {
           <div className="flex gap-2">
             <button
               onClick={pickRandom}
-              disabled={isAnimating}
+              disabled={isBusy}
               className="flex-1 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 text-white py-2 rounded-md text-sm font-semibold flex items-center justify-center gap-2"
             >
               <Bolt sx={{ fontSize: 16 }} /> Random
             </button>
             <button
               onClick={clearSelection}
-              disabled={isAnimating}
+              disabled={isBusy}
               className="flex-1 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 text-white py-2 rounded-md text-sm font-semibold flex items-center justify-center gap-2"
             >
               <Delete sx={{ fontSize: 16 }} /> Clear
@@ -387,18 +621,170 @@ export default function KenoPage() {
           </div>
         </div>
 
-        <button
-          onClick={playGame}
-          disabled={isAnimating || selectedNumbers.length === 0}
-          className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
-        >
-          {isAnimating ? (
-            <Refresh className="animate-spin" />
-          ) : (
-            <PlayArrow sx={{ fill: "currentColor" }} />
-          )}
-          {isAnimating ? "Playing..." : "Bet"}
-        </button>
+        {playMode === "manual" && (
+          <button
+            onClick={playGame}
+            disabled={isBusy || selectedNumbers.length === 0}
+            className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            {isAnimating ? (
+              <Refresh className="animate-spin" />
+            ) : (
+              <PlayArrow sx={{ fill: "currentColor" }} />
+            )}
+            {isAnimating ? "Playing..." : "Bet"}
+          </button>
+        )}
+
+        {playMode === "auto" && (
+          <>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                On Win
+              </label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !isBusy && setOnWinMode(m)}
+                    disabled={isBusy}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      onWinMode === m
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+                {onWinMode === "raise" && (
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%
+                    </div>
+                    <input
+                      type="number"
+                      value={onWinPctInput}
+                      onChange={(e) => setOnWinPctInput(e.target.value)}
+                      onBlur={() => {
+                        const raw = onWinPctInput.trim();
+                        const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                        setOnWinPctInput(sanitized);
+                      }}
+                      disabled={isBusy}
+                      className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                On Loss
+              </label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !isBusy && setOnLoseMode(m)}
+                    disabled={isBusy}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      onLoseMode === m
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+              {onLoseMode === "raise" && (
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%
+                  </div>
+                  <input
+                    type="number"
+                    value={onLosePctInput}
+                    onChange={(e) => setOnLosePctInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = onLosePctInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setOnLosePctInput(sanitized);
+                    }}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Stop on Profit
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                  $
+                </div>
+                <input
+                  type="number"
+                  value={stopProfitInput}
+                  onChange={(e) => setStopProfitInput(e.target.value)}
+                  onBlur={() => {
+                    const raw = stopProfitInput.trim();
+                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                    setStopProfitInput(sanitized);
+                  }}
+                  disabled={isBusy}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Stop on Loss
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                  $
+                </div>
+                <input
+                  type="number"
+                  value={stopLossInput}
+                  onChange={(e) => setStopLossInput(e.target.value)}
+                  onBlur={() => {
+                    const raw = stopLossInput.trim();
+                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                    setStopLossInput(sanitized);
+                  }}
+                  disabled={isBusy}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                />
+              </div>
+            </div>
+
+            {!isAutoBetting ? (
+              <button
+                onClick={startAutoBet}
+                disabled={isAnimating || selectedNumbers.length === 0}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <PlayArrow sx={{ fill: "currentColor" }} />
+                Autobet
+              </button>
+            ) : (
+              <button
+                onClick={stopAutoBet}
+                className="w-full bg-[#ef4444] hover:bg-[#dc2626] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                Stop
+              </button>
+            )}
+          </>
+        )}
 
         {lastWin > 0 && (
           <div className="mt-2 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center animate-pulse">

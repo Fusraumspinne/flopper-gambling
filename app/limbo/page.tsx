@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { PlayArrow, Refresh } from "@mui/icons-material";
 
@@ -24,6 +24,18 @@ const formatChance = (pct: number) => {
   return pct.toFixed(2);
 };
 
+const normalizeMoney = (value: number) => {
+  if (!Number.isFinite(value)) return 0;
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+  return Object.is(rounded, -0) ? 0 : rounded;
+};
+
+const parseNumberLoose = (raw: string) => {
+  const normalized = raw.replace(",", ".").trim();
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : 0;
+};
+
 export default function LimboPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
 
@@ -42,6 +54,33 @@ export default function LimboPage() {
   const [resultAnimNonce, setResultAnimNonce] = useState(0);
 
   const rafRef = useRef<number | null>(null);
+
+  const [playMode, setPlayMode] = useState<"manual" | "auto">("manual");
+  const [onWinMode, setOnWinMode] = useState<"reset" | "raise">("reset");
+  const [onWinPctInput, setOnWinPctInput] = useState<string>("0");
+  const [onLoseMode, setOnLoseMode] = useState<"reset" | "raise">("reset");
+  const [onLosePctInput, setOnLosePctInput] = useState<string>("0");
+  const [stopProfitInput, setStopProfitInput] = useState<string>("0");
+  const [stopLossInput, setStopLossInput] = useState<string>("0");
+  const [isAutoBetting, setIsAutoBetting] = useState(false);
+
+  const betAmountRef = useRef<number>(betAmount);
+  const balanceRef = useRef<number>(balance);
+  const isRollingRef = useRef<boolean>(false);
+  const isAutoBettingRef = useRef<boolean>(false);
+  const autoOriginalBetRef = useRef<number>(0);
+  const autoNetRef = useRef<number>(0);
+  const resultTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    betAmountRef.current = betAmount;
+  }, [betAmount]);
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
+  useEffect(() => {
+    isAutoBettingRef.current = isAutoBetting;
+  }, [isAutoBetting]);
 
   useEffect(() => {
     return () => {
@@ -83,79 +122,240 @@ export default function LimboPage() {
     setTargetInput(num.toFixed(2));
   };
 
+  const setBetBoth = (next: number) => {
+    const v = normalizeMoney(next);
+    setBetAmount(v);
+    setBetInput(String(v));
+    betAmountRef.current = v;
+  };
+
   const roll = async () => {
-    if (gameState === "rolling") return;
-    if (betAmount <= 0) return;
-    if (betAmount > balance) return;
+    await playRound();
+  };
 
-    const t = clamp(targetMultiplier, MIN_TARGET, MAX_TARGET);
+  const playRound = useCallback(
+    async (opts?: { betAmount?: number }) => {
+      const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
+      const t = clamp(targetMultiplier, MIN_TARGET, MAX_TARGET);
 
-    subtractFromBalance(betAmount);
-    setLastWin(0);
-    setGameState("rolling");
-    setRolledMultiplier(null);
-    setRollingDisplayMultiplier(1);
-    setResultAnimNonce((n) => n + 1);
+      if (bet <= 0 || bet > balanceRef.current || isRollingRef.current) {
+        return null as null | { betAmount: number; winAmount: number; multiplier: number };
+      }
+
+      subtractFromBalance(bet);
+      setLastWin(0);
+      isRollingRef.current = true;
+      setGameState("rolling");
+      setRolledMultiplier(null);
+      setRollingDisplayMultiplier(1);
+      setResultAnimNonce((n) => n + 1);
+
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+
+      const floatVal = Math.random();
+      const rawResult = HOUSE_EDGE / (floatVal || 0.00000001);
+      const result = Math.max(1.0, rawResult);
+      const isWin = result >= t;
+
+      await new Promise<void>((resolve) => {
+        const start = performance.now();
+        const logResult = Math.log(result);
+
+        const tick = (now: number) => {
+          const elapsed = now - start;
+          const p = clamp(elapsed / ROLL_ANIMATION_MS, 0, 1);
+
+          const m = Math.exp(logResult * p);
+          setRollingDisplayMultiplier(m);
+
+          if (p >= 1) {
+            rafRef.current = null;
+            setRollingDisplayMultiplier(result);
+            resolve();
+            return;
+          }
+
+          rafRef.current = requestAnimationFrame(tick);
+        };
+
+        rafRef.current = requestAnimationFrame(tick);
+      });
+
+      setRolledMultiplier(result);
+      setHistory((prev) => [...prev, { mult: result, win: isWin }].slice(-8));
+
+      let winAmount = 0;
+      if (isWin) {
+        const payout = normalizeMoney(bet * t);
+        addToBalance(payout);
+        setLastWin(payout);
+        setGameState("won");
+        setResultAnimNonce((n) => n + 1);
+        isRollingRef.current = false;
+        winAmount = payout;
+      } else {
+        finalizePendingLoss();
+        setGameState("lost");
+        setResultAnimNonce((n) => n + 1);
+        isRollingRef.current = false;
+        winAmount = 0;
+      }
+
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+      await new Promise<void>((resolve) => {
+        resultTimeoutRef.current = window.setTimeout(() => {
+          resultTimeoutRef.current = null;
+          resolve();
+        }, 900);
+      });
+
+      isRollingRef.current = false;
+      return { betAmount: bet, winAmount, multiplier: result };
+    },
+    [targetMultiplier, subtractFromBalance, addToBalance, finalizePendingLoss]
+  );
+
+  const rollWrapper = useCallback(async () => {
+    await playRound();
+  }, [playRound]);
+
+  const isLocked = gameState === "rolling";
+  const isBusy = isLocked || isAutoBetting;
+
+  const startAutoBet = useCallback(async () => {
+    if (isAutoBettingRef.current) return;
+
+    const startingBet = normalizeMoney(betAmountRef.current);
+    if (startingBet <= 0 || startingBet > balanceRef.current) return;
+    if (isRollingRef.current) return;
+
+    autoOriginalBetRef.current = startingBet;
+    autoNetRef.current = 0;
+
+    isAutoBettingRef.current = true;
+    setIsAutoBetting(true);
+
+    while (isAutoBettingRef.current) {
+      const stopProfit = Math.max(0, normalizeMoney(parseNumberLoose(stopProfitInput)));
+      const stopLoss = Math.max(0, normalizeMoney(parseNumberLoose(stopLossInput)));
+      const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
+      const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
+
+      const roundBet = normalizeMoney(betAmountRef.current);
+      if (roundBet <= 0) break;
+      if (roundBet > balanceRef.current) break;
+
+      const result = await playRound({ betAmount: roundBet });
+      if (!result) break;
+
+      const lastNet = normalizeMoney((result.winAmount ?? 0) - result.betAmount);
+      autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
+
+      if (result.winAmount > 0) {
+        if (onWinMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+          setBetBoth(next);
+        }
+      } else {
+        if (onLoseMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+          setBetBoth(next);
+        }
+      }
+
+      if (stopProfit > 0 && lastNet >= stopProfit) {
+        stopAutoBet();
+        break;
+      }
+      if (stopLoss > 0 && lastNet <= -stopLoss) {
+        stopAutoBet();
+        break;
+      }
+    }
+
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+  }, [onWinMode, onWinPctInput, onLoseMode, onLosePctInput, playRound, stopProfitInput, stopLossInput]);
+
+  const stopAutoBet = useCallback(() => {
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+  }, []);
+
+  const changePlayMode = useCallback((mode: "manual" | "auto") => {
+    try {
+      stopAutoBet();
+    } catch (e) {}
+
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
 
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
 
-    const floatVal = Math.random();
-    const rawResult = HOUSE_EDGE / (floatVal || 0.00000001);
-    const result = Math.max(1.00, rawResult);
-    
-    const isWin = result >= t;
+    isRollingRef.current = false;
+    setGameState("idle");
+    setRolledMultiplier(null);
+    setRollingDisplayMultiplier(1);
+    setLastWin(0);
+    setHistory([]);
 
-    await new Promise<void>((resolve) => {
-      const start = performance.now();
-      const logResult = Math.log(result);
+    setBetBoth(100);
+    setTargetMultiplier(2);
+    setTargetInput("2.00");
+    setOnWinMode("reset");
+    setOnWinPctInput("0");
+    setOnLoseMode("reset");
+    setOnLosePctInput("0");
+    setStopProfitInput("0");
+    setStopLossInput("0");
 
-      const tick = (now: number) => {
-        const elapsed = now - start;
-        const p = clamp(elapsed / ROLL_ANIMATION_MS, 0, 1);
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+    autoOriginalBetRef.current = 0;
+    autoNetRef.current = 0;
 
-        const m = Math.exp(logResult * p);
-        setRollingDisplayMultiplier(m);
-
-        if (p >= 1) {
-          rafRef.current = null;
-          setRollingDisplayMultiplier(result);
-          resolve();
-          return;
-        }
-
-        rafRef.current = requestAnimationFrame(tick);
-      };
-
-      rafRef.current = requestAnimationFrame(tick);
-    });
-
-    setRolledMultiplier(result);
-    setHistory((prev) => [...prev, { mult: result, win: result >= t }].slice(-8));
-
-    if (isWin) {
-      const payout = betAmount * t;
-      addToBalance(payout);
-      setLastWin(payout);
-      setGameState("won");
-      setResultAnimNonce((n) => n + 1);
-    } else {
-      finalizePendingLoss();
-      setGameState("lost");
-      setResultAnimNonce((n) => n + 1);
-    }
-  };
-
-  const isLocked = gameState === "rolling";
+    setPlayMode(mode);
+  }, [stopAutoBet]);
   const shownMultiplier = gameState === "rolling" ? rollingDisplayMultiplier : rolledMultiplier;
 
   return (
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
       <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
                 <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
+                  <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Mode</label>
+                  <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                    {(["manual", "auto"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => !isBusy && changePlayMode(mode)}
+                        disabled={isBusy}
+                        className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                          playMode === mode ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
+                        }`}
+                      >
+                        {mode === "manual" ? "Manual" : "Auto"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
             <input
@@ -226,18 +426,136 @@ export default function LimboPage() {
           </div>
         </div>
 
-        <button
-          onClick={roll}
-          disabled={isLocked}
-          className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLocked ? (
-             <Refresh className="animate-spin" />
-          ) : (
-             <PlayArrow />
-          )}
-          {isLocked ? "Rolling..." : "Bet"}
-        </button>
+        {playMode === "manual" && (
+          <button
+            onClick={rollWrapper}
+            disabled={isBusy}
+            className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLocked ? (
+              <Refresh className="animate-spin" />
+            ) : (
+              <PlayArrow />
+            )}
+            {isLocked ? "Rolling..." : "Bet"}
+          </button>
+        )}
+
+        {playMode === "auto" && (
+          <>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">On Win</label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !isBusy && setOnWinMode(m)}
+                    disabled={isBusy}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      onWinMode === m ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+              {onWinMode === "raise" && (
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%</div>
+                  <input
+                    type="number"
+                    value={onWinPctInput}
+                    onChange={(e) => setOnWinPctInput(e.target.value)}
+                    onBlur={() => setOnWinPctInput((s) => s.trim().replace(/^0+(?=\d)/, "") || "0")}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">On Loss</label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !isBusy && setOnLoseMode(m)}
+                    disabled={isBusy}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      onLoseMode === m ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+              {onLoseMode === "raise" && (
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%</div>
+                  <input
+                    type="number"
+                    value={onLosePctInput}
+                    onChange={(e) => setOnLosePctInput(e.target.value)}
+                    onBlur={() => setOnLosePctInput((s) => s.trim().replace(/^0+(?=\d)/, "") || "0")}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Stop on Profit</label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+                <input
+                  type="number"
+                  value={stopProfitInput}
+                  onChange={(e) => setStopProfitInput(e.target.value)}
+                  onBlur={() => setStopProfitInput((s) => s.trim().replace(/^0+(?=\d)/, "") || "0")}
+                  disabled={isBusy}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Stop on Loss</label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+                <input
+                  type="number"
+                  value={stopLossInput}
+                  onChange={(e) => setStopLossInput(e.target.value)}
+                  onBlur={() => setStopLossInput((s) => s.trim().replace(/^0+(?=\d)/, "") || "0")}
+                  disabled={isBusy}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                />
+              </div>
+            </div>
+
+            {!isAutoBetting ? (
+              <button
+                onClick={startAutoBet}
+                disabled={isLocked || betAmount <= 0}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <PlayArrow sx={{ fill: "currentColor" }} />
+                Autobet
+              </button>
+            ) : (
+              <button
+                onClick={stopAutoBet}
+                className="w-full bg-[#ef4444] hover:bg-[#dc2626] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                Stop
+              </button>
+            )}
+          </>
+        )}
 
         {lastWin > 0 && gameState === "won" && (
           <div className="mt-2 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center animate-pulse">

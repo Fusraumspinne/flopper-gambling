@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
-import { Casino } from "@mui/icons-material";
+import { PlayArrow } from "@mui/icons-material";
 
 type RiskLevel = "low" | "medium" | "high";
 type SegmentCount = 10 | 20 | 30 | 40 | 50;
@@ -296,11 +296,38 @@ function topIndexFromRotation(rotationDeg: number, anglePer: number, len: number
 export default function SpinningWheelPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
 
+  const normalizeMoney = (value: number) => {
+    if (!Number.isFinite(value)) return 0;
+    const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+    return Object.is(rounded, -0) ? 0 : rounded;
+  };
+
+  const parseNumberLoose = (raw: string) => {
+    const normalized = raw.replace(",", ".").trim();
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : 0;
+  };
+
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
 
+  const setBetBoth = (next: number) => {
+    const v = normalizeMoney(next);
+    setBetAmount(v);
+    setBetInput(String(v));
+  };
+
   const [risk, setRisk] = useState<RiskLevel>("low");
   const [segmentsCount, setSegmentsCount] = useState<SegmentCount>(10);
+
+  const [playMode, setPlayMode] = useState<"manual" | "auto">("manual");
+  const [onWinMode, setOnWinMode] = useState<"reset" | "raise">("reset");
+  const [onWinPctInput, setOnWinPctInput] = useState<string>("0");
+  const [onLoseMode, setOnLoseMode] = useState<"reset" | "raise">("reset");
+  const [onLosePctInput, setOnLosePctInput] = useState<string>("0");
+  const [stopProfitInput, setStopProfitInput] = useState<string>("0");
+  const [stopLossInput, setStopLossInput] = useState<string>("0");
+  const [isAutoBetting, setIsAutoBetting] = useState(false);
 
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotationDeg, setRotationDeg] = useState(0);
@@ -318,6 +345,15 @@ export default function SpinningWheelPage() {
   const lastTopIndexRef = useRef<number | null>(null);
   const resultTimeoutRef = useRef<number | null>(null);
   const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
+
+  const betAmountRef = useRef<number>(100);
+  const balanceRef = useRef<number>(0);
+  const isSpinningRef = useRef(false);
+  const rotationDegRef = useRef<number>(0);
+  const isAutoBettingRef = useRef(false);
+  const segmentsRef = useRef<Segment[]>([]);
+  const autoOriginalBetRef = useRef<number>(0);
+  const autoNetRef = useRef<number>(0);
 
   useEffect(() => {
     setLayoutSeed((Date.now() + Math.floor(Math.random() * 1_000_000)) >>> 0);
@@ -342,6 +378,26 @@ export default function SpinningWheelPage() {
     };
   }, []);
 
+  useEffect(() => {
+    betAmountRef.current = betAmount;
+  }, [betAmount]);
+
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
+
+  useEffect(() => {
+    isSpinningRef.current = isSpinning;
+  }, [isSpinning]);
+
+  useEffect(() => {
+    rotationDegRef.current = rotationDeg;
+  }, [rotationDeg]);
+
+  useEffect(() => {
+    isAutoBettingRef.current = isAutoBetting;
+  }, [isAutoBetting]);
+
   const segments = useMemo<Segment[]>(() => {
     const counts = buildCounts(risk, segmentsCount);
     const expanded = expandSegments(counts);
@@ -360,6 +416,10 @@ export default function SpinningWheelPage() {
     const arranged = arrangeCircular(expanded, layoutSeed);
     return arranged.map((m) => ({ multiplier: m, color: colorMap.get(m) ?? "#2f4553" }));
   }, [layoutSeed, risk, segmentsCount]);
+
+  useEffect(() => {
+    segmentsRef.current = segments;
+  }, [segments]);
 
   const distribution = useMemo(() => {
     const total = segments.length;
@@ -433,57 +493,244 @@ export default function SpinningWheelPage() {
 
   const canSpin = !isSpinning && betAmount > 0 && betAmount <= balance;
 
-  const spin = useCallback(() => {
-    if (!canSpin) return;
+  const playRound = useCallback(
+    async (opts?: { betAmount?: number }) => {
+      const segs = segmentsRef.current;
+      const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
 
-    subtractFromBalance(betAmount);
-    setLastWin(0);
+      if (segs.length === 0 || bet <= 0 || bet > balanceRef.current || isSpinningRef.current) {
+        return null as null | { betAmount: number; multiplier: number; winAmount: number };
+      }
+
+      subtractFromBalance(bet);
+      setLastWin(0);
+      setLastMultiplier(null);
+      setLastColor(null);
+
+      const chosenIndex = Math.floor(Math.random() * segs.length);
+      const chosen = segs[chosenIndex];
+
+      const currentRotation = rotationDegRef.current;
+      const currentMod = ((currentRotation % 360) + 360) % 360;
+      const targetCenter = chosenIndex * anglePer + anglePer / 2;
+      const desiredMod = ((360 - targetCenter) % 360 + 360) % 360;
+
+      let delta = desiredMod - currentMod;
+      if (delta < 0) delta += 360;
+
+      const extraSpins = 6 + Math.floor(Math.random() * 3);
+      const nextRotation = currentRotation + extraSpins * 360 + delta;
+
+      setIsSpinning(true);
+      isSpinningRef.current = true;
+      setRotationDeg(nextRotation);
+      rotationDegRef.current = nextRotation;
+      setResultFx("rolling");
+
+      if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
+
+      return await new Promise<{ betAmount: number; multiplier: number; winAmount: number }>((resolve) => {
+        settleTimerRef.current = window.setTimeout(() => {
+          setIsSpinning(false);
+          isSpinningRef.current = false;
+          setLastMultiplier(chosen.multiplier);
+          setLastColor(chosen.color);
+
+          const winAmount = normalizeMoney(bet * chosen.multiplier);
+          if (chosen.multiplier > 0) {
+            addToBalance(winAmount);
+            setLastWin(winAmount);
+          } else {
+            finalizePendingLoss();
+          }
+          if (resultTimeoutRef.current) {
+            clearTimeout(resultTimeoutRef.current);
+            resultTimeoutRef.current = null;
+          }
+          if (chosen.multiplier < 1) setResultFx("lose");
+          else setResultFx("win");
+
+          const resultObj = { betAmount: bet, multiplier: chosen.multiplier, winAmount };
+          resultTimeoutRef.current = window.setTimeout(() => {
+            setResultFx(null);
+            resultTimeoutRef.current = null;
+            resolve(resultObj);
+          }, 900);
+        }, 4200);
+      });
+    },
+    [addToBalance, anglePer, finalizePendingLoss, subtractFromBalance]
+  );
+
+  const playGame = useCallback(async () => {
+    await playRound();
+  }, [playRound]);
+
+  const stopAutoBet = useCallback(() => {
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+    autoOriginalBetRef.current = 0;
+    autoNetRef.current = 0;
+  }, []);
+
+  const startAutoBet = useCallback(async () => {
+    if (isAutoBettingRef.current) return;
+
+    const startingBet = normalizeMoney(betAmountRef.current);
+    if (segmentsRef.current.length === 0) return;
+    if (startingBet <= 0 || startingBet > balanceRef.current) return;
+    if (isSpinningRef.current) return;
+
+    autoOriginalBetRef.current = startingBet;
+    autoNetRef.current = 0;
+
+    isAutoBettingRef.current = true;
+    setIsAutoBetting(true);
+
+    while (isAutoBettingRef.current) {
+      const stopProfit = Math.max(0, normalizeMoney(parseNumberLoose(stopProfitInput)));
+      const stopLoss = Math.max(0, normalizeMoney(parseNumberLoose(stopLossInput)));
+      const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
+      const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
+
+      const roundBet = normalizeMoney(betAmountRef.current);
+      if (roundBet <= 0) break;
+      if (roundBet > balanceRef.current) break;
+      if (segmentsRef.current.length === 0) break;
+
+      const result = await playRound({ betAmount: roundBet });
+      if (!result) break;
+
+      const lastNet = normalizeMoney(result.winAmount - result.betAmount);
+      const isWin = result.multiplier >= 1;
+      autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
+
+      if (isWin) {
+        if (onWinMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+          betAmountRef.current = autoOriginalBetRef.current;
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+          setBetBoth(next);
+          betAmountRef.current = next;
+        }
+      } else {
+        if (onLoseMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+          betAmountRef.current = autoOriginalBetRef.current;
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+          setBetBoth(next);
+          betAmountRef.current = next;
+        }
+      }
+
+      if (stopProfit > 0 && lastNet >= stopProfit) {
+        stopAutoBet();
+        break;
+      }
+      if (stopLoss > 0 && lastNet <= -stopLoss) {
+        stopAutoBet();
+        break;
+      }
+    }
+
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+  }, [
+    onLoseMode,
+    onLosePctInput,
+    onWinMode,
+    onWinPctInput,
+    playRound,
+    stopLossInput,
+    stopProfitInput,
+    stopAutoBet,
+  ]);
+
+  const changePlayMode = useCallback((mode: "manual" | "auto") => {
+    try {
+      stopAutoBet();
+    } catch (e) {
+    }
+
+    if (settleTimerRef.current) {
+      window.clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = null;
+    }
+    if (rafRef.current) {
+      window.cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+
+    setIsSpinning(false);
+    isSpinningRef.current = false;
+    setRotationDeg(0);
+    rotationDegRef.current = 0;
+    setResultFx(null);
+
     setLastMultiplier(null);
     setLastColor(null);
+    setLastWin(0);
+    lastTopIndexRef.current = null;
+    setTopPointerColor(null);
+    setTopPointerIndex(null);
 
-    const chosenIndex = Math.floor(Math.random() * segments.length);
-    const chosen = segments[chosenIndex];
+    setLayoutSeed((Date.now() >>> 0));
 
-    const currentMod = ((rotationDeg % 360) + 360) % 360;
-    const targetCenter = chosenIndex * anglePer + anglePer / 2;
-    const desiredMod = ((360 - targetCenter) % 360 + 360) % 360;
+    setBetBoth(100);
+    betAmountRef.current = 100;
 
-    let delta = desiredMod - currentMod;
-    if (delta < 0) delta += 360;
+    setRisk("low");
+    setSegmentsCount(10);
 
-    const extraSpins = 6 + Math.floor(Math.random() * 3);
-    const nextRotation = rotationDeg + extraSpins * 360 + delta;
+    setOnWinMode("reset");
+    setOnWinPctInput("0");
+    setOnLoseMode("reset");
+    setOnLosePctInput("0");
+    setStopProfitInput("0");
+    setStopLossInput("0");
 
-    setIsSpinning(true);
-    setRotationDeg(nextRotation);
-    setResultFx("rolling");
+    stopAutoBet();
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+    autoOriginalBetRef.current = 0;
+    autoNetRef.current = 0;
 
-    if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
-    settleTimerRef.current = window.setTimeout(() => {
-      setIsSpinning(false);
-      setLastMultiplier(chosen.multiplier);
-      setLastColor(chosen.color);
-
-      const win = betAmount * chosen.multiplier;
-      if (chosen.multiplier > 0) {
-        addToBalance(win);
-        setLastWin(win);
-      } else {
-        finalizePendingLoss();
-      }
-      if (resultTimeoutRef.current) clearTimeout(resultTimeoutRef.current);
-      if (chosen.multiplier < 1) setResultFx("lose");
-      else setResultFx("win");
-      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
-    }, 4200);
-  }, [addToBalance, anglePer, betAmount, canSpin, finalizePendingLoss, rotationDeg, segments, subtractFromBalance]);
+    setPlayMode(mode);
+  }, [stopAutoBet]);
 
   const tile3d =
     "shadow-[0_4px_0_#1a2c38] hover:-translate-y-1 active:translate-y-0 active:shadow-none transition-all duration-100";
 
+  const isBusy = isSpinning || isAutoBetting;
+
   return (
     <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
       <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Mode</label>
+          <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+            {(["manual", "auto"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => !isBusy && changePlayMode(mode)}
+                disabled={isBusy}
+                className={cn(
+                  "flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                  playMode === mode ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
+                )}
+              >
+                {mode === "manual" ? "Manual" : "Auto"}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
           <div className="relative">
@@ -496,10 +743,9 @@ export default function SpinningWheelPage() {
                 const raw = betInput.trim();
                 const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
                 const num = Number(sanitized);
-                setBetAmount(num);
-                setBetInput(sanitized);
+                setBetBoth(num);
               }}
-              disabled={isSpinning}
+              disabled={isBusy}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
             />
           </div>
@@ -507,10 +753,9 @@ export default function SpinningWheelPage() {
             <button
               onClick={() => {
                 const newBet = Number((betAmount / 2).toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
               }}
-              disabled={isSpinning}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               ½
@@ -518,10 +763,9 @@ export default function SpinningWheelPage() {
             <button
               onClick={() => {
                 const newBet = Number((betAmount * 2).toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
               }}
-              disabled={isSpinning}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               2×
@@ -529,10 +773,9 @@ export default function SpinningWheelPage() {
             <button
               onClick={() => {
                 const newBet = Number(balance.toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
               }}
-              disabled={isSpinning}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               All In
@@ -547,7 +790,7 @@ export default function SpinningWheelPage() {
               <button
                 key={n}
                 onClick={() => setSegmentsCount(n)}
-                disabled={isSpinning}
+                disabled={isBusy}
                 className={cn(
                   "flex-1 py-2 text-xs font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                   segmentsCount === n ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
@@ -565,8 +808,8 @@ export default function SpinningWheelPage() {
             {(["low", "medium", "high"] as RiskLevel[]).map((level) => (
               <button
                 key={level}
-                onClick={() => !isSpinning && setRisk(level)}
-                disabled={isSpinning}
+                onClick={() => !isBusy && setRisk(level)}
+                disabled={isBusy}
                 className={cn(
                   "flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                   risk === level ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
@@ -578,13 +821,149 @@ export default function SpinningWheelPage() {
           </div>
         </div>
 
-        <button
-          onClick={spin}
-          disabled={!canSpin}
-          className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
-        >
-          <Casino sx={{ fontSize: 22 }} /> Spin
-        </button>
+        {playMode === "manual" && (
+          <button
+            onClick={playGame}
+            disabled={!canSpin}
+            className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <PlayArrow sx={{ fontSize: 22 }} /> Bet
+          </button>
+        )}
+
+        {playMode === "auto" && (
+          <>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">On Win</label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !isBusy && setOnWinMode(m)}
+                    disabled={isBusy}
+                    className={cn(
+                      "flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                      onWinMode === m ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
+                    )}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+              {onWinMode === "raise" && (
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%</div>
+                  <input
+                    type="number"
+                    value={onWinPctInput}
+                    onChange={(e) => setOnWinPctInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = onWinPctInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setOnWinPctInput(sanitized);
+                    }}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">On Loss</label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !isBusy && setOnLoseMode(m)}
+                    disabled={isBusy}
+                    className={cn(
+                      "flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                      onLoseMode === m ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
+                    )}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+              {onLoseMode === "raise" && (
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%</div>
+                  <input
+                    type="number"
+                    value={onLosePctInput}
+                    onChange={(e) => setOnLosePctInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = onLosePctInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setOnLosePctInput(sanitized);
+                    }}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Stop on Profit</label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+                <input
+                  type="number"
+                  value={stopProfitInput}
+                  onChange={(e) => setStopProfitInput(e.target.value)}
+                  onBlur={() => {
+                    const raw = stopProfitInput.trim();
+                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                    setStopProfitInput(sanitized);
+                  }}
+                  disabled={isBusy}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Stop on Loss</label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+                <input
+                  type="number"
+                  value={stopLossInput}
+                  onChange={(e) => setStopLossInput(e.target.value)}
+                  onBlur={() => {
+                    const raw = stopLossInput.trim();
+                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                    setStopLossInput(sanitized);
+                  }}
+                  disabled={isBusy}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                />
+              </div>
+            </div>
+
+            {!isAutoBetting ? (
+              <button
+                onClick={startAutoBet}
+                disabled={isSpinning || betAmount <= 0 || betAmount > balance}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <PlayArrow sx={{ fill: "currentColor" }} />
+                Autobet
+              </button>
+            ) : (
+              <button
+                onClick={stopAutoBet}
+                className="w-full bg-[#ef4444] hover:bg-[#dc2626] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                Stop
+              </button>
+            )}
+          </>
+        )}
 
         {lastMultiplier !== null && lastMultiplier > 0 && (
             <div className="mt-2 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center animate-pulse">

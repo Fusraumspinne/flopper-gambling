@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { PlayArrow } from "@mui/icons-material";
 
@@ -120,12 +120,42 @@ export default function PumpPage() {
   const { balance, addToBalance, subtractFromBalance, finalizePendingLoss } =
     useWallet();
 
+  const normalizeMoney = (value: number) => {
+    if (!Number.isFinite(value)) return 0;
+    const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+    return Object.is(rounded, -0) ? 0 : rounded;
+  };
+
+  const parseNumberLoose = (raw: string) => {
+    const normalized = raw.replace(",", ".").trim();
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+  const setBetBoth = (next: number) => {
+    const v = normalizeMoney(next);
+    setBetAmount(v);
+    setBetInput(String(v));
+  };
+
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
   const [difficulty, setDifficulty] = useState<Difficulty>("Low");
   const [gameState, setGameState] = useState<GameState>("idle");
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [lastWin, setLastWin] = useState<number>(0);
+
+  const [playMode, setPlayMode] = useState<"manual" | "auto">("manual");
+  const [pumpsPerRoundInput, setPumpsPerRoundInput] = useState<string>("1");
+  const [onWinMode, setOnWinMode] = useState<"reset" | "raise">("reset");
+  const [onWinPctInput, setOnWinPctInput] = useState<string>("0");
+  const [onLoseMode, setOnLoseMode] = useState<"reset" | "raise">("reset");
+  const [onLosePctInput, setOnLosePctInput] = useState<string>("0");
+  const [stopProfitInput, setStopProfitInput] = useState<string>("0");
+  const [stopLossInput, setStopLossInput] = useState<string>("0");
+  const [isAutoBetting, setIsAutoBetting] = useState(false);
 
   const [plannedSafeSteps, setPlannedSafeSteps] = useState<number | null>(null);
 
@@ -141,10 +171,43 @@ export default function PumpPage() {
   const currentStep = currentData[currentStepIndex];
   const nextStep = currentData[currentStepIndex + 1];
 
+  const maxPumps = Math.max(0, currentData.length - 1);
+
   const potentialWin = betAmount * currentStep.multiplier;
 
   const stepsScrollRef = useRef<HTMLDivElement | null>(null);
   const stepRefs = useRef<Array<HTMLDivElement | null>>([]);
+
+  const betAmountRef = useRef<number>(100);
+  const balanceRef = useRef<number>(0);
+  const difficultyRef = useRef<Difficulty>("Low");
+  const isAutoBettingRef = useRef(false);
+  const autoOriginalBetRef = useRef<number>(0);
+  const autoNetRef = useRef<number>(0);
+
+  useEffect(() => {
+    betAmountRef.current = betAmount;
+  }, [betAmount]);
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
+  useEffect(() => {
+    difficultyRef.current = difficulty;
+  }, [difficulty]);
+  useEffect(() => {
+    isAutoBettingRef.current = isAutoBetting;
+  }, [isAutoBetting]);
+
+  useEffect(() => {
+    // Clamp pumps-per-round whenever difficulty changes (different max pumps).
+    setPumpsPerRoundInput((prev) => {
+      const raw = prev.trim();
+      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+      const parsed = Math.floor(parseNumberLoose(sanitized));
+      const clamped = Math.min(Math.max(parsed, 1), Math.max(1, maxPumps));
+      return String(clamped);
+    });
+  }, [maxPumps]);
 
   const formatProb = (p: number) => {
     if (p >= 1) {
@@ -182,11 +245,18 @@ export default function PumpPage() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      isAutoBettingRef.current = false;
+    };
+  }, []);
+
   const startGame = () => {
     if (balance < betAmount) {
       return;
     }
     if (gameState === "playing") return;
+    if (isAutoBettingRef.current) return;
 
     subtractFromBalance(betAmount);
     setIsFlyingAway(false);
@@ -222,13 +292,56 @@ export default function PumpPage() {
 
   const changeDifficulty = (level: Difficulty) => {
     if (level === difficulty) return;
+    if (isAutoBettingRef.current || gameState === "playing") return;
     setDifficulty(level);
     resetSession();
+  };
+
+  const changePlayMode = (mode: "manual" | "auto") => {
+    if (isAutoBettingRef.current || gameState === "playing") return;
+
+    try {
+      stopAutoBet();
+    } catch (e) {
+    }
+
+    setPlannedSafeSteps(null);
+    resetSession();
+
+    try {
+      setBetBoth(100);
+    } catch (e) {
+      setBetAmount(100);
+      setBetInput(String(100));
+      betAmountRef.current = 100;
+    }
+
+    setDifficulty("Low");
+    difficultyRef.current = "Low";
+
+    setPumpsPerRoundInput("1");
+
+    setOnWinMode("reset");
+    setOnWinPctInput("0");
+    setOnLoseMode("reset");
+    setOnLosePctInput("0");
+    setStopProfitInput("0");
+    setStopLossInput("0");
+
+    autoOriginalBetRef.current = 0;
+    autoNetRef.current = 0;
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+
+    setIsPumping(false);
+
+    setPlayMode(mode);
   };
 
   const pump = () => {
     if (gameState !== "playing") return;
     if (!nextStep) return;
+    if (isAutoBettingRef.current) return;
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);
       resultTimeoutRef.current = null;
@@ -237,34 +350,38 @@ export default function PumpPage() {
 
     setHasPumped(true);
 
-    setIsPumping(true);
+    setIsPumping(false);
+    const pressTimer = window.setTimeout(() => {
+      setIsPumping(true);
 
-    const safeLimit = plannedSafeSteps ?? (currentData.length - 1);
-    const nextIndex = currentStepIndex + 1;
-    const willHaveNoMorePumps = nextIndex >= currentData.length - 1;
-    const nextPayout = betAmount * currentData[nextIndex].multiplier;
+      const safeLimit = plannedSafeSteps ?? (currentData.length - 1);
+      const nextIndex = currentStepIndex + 1;
+      const willHaveNoMorePumps = nextIndex >= currentData.length - 1;
+      const nextPayout = betAmount * currentData[nextIndex].multiplier;
 
-    setTimeout(() => {
-      setIsPumping(false);
-      if (nextIndex <= safeLimit) {
-        setCurrentStepIndex((prev) => prev + 1);
-        setScale((prev) => prev + 0.1);
+      const releaseTimer = window.setTimeout(() => {
+        setIsPumping(false);
+        if (nextIndex <= safeLimit) {
+          setCurrentStepIndex((prev) => prev + 1);
+          setScale((prev) => prev + 0.1);
 
-        if (willHaveNoMorePumps) {
-          cashOut(nextPayout);
+          if (willHaveNoMorePumps) {
+            cashOut(nextPayout);
+          }
+        } else {
+          setIsFlyingAway(false);
+          setGameState("popped");
+          finalizePendingLoss();
+          setResultFx("lose");
+          resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
         }
-      } else {
-        setIsFlyingAway(false);
-        setGameState("popped");
-        finalizePendingLoss();
-        setResultFx("lose");
-        resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
-      }
-    }, 300);
+      }, 300);
+    }, 10);
   };
 
   const cashOut = (overridePayout?: number) => {
     if (gameState !== "playing") return;
+    if (isAutoBettingRef.current) return;
 
     const payout = overridePayout ?? potentialWin;
     addToBalance(payout);
@@ -285,6 +402,207 @@ export default function PumpPage() {
     }, 900);
   };
 
+  const playRound = useCallback(
+    async (opts?: { betAmount?: number; pumps?: number }) => {
+      const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
+      const pumpsRequestedRaw = Math.floor(
+        Number.isFinite(opts?.pumps as number) ? (opts?.pumps as number) : parseNumberLoose(pumpsPerRoundInput)
+      );
+
+      const data = GAME_DATA[difficultyRef.current];
+      const roundMaxPumps = Math.max(0, data.length - 1);
+      const pumpsRequested = Math.min(
+        Math.max(pumpsRequestedRaw, 1),
+        Math.max(1, roundMaxPumps)
+      );
+
+      if (bet <= 0 || bet > balanceRef.current) {
+        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+      }
+      if (isPumping) {
+        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+      }
+      if (gameState === "playing") {
+        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+      }
+
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+
+      subtractFromBalance(bet);
+      setBetBoth(bet);
+
+      setIsFlyingAway(false);
+      setGameState("playing");
+      setCurrentStepIndex(0);
+      setLastWin(0);
+      setScale(1);
+      setHasPumped(false);
+      setPlannedSafeSteps(null);
+
+      const roll = Math.random() * 100;
+      const safeIndex = data.findLastIndex((step) => roll <= step.probability);
+      const safeLimit = Math.max(safeIndex, 0);
+      setPlannedSafeSteps(safeLimit);
+
+      let stepIndex = 0;
+
+      for (let i = 0; i < pumpsRequested; i++) {
+        const nextIndex = stepIndex + 1;
+        if (nextIndex > roundMaxPumps) break;
+
+        if (resultTimeoutRef.current) {
+          clearTimeout(resultTimeoutRef.current);
+          resultTimeoutRef.current = null;
+        }
+        setResultFx("rolling");
+        setHasPumped(true);
+
+        // Restart pump animation each iteration by toggling isPumping
+        setIsPumping(false);
+        await sleep(10);
+        setIsPumping(true);
+        await sleep(300);
+        setIsPumping(false);
+
+        if (nextIndex <= safeLimit) {
+          stepIndex = nextIndex;
+          setCurrentStepIndex(stepIndex);
+          setScale(1 + stepIndex * 0.1);
+
+          const reachedEnd = stepIndex >= roundMaxPumps;
+          if (reachedEnd) break;
+        } else {
+          setIsFlyingAway(false);
+          setGameState("popped");
+          finalizePendingLoss();
+          setResultFx("lose");
+          await new Promise<void>((resolve) => {
+            resultTimeoutRef.current = window.setTimeout(() => {
+              setResultFx(null);
+              resultTimeoutRef.current = null;
+              resolve();
+            }, 900);
+          });
+          return { betAmount: bet, winAmount: 0, didWin: false };
+        }
+      }
+
+      const payout = normalizeMoney(bet * data[stepIndex].multiplier);
+      addToBalance(payout);
+      setLastWin(payout);
+      setGameState("cashed_out");
+      setIsFlyingAway(true);
+      setResultFx("win");
+      await new Promise<void>((resolve) => {
+        resultTimeoutRef.current = window.setTimeout(() => {
+          setResultFx(null);
+          resultTimeoutRef.current = null;
+          resolve();
+        }, 900);
+      });
+      setIsFlyingAway(false);
+      setCurrentStepIndex(0);
+      setHasPumped(false);
+      setPlannedSafeSteps(null);
+
+      return { betAmount: bet, winAmount: payout, didWin: true };
+    },
+    [
+      addToBalance,
+      finalizePendingLoss,
+      gameState,
+      isPumping,
+      pumpsPerRoundInput,
+      subtractFromBalance,
+    ]
+  );
+
+  const stopAutoBet = useCallback(() => {
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+  }, []);
+
+  const startAutoBet = useCallback(async () => {
+    if (isAutoBettingRef.current) return;
+
+    const startingBet = normalizeMoney(betAmountRef.current);
+    if (startingBet <= 0 || startingBet > balanceRef.current) return;
+    if (gameState === "playing") return;
+    if (isPumping) return;
+
+    autoOriginalBetRef.current = startingBet;
+    autoNetRef.current = 0;
+
+    isAutoBettingRef.current = true;
+    setIsAutoBetting(true);
+
+    while (isAutoBettingRef.current) {
+      const stopProfit = Math.max(0, normalizeMoney(parseNumberLoose(stopProfitInput)));
+      const stopLoss = Math.max(0, normalizeMoney(parseNumberLoose(stopLossInput)));
+      const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
+      const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
+
+      const roundBet = normalizeMoney(betAmountRef.current);
+      if (roundBet <= 0) break;
+      if (roundBet > balanceRef.current) break;
+
+      const result = await playRound({ betAmount: roundBet });
+      if (!result) break;
+
+      const lastNet = normalizeMoney(result.winAmount - result.betAmount);
+
+      if (result.didWin && result.winAmount > 0) {
+        autoNetRef.current = normalizeMoney(
+          autoNetRef.current + lastNet
+        );
+        if (onWinMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+          betAmountRef.current = autoOriginalBetRef.current;
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+          setBetBoth(next);
+          betAmountRef.current = next;
+        }
+      } else {
+        autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
+        if (onLoseMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+          betAmountRef.current = autoOriginalBetRef.current;
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+          setBetBoth(next);
+          betAmountRef.current = next;
+        }
+      }
+
+      if (stopProfit > 0 && lastNet >= stopProfit) {
+        stopAutoBet();
+        break;
+      }
+      if (stopLoss > 0 && lastNet <= -stopLoss) {
+        stopAutoBet();
+        break;
+      }
+    }
+
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+  }, [
+    gameState,
+    isPumping,
+    onLoseMode,
+    onLosePctInput,
+    onWinMode,
+    onWinPctInput,
+    playRound,
+    stopLossInput,
+    stopProfitInput,
+    stopAutoBet,
+  ]);
+
   const isDeflated = !hasPumped && gameState !== "popped";
 
   const balloonBaseScale = isDeflated ? 0.62 : 1 + currentStepIndex * 0.055;
@@ -292,9 +610,33 @@ export default function PumpPage() {
   const difficultyIndex = (["Low", "Medium", "High", "Expert"] as Difficulty[]).indexOf(difficulty);
   const stageColors = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6"];
 
+  const isBusy = gameState === "playing" || isAutoBetting;
+
   return (
     <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
       <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Mode
+          </label>
+          <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+            {(["manual", "auto"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => changePlayMode(mode)}
+                disabled={isBusy}
+                className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  playMode === mode
+                    ? "bg-[#213743] text-white shadow-sm"
+                    : "text-[#b1bad3] hover:text-white"
+                }`}
+              >
+                {mode === "manual" ? "Manual" : "Auto"}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -311,10 +653,9 @@ export default function PumpPage() {
                 const raw = betInput.trim();
                 const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
                 const num = Number(sanitized);
-                setBetAmount(num);
-                setBetInput(sanitized);
+                setBetBoth(num);
               }}
-              disabled={gameState === "playing"}
+              disabled={isBusy}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
             />
           </div>
@@ -322,10 +663,9 @@ export default function PumpPage() {
             <button
               onClick={() => {
                 const newBet = Number((betAmount / 2).toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
               }}
-              disabled={gameState === "playing"}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               ½
@@ -333,10 +673,9 @@ export default function PumpPage() {
             <button
               onClick={() => {
                 const newBet = Number((betAmount * 2).toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
               }}
-              disabled={gameState === "playing"}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               2×
@@ -344,10 +683,9 @@ export default function PumpPage() {
             <button
               onClick={() => {
                 const newBet = Number(balance.toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
               }}
-              disabled={gameState === "playing"}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               All In
@@ -365,7 +703,7 @@ export default function PumpPage() {
                 <button
                   key={level}
                   onClick={() => changeDifficulty(level)}
-                  disabled={gameState === "playing"}
+                  disabled={isBusy}
                   className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     difficulty === level
                       ? "bg-[#213743] text-white shadow-sm"
@@ -379,32 +717,209 @@ export default function PumpPage() {
           </div>
         </div>
 
-        {gameState === "playing" ? (
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-2">
+        {playMode === "manual" && (
+          <>
+            {gameState === "playing" ? (
+              <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={pump}
+                    disabled={isPumping || !nextStep}
+                    className="bg-[#2f4553] hover:bg-[#3e5666] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    Pump
+                  </button>
+                  <button
+                    onClick={() => cashOut()}
+                    disabled={isPumping || !hasPumped}
+                    className="bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    Cashout
+                  </button>
+                </div>
+              </div>
+            ) : (
               <button
-                onClick={pump}
-                disabled={isPumping || !nextStep}
-                className="bg-[#2f4553] hover:bg-[#3e5666] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                onClick={startGame}
+                disabled={isAutoBetting}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                Pump
+                <PlayArrow /> Bet
               </button>
-              <button
-                onClick={() => cashOut()}
-                disabled={isPumping || !hasPumped}
-                className="bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                Cashout
-              </button>
+            )}
+          </>
+        )}
+
+        {playMode === "auto" && (
+          <>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Pumps per Round
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={pumpsPerRoundInput}
+                  onChange={(e) => setPumpsPerRoundInput(e.target.value)}
+                  onBlur={() => {
+                    const raw = pumpsPerRoundInput.trim();
+                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                    const parsed = Math.floor(parseNumberLoose(sanitized));
+                    const clamped = Math.min(
+                      Math.max(parsed, 1),
+                      Math.max(1, maxPumps)
+                    );
+                    setPumpsPerRoundInput(String(clamped));
+                  }}
+                  disabled={isBusy}
+                  min={1}
+                  max={Math.max(1, maxPumps)}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 px-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
+                />
+              </div>
             </div>
-          </div>
-        ) : (
-          <button
-            onClick={startGame}
-            className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
-          >
-            <PlayArrow /> Bet
-          </button>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                On Win
+              </label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !isBusy && setOnWinMode(m)}
+                    disabled={isBusy}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      onWinMode === m
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+              {onWinMode === "raise" && (
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%</div>
+                  <input
+                    type="number"
+                    value={onWinPctInput}
+                    onChange={(e) => setOnWinPctInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = onWinPctInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setOnWinPctInput(sanitized);
+                    }}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                On Loss
+              </label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !isBusy && setOnLoseMode(m)}
+                    disabled={isBusy}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      onLoseMode === m
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+              {onLoseMode === "raise" && (
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%</div>
+                  <input
+                    type="number"
+                    value={onLosePctInput}
+                    onChange={(e) => setOnLosePctInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = onLosePctInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setOnLosePctInput(sanitized);
+                    }}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Stop on Profit
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$
+                </div>
+                <input
+                  type="number"
+                  value={stopProfitInput}
+                  onChange={(e) => setStopProfitInput(e.target.value)}
+                  onBlur={() => {
+                    const raw = stopProfitInput.trim();
+                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                    setStopProfitInput(sanitized);
+                  }}
+                  disabled={isBusy}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Stop on Loss
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$
+                </div>
+                <input
+                  type="number"
+                  value={stopLossInput}
+                  onChange={(e) => setStopLossInput(e.target.value)}
+                  onBlur={() => {
+                    const raw = stopLossInput.trim();
+                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                    setStopLossInput(sanitized);
+                  }}
+                  disabled={isBusy}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
+                />
+              </div>
+            </div>
+
+            {!isAutoBetting ? (
+              <button
+                onClick={startAutoBet}
+                disabled={gameState === "playing"}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <PlayArrow /> Autobet
+              </button>
+            ) : (
+              <button
+                onClick={stopAutoBet}
+                className="w-full bg-[#ef4444] hover:bg-[#dc2626] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                Stop
+              </button>
+            )}
+          </>
         )}
 
         {gameState === "playing" && (

@@ -222,12 +222,41 @@ export default function PlinkoPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
     useWallet();
 
+  const normalizeMoney = (value: number) => {
+    if (!Number.isFinite(value)) return 0;
+    const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+    return Object.is(rounded, -0) ? 0 : rounded;
+  };
+
+  const parseNumberLoose = (raw: string) => {
+    const normalized = raw.replace(",", ".").trim();
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const setBetBoth = (next: number) => {
+    const v = normalizeMoney(next);
+    setBetAmount(v);
+    setBetInput(String(v));
+    betAmountRef.current = v;
+  };
+
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
   const [risk, setRisk] = useState<RiskLevel>("low");
   const [rows, setRows] = useState<number>(16);
   const [lastWin, setLastWin] = useState<number>(0);
   const [history, setHistory] = useState<number[]>([]);
+
+  const [playMode, setPlayMode] = useState<"manuel" | "auto">("manuel");
+  const [onWinMode, setOnWinMode] = useState<"reset" | "raise">("reset");
+  const [onWinPctInput, setOnWinPctInput] = useState<string>("0");
+  const [onLoseMode, setOnLoseMode] = useState<"reset" | "raise">("reset");
+  const [onLosePctInput, setOnLosePctInput] = useState<string>("0");
+  const [stopProfitInput, setStopProfitInput] = useState<string>("0");
+  const [stopLossInput, setStopLossInput] = useState<string>("0");
+  const [isAutoBetting, setIsAutoBetting] = useState(false);
+  const [isDroppingState, setIsDroppingState] = useState(false);
 
   const autoTimerRef = useRef<number | null>(null);
 
@@ -237,6 +266,24 @@ export default function PlinkoPage() {
   const particlesRef = useRef<Particle[]>([]);
   const lastWinSlotRef = useRef<{ idx: number | null; timer: number; force?: number }>({ idx: null, timer: 0, force: 0 });
   const lastTimeRef = useRef<number>(0);
+
+  const betAmountRef = useRef<number>(100);
+  const balanceRef = useRef<number>(0);
+  const isAutoBettingRef = useRef(false);
+  const isDroppingRef = useRef(false);
+  const autoOriginalBetRef = useRef<number>(0);
+  const autoNetRef = useRef<number>(0);
+  const pendingRoundResolveRef = useRef<((r: { betAmount: number; mult: number; winAmount: number }) => void) | null>(null);
+
+  useEffect(() => {
+    betAmountRef.current = betAmount;
+  }, [betAmount]);
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
+  useEffect(() => {
+    isAutoBettingRef.current = isAutoBetting;
+  }, [isAutoBetting]);
 
   const canvasDpiRef = useRef({ cssW: 0, cssH: 0, dpr: 1 });
   const resultTimeoutRef = useRef<number | null>(null);
@@ -273,11 +320,18 @@ export default function PlinkoPage() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }, []);
 
-  const dropBall = () => {
-    if (betAmount <= 0) return;
-    if (betAmount > balance) return;
+  const dropBall = (opts?: { betAmount?: number; auto?: boolean }) => {
+    const isAuto = !!opts?.auto;
+    const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
+    if (bet <= 0) return;
+    if (bet > balanceRef.current) return;
+    if (isAuto && isDroppingRef.current) return;
 
-    subtractFromBalance(betAmount);
+    // start dropping (manual calls allowed even if already dropping)
+    isDroppingRef.current = true;
+    setIsDroppingState(true);
+
+    subtractFromBalance(bet);
     setLastWin(0);
     setResultFx("rolling");
     setResultKey((k) => k + 1);
@@ -295,7 +349,7 @@ export default function PlinkoPage() {
       ...ballsRef.current,
       {
         id: Date.now() + Math.random(),
-        bet: betAmount,
+        bet,
         currentRow: 0,
         currentCol: startCol,
         targetCol: targetCol,
@@ -521,7 +575,27 @@ export default function PlinkoPage() {
               setResultKey((k) => k + 1);
               resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
             }
-            continue;
+
+            // Resolve awaited autobet round (if any) AFTER showing result FX
+                if (pendingRoundResolveRef.current) {
+                  const resolver = pendingRoundResolveRef.current;
+                  pendingRoundResolveRef.current = null;
+                  const resultObj = { betAmount: ball.bet, mult, winAmount: win };
+                  if (resultTimeoutRef.current) {
+                    clearTimeout(resultTimeoutRef.current);
+                    resultTimeoutRef.current = null;
+                  }
+                  resultTimeoutRef.current = window.setTimeout(() => {
+                    setResultFx(null);
+                    resultTimeoutRef.current = null;
+                    try {
+                      resolver(resultObj);
+                    } catch (e) {
+                    }
+                  }, 900);
+                }
+
+                continue;
           } else {
             const dir = ball.path[ball.currentRow];
             ball.targetCol = ball.currentCol + dir;
@@ -607,6 +681,12 @@ export default function PlinkoPage() {
 
       ballsRef.current = nextBalls;
 
+      // mark dropping finished only when no balls remain
+      if (nextBalls.length === 0) {
+        isDroppingRef.current = false;
+        setIsDroppingState(false);
+      }
+
       ctx.restore();
 
       if (lastWinSlotRef.current.timer > 0) {
@@ -681,6 +761,164 @@ export default function PlinkoPage() {
   const isDropping =
     (ballsRef.current && ballsRef.current.length > 0);
 
+  const isBusy = isAutoBetting || isDroppingState;
+
+  const playRound = useCallback(async (opts?: { betAmount?: number }) => {
+    const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
+    if (bet <= 0) return null as null | { betAmount: number; mult: number; winAmount: number };
+    if (bet > balanceRef.current) return null as null | { betAmount: number; mult: number; winAmount: number };
+    if (isDroppingRef.current) return null as null | { betAmount: number; mult: number; winAmount: number };
+
+    return await new Promise<{ betAmount: number; mult: number; winAmount: number }>((resolve) => {
+      pendingRoundResolveRef.current = null;
+      pendingRoundResolveRef.current = resolve;
+      dropBall({ betAmount: bet, auto: true });
+    });
+  }, []);
+
+  const stopAutoBet = useCallback(() => {
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+  }, []);
+
+  const startAutoBet = useCallback(async () => {
+    if (isAutoBettingRef.current) return;
+
+    const startingBet = normalizeMoney(betAmountRef.current);
+    if (startingBet <= 0) return;
+    if (startingBet > balanceRef.current) return;
+    if (isDroppingRef.current) return;
+
+    autoOriginalBetRef.current = startingBet;
+    autoNetRef.current = 0;
+
+    isAutoBettingRef.current = true;
+    setIsAutoBetting(true);
+
+    while (isAutoBettingRef.current) {
+      const stopProfit = Math.max(0, normalizeMoney(parseNumberLoose(stopProfitInput)));
+      const stopLoss = Math.max(0, normalizeMoney(parseNumberLoose(stopLossInput)));
+      const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
+      const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
+
+      const roundBet = normalizeMoney(betAmountRef.current);
+      if (roundBet <= 0) break;
+      if (roundBet > balanceRef.current) break;
+
+      const result = await playRound({ betAmount: roundBet });
+      if (!result) break;
+
+      const lastNet = normalizeMoney(result.winAmount - result.betAmount);
+      const isWin = result.mult >= 1;
+      autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
+
+      if (isWin) {
+        if (onWinMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+          setBetBoth(next);
+        }
+      } else {
+        if (onLoseMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+          setBetBoth(next);
+        }
+      }
+
+      if (stopProfit > 0 && lastNet >= stopProfit) {
+        stopAutoBet();
+        break;
+      }
+      if (stopLoss > 0 && lastNet <= -stopLoss) {
+        stopAutoBet();
+        break;
+      }
+    }
+
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+  }, [
+    onLoseMode,
+    onLosePctInput,
+    onWinMode,
+    onWinPctInput,
+    playRound,
+    stopLossInput,
+    stopProfitInput,
+    stopAutoBet,
+  ]);
+
+  const changePlayMode = useCallback((mode: "manuel" | "auto") => {
+    try {
+      stopAutoBet();
+    } catch (e) {
+    }
+
+    if (autoTimerRef.current) {
+      window.clearInterval(autoTimerRef.current);
+      autoTimerRef.current = null;
+    }
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+
+    if (pendingRoundResolveRef.current) {
+      const resolver = pendingRoundResolveRef.current;
+      try {
+        resolver({ betAmount: 0, mult: 0, winAmount: 0 });
+      } catch (e) {
+      }
+      pendingRoundResolveRef.current = null;
+    }
+
+    isDroppingRef.current = false;
+    setIsDroppingState(false);
+    ballsRef.current = [];
+    particlesRef.current = [];
+    setLastWin(0);
+    setHistory([]);
+    setResultFx(null);
+    setResultKey((k) => k + 1);
+
+    try {
+      setBetBoth(100);
+    } catch (e) {
+      setBetAmount(100);
+      setBetInput(String(100));
+      betAmountRef.current = 100;
+    }
+
+    setRisk("low");
+    setRows(16);
+
+    setOnWinMode("reset");
+    setOnWinPctInput("0");
+    setOnLoseMode("reset");
+    setOnLosePctInput("0");
+    setStopProfitInput("0");
+    setStopLossInput("0");
+
+    autoOriginalBetRef.current = 0;
+    autoNetRef.current = 0;
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+
+    try {
+      syncCanvasDpi();
+    } catch (e) {
+    }
+
+    setPlayMode(mode);
+  }, [stopAutoBet, syncCanvasDpi]);
+
   const resultFxClassName: Record<NonNullable<typeof resultFx>, string> = {
     rolling: "limbo-roll-glow",
     win: "limbo-win-flash",
@@ -690,6 +928,36 @@ export default function PlinkoPage() {
   return (
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
       <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Modus
+          </label>
+          <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+            <button
+              onClick={() => !isBusy && changePlayMode("manuel")}
+              disabled={isBusy}
+              className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                playMode === "manuel"
+                  ? "bg-[#213743] text-white shadow-sm"
+                  : "text-[#b1bad3] hover:text-white"
+              }`}
+            >
+              Manuel
+            </button>
+            <button
+              onClick={() => !isBusy && changePlayMode("auto")}
+              disabled={isBusy}
+              className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                playMode === "auto"
+                  ? "bg-[#213743] text-white shadow-sm"
+                  : "text-[#b1bad3] hover:text-white"
+              }`}
+            >
+              Auto
+            </button>
+          </div>
+        </div>
+
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -703,42 +971,47 @@ export default function PlinkoPage() {
               value={betInput}
               onChange={(e) => setBetInput(e.target.value)}
               onBlur={() => {
-                const raw = betInput.trim();
-                const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
-                const num = Number(sanitized);
-                setBetAmount(num);
-                setBetInput(sanitized);
+                const v = normalizeMoney(parseNumberLoose(betInput));
+                if (!Number.isFinite(v) || v <= 0) {
+                  setBetBoth(1);
+                } else {
+                  setBetBoth(v);
+                }
               }}
+              disabled={isBusy}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
             />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => {
-                const newBet = Number((betAmount / 2).toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                if (isBusy) return;
+                const newBet = normalizeMoney(betAmountRef.current / 2);
+                setBetBoth(newBet);
               }}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3]"
             >
               ½
             </button>
             <button
               onClick={() => {
-                const newBet = Number((betAmount * 2).toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                if (isBusy) return;
+                const newBet = normalizeMoney(betAmountRef.current * 2);
+                setBetBoth(newBet);
               }}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3]"
             >
               2×
             </button>
             <button
               onClick={() => {
-                const newBet = Number(balance.toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                if (isBusy) return;
+                const newBet = normalizeMoney(balance);
+                setBetBoth(newBet);
               }}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3]"
             >
               All In
@@ -754,8 +1027,8 @@ export default function PlinkoPage() {
             {(["low", "medium", "high"] as RiskLevel[]).map((level) => (
               <button
                 key={level}
-                onClick={() => !isDropping && setRisk(level)}
-                disabled={isDropping}
+                onClick={() => !isBusy && setRisk(level)}
+                disabled={isBusy}
                 className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   risk === level
                     ? "bg-[#213743] text-white shadow-sm"
@@ -779,8 +1052,8 @@ export default function PlinkoPage() {
               max={16}
               step={1}
               value={rows}
-              onChange={(e) => setRows(Number(e.target.value))}
-              disabled={isDropping}
+              onChange={(e) => !isBusy && setRows(Number(e.target.value))}
+              disabled={isBusy}
               className="w-full accent-[#00e701] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <div className="flex justify-between text-xs text-[#b1bad3] mt-2">
@@ -791,12 +1064,170 @@ export default function PlinkoPage() {
           </div>
         </div>
 
-        <button
-          onClick={dropBall}
-          className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
-        >
-          <PlayArrow /> Bet
-        </button>
+        {playMode === "auto" && (
+          <div className="space-y-2">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                On Win
+              </label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !isBusy && setOnWinMode(m)}
+                    disabled={isBusy}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      onWinMode === m
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+                {onWinMode === "raise" && (
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%
+                    </div>
+                    <input
+                      type="number"
+                      value={onWinPctInput}
+                      onChange={(e) => setOnWinPctInput(e.target.value)}
+                      onBlur={() => {
+                        const raw = onWinPctInput.trim();
+                        const sanitized = raw.replace(/^0+(?=\\d)/, "") || "0";
+                        setOnWinPctInput(sanitized);
+                      }}
+                      disabled={isBusy}
+                      className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                On Loss
+              </label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !isBusy && setOnLoseMode(m)}
+                    disabled={isBusy}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      onLoseMode === m
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+              {onLoseMode === "raise" && (
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%
+                  </div>
+                  <input
+                    type="number"
+                    value={onLosePctInput}
+                    onChange={(e) => setOnLosePctInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = onLosePctInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\\d)/, "") || "0";
+                      setOnLosePctInput(sanitized);
+                    }}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                  Stop on Profit
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+                  <input
+                    type="number"
+                    value={stopProfitInput}
+                    onChange={(e) => setStopProfitInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = stopProfitInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setStopProfitInput(sanitized);
+                    }}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                    inputMode="decimal"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                  Stop on Loss
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+                  <input
+                    type="number"
+                    value={stopLossInput}
+                    onChange={(e) => setStopLossInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = stopLossInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setStopLossInput(sanitized);
+                    }}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                    inputMode="decimal"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {playMode === "manuel" && (
+          <button
+            onClick={() => dropBall()}
+            disabled={isAutoBetting || betAmountRef.current <= 0 || betAmountRef.current > balance}
+            className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <PlayArrow /> Bet
+          </button>
+        )}
+
+        {playMode === "auto" && (
+          <>
+            {!isAutoBetting ? (
+              <button
+                onClick={startAutoBet}
+                disabled={isBusy || betAmountRef.current <= 0 || betAmountRef.current > balance}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <PlayArrow /> Autobet
+              </button>
+            ) : (
+              <button
+                onClick={stopAutoBet}
+                className="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                Stop
+              </button>
+            )}
+          </>
+        )}
 
         {lastWin > 0 && (
           <div className="mt-2 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center animate-pulse">

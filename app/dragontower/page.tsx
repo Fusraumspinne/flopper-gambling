@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import {
   PlayArrow,
@@ -71,9 +71,42 @@ export default function DragonTowerPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
     useWallet();
 
+  const normalizeMoney = (value: number) => {
+    if (!Number.isFinite(value)) return 0;
+    const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+    return Object.is(rounded, -0) ? 0 : rounded;
+  };
+
+  const parseNumberLoose = (raw: string) => {
+    const normalized = raw.replace(",", ".").trim();
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const setBetBoth = (next: number) => {
+    const v = normalizeMoney(next);
+    setBetAmount(v);
+    setBetInput(String(v));
+  };
+
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
   const [riskLevel, setRiskLevel] = useState<RiskLevel>("low");
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
+
+  const [playMode, setPlayMode] = useState<"manual" | "auto">("manual");
+  const [onWinMode, setOnWinMode] = useState<"reset" | "raise">("reset");
+  const [onWinPctInput, setOnWinPctInput] = useState<string>("0");
+  const [onLoseMode, setOnLoseMode] = useState<"reset" | "raise">("reset");
+  const [onLosePctInput, setOnLosePctInput] = useState<string>("0");
+  const [stopProfitInput, setStopProfitInput] = useState<string>("0");
+  const [stopLossInput, setStopLossInput] = useState<string>("0");
+  const [isAutoBetting, setIsAutoBetting] = useState(false);
+
+  const [autoPickPlan, setAutoPickPlan] = useState<Array<number | null>>(
+    () => Array.from({ length: TOWER_LEVELS }, () => null)
+  );
 
   const [roundState, setRoundState] = useState<RoundState>("idle");
   const [isBusy, setIsBusy] = useState(false);
@@ -86,6 +119,20 @@ export default function DragonTowerPage() {
   const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
   const resultTimeoutRef = useRef<number | null>(null);
 
+  const betAmountRef = useRef<number>(100);
+  const balanceRef = useRef<number>(0);
+  const riskLevelRef = useRef<RiskLevel>("low");
+  const roundStateRef = useRef<RoundState>("idle");
+  const levelRef = useRef<number>(0);
+  const isBusyRef = useRef(false);
+
+  const isAutoBettingRef = useRef(false);
+  const autoOriginalBetRef = useRef<number>(0);
+  const autoNetRef = useRef<number>(0);
+  const autoPickPlanRef = useRef<Array<number | null>>(
+    Array.from({ length: TOWER_LEVELS }, () => null)
+  );
+
   const stepsScrollRef = useRef<HTMLDivElement | null>(null);
   const stepRefs = useRef<Array<HTMLDivElement | null>>([]);
 
@@ -97,6 +144,45 @@ export default function DragonTowerPage() {
 
   const fieldsCount = FIELDS_PER_LEVEL[riskLevel];
   const multipliers = MULTIPLIERS[riskLevel];
+
+  const isUiBusy = isBusy || isAutoBetting;
+
+  useEffect(() => {
+    betAmountRef.current = betAmount;
+  }, [betAmount]);
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
+  useEffect(() => {
+    riskLevelRef.current = riskLevel;
+  }, [riskLevel]);
+  useEffect(() => {
+    roundStateRef.current = roundState;
+  }, [roundState]);
+  useEffect(() => {
+    levelRef.current = level;
+  }, [level]);
+  useEffect(() => {
+    isBusyRef.current = isBusy;
+  }, [isBusy]);
+  useEffect(() => {
+    isAutoBettingRef.current = isAutoBetting;
+  }, [isAutoBetting]);
+  useEffect(() => {
+    autoPickPlanRef.current = autoPickPlan;
+  }, [autoPickPlan]);
+
+  useEffect(() => {
+    // Clamp pick plan when risk/fields-count changes.
+    setAutoPickPlan((prev) =>
+      prev.map((v) => {
+        if (v == null) return null;
+        if (v < 0) return null;
+        if (v >= fieldsCount) return null;
+        return v;
+      })
+    );
+  }, [fieldsCount]);
 
   const formatProb = (p: number) => {
     if (p >= 1) {
@@ -154,8 +240,14 @@ export default function DragonTowerPage() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      isAutoBettingRef.current = false;
+    };
+  }, []);
+
   const canStart =
-    roundState !== "active" && !isBusy && betAmount > 0 && betAmount <= balance;
+    roundState !== "active" && !isUiBusy && betAmount > 0 && betAmount <= balance;
 
   const cashoutMultiplier = useMemo(() => {
     if (roundState !== "active") return 0;
@@ -175,9 +267,9 @@ export default function DragonTowerPage() {
 
   const canCashout = useMemo(() => {
     if (roundState !== "active") return false;
-    if (isBusy) return false;
+    if (isUiBusy) return false;
     return level > 0;
-  }, [isBusy, level, roundState]);
+  }, [isUiBusy, level, roundState]);
 
   const revealAllRemainingRows = () => {
     setReveals((prev) => {
@@ -253,7 +345,7 @@ export default function DragonTowerPage() {
   };
 
   const resetRound = () => {
-    if (roundState === "active" || isBusy) return;
+    if (roundState === "active" || isUiBusy) return;
     setTrapByLevel([]);
     setReveals([]);
     setLevel(0);
@@ -267,14 +359,42 @@ export default function DragonTowerPage() {
   };
 
   const changeRiskLevel = (lvl: RiskLevel) => {
-    if (roundState === "active" || isBusy) return;
+    if (roundState === "active" || isUiBusy) return;
     if (lvl === riskLevel) return;
     setRiskLevel(lvl);
     resetRound();
   };
 
+  const changePlayMode = (mode: "manual" | "auto") => {
+    if (roundState === "active" || isUiBusy) return;
+    try {
+      stopAutoBet();
+    } catch (e) {}
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+    autoOriginalBetRef.current = 0;
+    autoNetRef.current = 0;
+    autoPickPlanRef.current = Array.from({ length: TOWER_LEVELS }, () => null);
+
+    setAutoPickPlan(Array.from({ length: TOWER_LEVELS }, () => null));
+    setBetBoth(100);
+    betAmountRef.current = 100;
+    setRiskLevel("low");
+
+    setOnWinMode("reset");
+    setOnWinPctInput("0");
+    setOnLoseMode("reset");
+    setOnLosePctInput("0");
+    setStopProfitInput("0");
+    setStopLossInput("0");
+
+    resetRound();
+    setPlayMode(mode);
+  };
+
   const pickField = async (idx: number) => {
-    if (roundState !== "active" || isBusy) return;
+    if (roundState !== "active" || isUiBusy) return;
+    if (playMode !== "manual") return;
     if (level < 0 || level >= TOWER_LEVELS) return;
 
     setIsBusy(true);
@@ -302,7 +422,6 @@ export default function DragonTowerPage() {
 
     if (outcome === "trap") {
       revealAllRemainingRows();
-      // show red flash for trap
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
         resultTimeoutRef.current = null;
@@ -324,7 +443,6 @@ export default function DragonTowerPage() {
       await new Promise((r) => setTimeout(r, 200));
       addToBalance(win);
       setLastWin(win);
-      // final win -> green flash
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
         resultTimeoutRef.current = null;
@@ -346,6 +464,276 @@ export default function DragonTowerPage() {
     if (roundState !== "active") return null;
     return revealByLevel.get(level) ?? null;
   }, [level, revealByLevel, roundState]);
+
+  const getPlannedPickCount = useCallback((plan: Array<number | null>, fields: number) => {
+    let count = 0;
+    for (let i = 0; i < TOWER_LEVELS; i++) {
+      const v = plan[i];
+      if (v == null) break;
+      if (v < 0 || v >= fields) break;
+      count++;
+    }
+    return count;
+  }, []);
+
+  const showFx = useCallback(async (fx: "win" | "lose") => {
+    if (resultTimeoutRef.current) {
+      clearTimeout(resultTimeoutRef.current);
+      resultTimeoutRef.current = null;
+    }
+    setResultFx(fx);
+    await new Promise<void>((resolve) => {
+      resultTimeoutRef.current = window.setTimeout(() => {
+        setResultFx(null);
+        resultTimeoutRef.current = null;
+        resolve();
+      }, 900);
+    });
+  }, []);
+
+  const playRound = useCallback(
+    async (opts?: { betAmount?: number }) => {
+      const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
+      const currentBalance = balanceRef.current;
+      const currentRisk = riskLevelRef.current;
+      const currentRoundState = roundStateRef.current;
+      const currentBusy = isBusyRef.current;
+
+      const fields = FIELDS_PER_LEVEL[currentRisk];
+      const roundMultipliers = MULTIPLIERS[currentRisk];
+      const trapsPer = TRAPS_PER_LEVEL[currentRisk] ?? 1;
+
+      const plan = autoPickPlanRef.current;
+      const plannedPicks = getPlannedPickCount(plan, fields);
+      if (plannedPicks <= 0) {
+        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+      }
+
+      if (currentRoundState === "active" || currentBusy) {
+        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+      }
+      if (bet <= 0 || bet > currentBalance) {
+        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+      }
+
+      const revealAllRemainingRowsFrom = (traps: number[][]) => {
+        setReveals((prev) => {
+          const byLevel = new Map<number, Reveal>();
+          for (const r of prev) byLevel.set(r.level, r);
+
+          for (let lvl = 0; lvl < TOWER_LEVELS; lvl++) {
+            if (byLevel.has(lvl)) continue;
+            const trapIndices = traps[lvl];
+            if (!Array.isArray(trapIndices)) continue;
+            byLevel.set(lvl, {
+              level: lvl,
+              pickedIndex: -1,
+              trapIndices,
+              outcome: "safe",
+            });
+          }
+
+          return Array.from(byLevel.values()).sort((a, b) => a.level - b.level);
+        });
+      };
+
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+
+      setIsBusy(true);
+      setLastWin(0);
+      setBetBoth(bet);
+      subtractFromBalance(bet);
+
+      const traps: number[][] = [];
+      for (let i = 0; i < TOWER_LEVELS; i++) {
+        const levelTraps: number[] = [];
+        while (levelTraps.length < trapsPer) {
+          const idx = Math.floor(Math.random() * fields);
+          if (!levelTraps.includes(idx)) levelTraps.push(idx);
+        }
+        traps.push(levelTraps);
+      }
+
+      setTrapByLevel(traps);
+      setReveals([]);
+      setLevel(0);
+      setRoundState("active");
+
+      await sleep(120);
+      setIsBusy(false);
+
+      for (let lvl = 0; lvl < plannedPicks; lvl++) {
+        const pickIdx = plan[lvl];
+        if (pickIdx == null) break;
+
+        setIsBusy(true);
+        if (resultTimeoutRef.current) {
+          clearTimeout(resultTimeoutRef.current);
+          resultTimeoutRef.current = null;
+        }
+        setResultFx("rolling");
+
+        const trapIndices = traps[lvl] ?? [];
+        const outcome: Reveal["outcome"] = trapIndices.includes(pickIdx)
+          ? "trap"
+          : "safe";
+
+        const reveal: Reveal = {
+          level: lvl,
+          pickedIndex: pickIdx,
+          trapIndices,
+          outcome,
+        };
+        setReveals((prev) => [...prev, reveal]);
+
+        await sleep(180);
+
+        if (outcome === "trap") {
+          revealAllRemainingRowsFrom(traps);
+          await showFx("lose");
+          finalizePendingLoss();
+          setRoundState("busted");
+          setIsBusy(false);
+          return { betAmount: bet, winAmount: 0, didWin: false };
+        }
+
+        const nextLevel = lvl + 1;
+        setLevel(nextLevel);
+
+        if (nextLevel >= TOWER_LEVELS) {
+          const winMult = roundMultipliers[TOWER_LEVELS - 1] ?? 0;
+          const win = normalizeMoney(bet * winMult);
+          await sleep(200);
+          addToBalance(win);
+          setLastWin(win);
+          await showFx("win");
+          revealAllRemainingRowsFrom(traps);
+          setRoundState("cashed");
+          setIsBusy(false);
+          return { betAmount: bet, winAmount: win, didWin: true };
+        }
+
+        setIsBusy(false);
+      }
+
+      // Cashout after last planned safe pick (or level 0 would have returned null earlier)
+      const cashLevel = Math.max(1, plannedPicks);
+      const cashMult = roundMultipliers[cashLevel - 1] ?? 1;
+      const win = normalizeMoney(bet * cashMult);
+
+      setIsBusy(true);
+      revealAllRemainingRowsFrom(traps);
+      await sleep(150);
+      addToBalance(win);
+      setLastWin(win);
+      await showFx("win");
+      setRoundState("cashed");
+      await sleep(150);
+      setIsBusy(false);
+
+      return { betAmount: bet, winAmount: win, didWin: true };
+    },
+    [
+      addToBalance,
+      finalizePendingLoss,
+      getPlannedPickCount,
+      showFx,
+      sleep,
+      subtractFromBalance,
+    ]
+  );
+
+  const startAutoBet = useCallback(async () => {
+    if (isAutoBettingRef.current) return;
+
+    const currentRisk = riskLevelRef.current;
+    const fields = FIELDS_PER_LEVEL[currentRisk];
+    const plannedPicks = getPlannedPickCount(autoPickPlanRef.current, fields);
+    if (plannedPicks <= 0) return;
+
+    const startingBet = normalizeMoney(betAmountRef.current);
+    if (startingBet <= 0 || startingBet > balanceRef.current) return;
+    if (roundStateRef.current === "active" || isBusyRef.current) return;
+
+    autoOriginalBetRef.current = startingBet;
+    autoNetRef.current = 0;
+
+    isAutoBettingRef.current = true;
+    setIsAutoBetting(true);
+
+    while (isAutoBettingRef.current) {
+      const stopProfit = Math.max(0, normalizeMoney(parseNumberLoose(stopProfitInput)));
+      const stopLoss = Math.max(0, normalizeMoney(parseNumberLoose(stopLossInput)));
+      const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
+      const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
+      const roundBet = normalizeMoney(betAmountRef.current);
+      if (roundBet <= 0) break;
+      if (roundBet > balanceRef.current) break;
+
+      const result = await playRound({ betAmount: roundBet });
+      if (!result) {
+        const nowPlanned = getPlannedPickCount(autoPickPlanRef.current, fields);
+        if (nowPlanned <= 0) break;
+        await sleep(200);
+        if (isAutoBettingRef.current) continue;
+        break;
+      }
+
+      const lastNet = normalizeMoney((result.winAmount ?? 0) - result.betAmount);
+      autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
+
+      if (result.didWin && result.winAmount > 0) {
+        if (onWinMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+          betAmountRef.current = autoOriginalBetRef.current;
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+          setBetBoth(next);
+          betAmountRef.current = next;
+        }
+      } else {
+        if (onLoseMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+          betAmountRef.current = autoOriginalBetRef.current;
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+          setBetBoth(next);
+          betAmountRef.current = next;
+        }
+      }
+
+      if (stopProfit > 0 && lastNet >= stopProfit) {
+        stopAutoBet();
+        break;
+      }
+      if (stopLoss > 0 && lastNet <= -stopLoss) {
+        stopAutoBet();
+        break;
+      }
+
+      await sleep(120);
+    }
+
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+  }, [
+    getPlannedPickCount,
+    onLoseMode,
+    onLosePctInput,
+    onWinMode,
+    onWinPctInput,
+    playRound,
+    stopLossInput,
+    stopProfitInput,
+  ]);
+
+  const stopAutoBet = useCallback(() => {
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+  }, []);
 
   const getCellStyle = (rowLevel: number, idx: number) => {
     const rowReveal = revealByLevel.get(rowLevel);
@@ -517,6 +905,28 @@ export default function DragonTowerPage() {
       <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Mode
+          </label>
+          <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+            {(["manual", "auto"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => changePlayMode(mode)}
+                disabled={roundState === "active" || isUiBusy}
+                className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  playMode === mode
+                    ? "bg-[#213743] text-white shadow-sm"
+                    : "text-[#b1bad3] hover:text-white"
+                }`}
+              >
+                {mode === "manual" ? "Manual" : "Auto"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
           </label>
           <div className="relative">
@@ -531,10 +941,9 @@ export default function DragonTowerPage() {
                 const raw = betInput.trim();
                 const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
                 const num = Number(sanitized);
-                setBetAmount(num);
-                setBetInput(sanitized);
+                setBetBoth(num);
               }}
-              disabled={roundState === "active" || isBusy}
+              disabled={roundState === "active" || isUiBusy}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-60"
             />
           </div>
@@ -542,10 +951,9 @@ export default function DragonTowerPage() {
             <button
               onClick={() => {
                 const newBet = Number((betAmount / 2).toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
               }}
-              disabled={roundState === "active" || isBusy}
+              disabled={roundState === "active" || isUiBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               ½
@@ -553,10 +961,9 @@ export default function DragonTowerPage() {
             <button
               onClick={() => {
                 const newBet = Number((betAmount * 2).toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
               }}
-              disabled={roundState === "active" || isBusy}
+              disabled={roundState === "active" || isUiBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               2×
@@ -564,10 +971,9 @@ export default function DragonTowerPage() {
             <button
               onClick={() => {
                 const newBet = Number(balance.toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
               }}
-              disabled={roundState === "active" || isBusy}
+              disabled={roundState === "active" || isUiBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               All In
@@ -585,7 +991,7 @@ export default function DragonTowerPage() {
                 <button
                   key={lvl}
                   onClick={() => changeRiskLevel(lvl)}
-                  disabled={roundState === "active" || isBusy}
+                  disabled={roundState === "active" || isUiBusy}
                   className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     riskLevel === lvl
                       ? "bg-[#213743] text-white shadow-sm"
@@ -599,25 +1005,172 @@ export default function DragonTowerPage() {
           </div>
         </div>
 
-        {roundState === "active" ? (
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={endRoundCashout}
-              disabled={!canCashout}
-              className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ExitToApp /> Cashout
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={startRound}
-            disabled={!canStart}
-            className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
-          >
-            {isBusy ? <Refresh className="animate-spin" /> : <PlayArrow />}
-            Bet
-          </button>
+        {playMode === "auto" && (
+          <>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                On Win
+              </label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !(roundState === "active" || isUiBusy) && setOnWinMode(m)}
+                    disabled={roundState === "active" || isUiBusy}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      onWinMode === m
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+              {onWinMode === "raise" && (
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%</div>
+                  <input
+                    type="number"
+                    value={onWinPctInput}
+                    onChange={(e) => setOnWinPctInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = onWinPctInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setOnWinPctInput(sanitized);
+                    }}
+                    disabled={roundState === "active" || isUiBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-60"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                On Loss
+              </label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !(roundState === "active" || isUiBusy) && setOnLoseMode(m)}
+                    disabled={roundState === "active" || isUiBusy}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      onLoseMode === m
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+              {onLoseMode === "raise" && (
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%</div>
+                  <input
+                    type="number"
+                    value={onLosePctInput}
+                    onChange={(e) => setOnLosePctInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = onLosePctInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setOnLosePctInput(sanitized);
+                    }}
+                    disabled={roundState === "active" || isUiBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-60"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Stop on Profit
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+                <input
+                  type="number"
+                  value={stopProfitInput}
+                  onChange={(e) => setStopProfitInput(e.target.value)}
+                  onBlur={() => {
+                    const raw = stopProfitInput.trim();
+                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                    setStopProfitInput(sanitized);
+                  }}
+                  disabled={roundState === "active" || isUiBusy}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-60"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Stop on Loss
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+                <input
+                  type="number"
+                  value={stopLossInput}
+                  onChange={(e) => setStopLossInput(e.target.value)}
+                  onBlur={() => {
+                    const raw = stopLossInput.trim();
+                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                    setStopLossInput(sanitized);
+                  }}
+                  disabled={roundState === "active" || isUiBusy}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-60"
+                />
+              </div>
+            </div>
+
+            {!isAutoBetting ? (
+              <button
+                onClick={startAutoBet}
+                disabled={roundState === "active" || isBusy}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <PlayArrow /> Autobet
+              </button>
+            ) : (
+              <button
+                onClick={stopAutoBet}
+                className="w-full bg-[#ef4444] hover:bg-[#dc2626] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                Stop
+              </button>
+            )}
+          </>
+        )}
+
+        {playMode === "manual" && (
+          <>
+            {roundState === "active" ? (
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={endRoundCashout}
+                  disabled={!canCashout}
+                  className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cashout
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={startRound}
+                disabled={!canStart}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                {isBusy ? <Refresh className="animate-spin" /> : <PlayArrow />}
+                Bet
+              </button>
+            )}
+          </>
         )}
 
         {roundState === "active" && (
@@ -667,6 +1220,8 @@ export default function DragonTowerPage() {
               const isHighlightedRow =
                 rowLevel === level && roundState !== "idle";
               const isActiveRow = roundState === "active" && rowLevel === level;
+              const isPlanning = playMode === "auto" && roundState !== "active";
+              const showPlanned = playMode === "auto" && !rowReveal;
 
               return (
                 <div
@@ -690,9 +1245,18 @@ export default function DragonTowerPage() {
                       const canClick =
                         roundState === "active" &&
                         isActiveRow &&
-                        !isBusy &&
+                        !isUiBusy &&
                         !rowReveal &&
                         !currentReveal;
+
+                      const isPlanned = autoPickPlan[rowLevel] === idx;
+                      const canPlan = playMode === "auto" && !isUiBusy && roundState !== "active";
+
+                      const planningStyle = isPlanned
+                        ? "bg-[#6b21a8] border-[#a855f7] text-white shadow-[0_4px_0_0_#4c1d95] -translate-y-0.5"
+                        : canPlan
+                        ? "bg-[#2f4553] hover:bg-[#3c5566] hover:-translate-y-1 cursor-pointer shadow-[0_4px_0_0_#1a2c38] transition-all duration-200"
+                        : "bg-[#2f4553] opacity-50 cursor-default transition-all duration-200";
 
                       const baseSafe = "#213743";
                       const target = "#0f212e";
@@ -711,12 +1275,23 @@ export default function DragonTowerPage() {
                       return (
                         <button
                           key={idx}
-                          onClick={() => pickField(idx)}
-                          disabled={!canClick}
-                          className={`h-10 sm:h-11 rounded-md p-0 border-0 relative overflow-hidden flex items-center justify-center ${getCellStyle(
-                            rowLevel,
-                            idx
-                          )}`}
+                          onClick={() => {
+                            if (playMode === "auto" && roundState !== "active") {
+                              if (!canPlan) return;
+                              setAutoPickPlan((prev) => {
+                                const next = [...prev];
+                                next[rowLevel] = prev[rowLevel] === idx ? null : idx;
+                                return next;
+                              });
+                              return;
+                            }
+
+                            pickField(idx);
+                          }}
+                          disabled={playMode === "auto" && roundState !== "active" ? !canPlan : !canClick}
+                          className={`h-10 sm:h-11 rounded-md p-0 border-0 relative overflow-hidden flex items-center justify-center ${
+                            showPlanned ? planningStyle : getCellStyle(rowLevel, idx)
+                          }`}
                           style={
                             blendedBg ? { backgroundColor: blendedBg } : undefined
                           }

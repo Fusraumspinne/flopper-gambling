@@ -345,6 +345,24 @@ export default function ChickenPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
     useWallet();
 
+  const normalizeMoney = (value: number) => {
+    if (!Number.isFinite(value)) return 0;
+    const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+    return Object.is(rounded, -0) ? 0 : rounded;
+  };
+
+  const parseNumberLoose = (raw: string) => {
+    const normalized = raw.replace(",", ".").trim();
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const setBetBoth = (next: number) => {
+    const v = normalizeMoney(next);
+    setBetAmount(v);
+    setBetInput(String(v));
+  };
+
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
   const [risk, setRisk] = useState<RiskLevel>("low");
@@ -353,6 +371,16 @@ export default function ChickenPage() {
   const [plannedSafeSteps, setPlannedSafeSteps] = useState<number | null>(null);
   const [lastWin, setLastWin] = useState<number>(0);
   const [isAnimatingStep, setIsAnimatingStep] = useState<boolean>(false);
+
+  const [playMode, setPlayMode] = useState<"manual" | "auto">("manual");
+  const [onWinMode, setOnWinMode] = useState<"reset" | "raise">("reset");
+  const [onWinPctInput, setOnWinPctInput] = useState<string>("0");
+  const [onLoseMode, setOnLoseMode] = useState<"reset" | "raise">("reset");
+  const [onLosePctInput, setOnLosePctInput] = useState<string>("0");
+  const [stopProfitInput, setStopProfitInput] = useState<string>("0");
+  const [stopLossInput, setStopLossInput] = useState<string>("0");
+  const [autoStepsInput, setAutoStepsInput] = useState<string>("1");
+  const [isAutoBetting, setIsAutoBetting] = useState(false);
   const [fires, setFires] = useState<FireAnim[]>([]);
   const [carWaves, setCarWaves] = useState<CarAnim[]>([]);
   const [sparkAtStep, setSparkAtStep] = useState<number | null>(null);
@@ -385,6 +413,19 @@ export default function ChickenPage() {
     null
   );
 
+  const [isCrashBlocking, setIsCrashBlocking] = useState(false);
+  const isCrashBlockingRef = useRef<boolean>(false);
+
+  const betAmountRef = useRef<number>(betAmount);
+  const balanceRef = useRef<number>(balance);
+  const riskRef = useRef<RiskLevel>(risk);
+  const gameStateRef = useRef<GameState>(gameState);
+  const currentStepRef = useRef<number>(currentStep);
+  const plannedSafeStepsRef = useRef<number | null>(plannedSafeSteps);
+  const isAnimatingStepRef = useRef<boolean>(isAnimatingStep);
+  const isAutoBettingRef = useRef<boolean>(false);
+  const autoOriginalBetRef = useRef<number>(0);
+
   useEffect(() => {
     return () => {
       if (resultTimeoutRef.current) {
@@ -394,7 +435,57 @@ export default function ChickenPage() {
     };
   }, []);
 
+  useEffect(() => {
+    isCrashBlockingRef.current = isCrashBlocking;
+  }, [isCrashBlocking]);
+
+  useEffect(() => {
+    betAmountRef.current = betAmount;
+  }, [betAmount]);
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
+  useEffect(() => {
+    riskRef.current = risk;
+  }, [risk]);
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+  useEffect(() => {
+    currentStepRef.current = currentStep;
+  }, [currentStep]);
+  useEffect(() => {
+    plannedSafeStepsRef.current = plannedSafeSteps;
+  }, [plannedSafeSteps]);
+  useEffect(() => {
+    isAnimatingStepRef.current = isAnimatingStep;
+  }, [isAnimatingStep]);
+  useEffect(() => {
+    isAutoBettingRef.current = isAutoBetting;
+  }, [isAutoBetting]);
+
   const steps = useMemo(() => STEP_TABLE[risk], [risk]);
+
+  const stepsMax = steps.length;
+  useEffect(() => {
+    const max = stepsMax;
+    if (max <= 0) return;
+    const n = Math.floor(parseNumberLoose(autoStepsInput));
+    const clamped = clampInt(Number.isFinite(n) ? n : 1, 1, max);
+    if (String(clamped) !== autoStepsInput.trim()) {
+      setAutoStepsInput(String(clamped));
+    }
+  }, [autoStepsInput, stepsMax]);
+
+  const multiplierForStep = useCallback((args: { step: number; risk: RiskLevel }) => {
+    const step = args.step;
+    const risk = args.risk;
+    const arr = STEP_TABLE[risk];
+    if (!arr || arr.length === 0) return 1;
+    if (step <= 0) return 1;
+    const entry = arr[Math.min(step - 1, arr.length - 1)];
+    return entry?.multiplier ?? 1;
+  }, []);
 
   const currentMultiplier = useMemo(() => {
     if (currentStep === 0) return 1;
@@ -439,27 +530,36 @@ export default function ChickenPage() {
   }, []);
 
   const startRound = useCallback(() => {
-    if (betAmount <= 0) return;
-    if (betAmount > balance) return;
+    const bet = normalizeMoney(betAmountRef.current);
+    if (bet <= 0) return;
+    if (bet > balanceRef.current) return;
+    if (gameStateRef.current === "walking") return;
 
-    subtractFromBalance(betAmount);
+    subtractFromBalance(bet);
     setGameState("walking");
+    gameStateRef.current = "walking";
     setCurrentStep(0);
+    currentStepRef.current = 0;
     setLastWin(0);
 
     const safeSteps = computeSafePath();
     setPlannedSafeSteps(safeSteps);
+    plannedSafeStepsRef.current = safeSteps;
     resetVisuals();
     if (resultTimeoutRef.current) {
       window.clearTimeout(resultTimeoutRef.current);
       resultTimeoutRef.current = null;
     }
     setResultFx("rolling");
-  }, [balance, betAmount, subtractFromBalance, computeSafePath, resetVisuals]);
+  }, [computeSafePath, resetVisuals, subtractFromBalance]);
 
   const handleCrash = useCallback(
     (crashStep?: number) => {
-      const step = clampInt(crashStep ?? currentStep, 0, steps.length);
+      const step = clampInt(
+        crashStep ?? currentStepRef.current,
+        0,
+        STEP_TABLE[riskRef.current].length
+      );
       const type: DeathType = Math.random() < 0.7 ? "car" : "fire";
       const lane = Math.floor(Math.random() * LANES);
 
@@ -479,22 +579,36 @@ export default function ChickenPage() {
         window.clearTimeout(resultTimeoutRef.current);
       }
       setResultFx("lose");
-      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
+      // keep the crash-block active until the lose FX timeout finishes
+      setIsCrashBlocking(true);
+      isCrashBlockingRef.current = true;
       setGameState("crashed");
+      gameStateRef.current = "crashed";
+      resultTimeoutRef.current = window.setTimeout(() => {
+        setResultFx(null);
+        resultTimeoutRef.current = null;
+        setIsCrashBlocking(false);
+        isCrashBlockingRef.current = false;
+      }, 500);
       finalizePendingLoss();
     },
-    [currentStep, finalizePendingLoss, steps.length]
+    [finalizePendingLoss]
   );
 
   const handleCashout = useCallback(
     (auto = false) => {
-      if (currentStep === 0) return;
-      const payout = betAmount * currentMultiplier;
+      const step = currentStepRef.current;
+      if (step === 0) return;
+      const bet = normalizeMoney(betAmountRef.current);
+      const mult = multiplierForStep({ step, risk: riskRef.current });
+      const payout = normalizeMoney(bet * mult);
       addToBalance(payout);
       setLastWin(payout);
       setGameState("cashed");
+      gameStateRef.current = "cashed";
       if (auto) {
         setIsAnimatingStep(false);
+        isAnimatingStepRef.current = false;
       }
       if (resultTimeoutRef.current) {
         window.clearTimeout(resultTimeoutRef.current);
@@ -502,7 +616,271 @@ export default function ChickenPage() {
       setResultFx("win");
       resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
     },
-    [addToBalance, betAmount, currentMultiplier, currentStep]
+    [addToBalance, multiplierForStep]
+  );
+
+  type RoundResult = {
+    betAmount: number;
+    winAmount: number;
+    stepsTarget: number;
+    stepsReached: number;
+    didCrash: boolean;
+  };
+
+  const playRound = useCallback(
+    async (opts?: { betAmount?: number; stepsTarget?: number }) => {
+      const stepsArr = STEP_TABLE[riskRef.current];
+      const stepsLen = stepsArr.length;
+      if (stepsLen <= 0) return null as null | RoundResult;
+
+      if (gameStateRef.current === "walking") return null as null | RoundResult;
+      if (isAnimatingStepRef.current) return null as null | RoundResult;
+
+      const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
+      if (bet <= 0 || bet > balanceRef.current) return null as null | RoundResult;
+
+      const desiredSteps = Math.floor(
+        parseNumberLoose(opts?.stepsTarget != null ? String(opts.stepsTarget) : autoStepsInput)
+      );
+      const stepsTarget = clampInt(
+        Number.isFinite(desiredSteps) ? desiredSteps : 1,
+        1,
+        stepsLen
+      );
+
+      subtractFromBalance(bet);
+      setGameState("walking");
+      gameStateRef.current = "walking";
+      setCurrentStep(0);
+      currentStepRef.current = 0;
+      setLastWin(0);
+
+      const safeSteps = computeSafePath();
+      setPlannedSafeSteps(safeSteps);
+      plannedSafeStepsRef.current = safeSteps;
+      resetVisuals();
+
+      if (resultTimeoutRef.current) {
+        window.clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+      setResultFx("rolling");
+
+      for (let i = 0; i < stepsTarget; i++) {
+        setIsAnimatingStep(true);
+        isAnimatingStepRef.current = true;
+        await sleep(260);
+
+        const next = currentStepRef.current + 1;
+        const safeLimit = plannedSafeStepsRef.current ?? stepsLen;
+
+        if (next > stepsLen) {
+          setIsAnimatingStep(false);
+          isAnimatingStepRef.current = false;
+          break;
+        }
+
+        if (next > safeLimit) {
+          setCurrentStep(next);
+          currentStepRef.current = next;
+          setIsAnimatingStep(false);
+          isAnimatingStepRef.current = false;
+
+          handleCrash(next);
+          await sleep(900);
+          return {
+            betAmount: bet,
+            winAmount: 0,
+            stepsTarget,
+            stepsReached: next,
+            didCrash: true,
+          };
+        }
+
+        setCurrentStep(next);
+        currentStepRef.current = next;
+        setIsAnimatingStep(false);
+        isAnimatingStepRef.current = false;
+
+        if (next === stepsLen && safeLimit >= stepsLen) {
+          handleCashout(true);
+          const mult = multiplierForStep({ step: next, risk: riskRef.current });
+          const winAmount = normalizeMoney(bet * mult);
+          await sleep(900);
+          return {
+            betAmount: bet,
+            winAmount,
+            stepsTarget,
+            stepsReached: next,
+            didCrash: false,
+          };
+        }
+      }
+
+      const reached = currentStepRef.current;
+      if (reached > 0) {
+        handleCashout(true);
+        const mult = multiplierForStep({ step: reached, risk: riskRef.current });
+        const winAmount = normalizeMoney(bet * mult);
+        await sleep(900);
+        return {
+          betAmount: bet,
+          winAmount,
+          stepsTarget,
+          stepsReached: reached,
+          didCrash: false,
+        };
+      }
+
+      await sleep(900);
+      return {
+        betAmount: bet,
+        winAmount: 0,
+        stepsTarget,
+        stepsReached: 0,
+        didCrash: true,
+      };
+    },
+    [
+      autoStepsInput,
+      computeSafePath,
+      handleCashout,
+      handleCrash,
+      multiplierForStep,
+      resetVisuals,
+      subtractFromBalance,
+    ]
+  );
+
+  const stopAutoBet = useCallback(() => {
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+  }, []);
+
+  const startAutoBet = useCallback(async () => {
+    if (isAutoBettingRef.current) return;
+    if (gameStateRef.current === "walking") return;
+    if (isAnimatingStepRef.current) return;
+
+    const startingBet = normalizeMoney(betAmountRef.current);
+    if (startingBet <= 0 || startingBet > balanceRef.current) return;
+
+    autoOriginalBetRef.current = startingBet;
+
+    isAutoBettingRef.current = true;
+    setIsAutoBetting(true);
+
+    while (isAutoBettingRef.current) {
+      const stopProfit = Math.max(0, normalizeMoney(parseNumberLoose(stopProfitInput)));
+      const stopLoss = Math.max(0, normalizeMoney(parseNumberLoose(stopLossInput)));
+      const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
+      const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
+
+      const stepsLen = STEP_TABLE[riskRef.current].length;
+      const desiredSteps = Math.floor(parseNumberLoose(autoStepsInput));
+      const stepsTarget = clampInt(
+        Number.isFinite(desiredSteps) ? desiredSteps : 1,
+        1,
+        Math.max(1, stepsLen)
+      );
+
+      const roundBet = normalizeMoney(betAmountRef.current);
+      if (roundBet <= 0) break;
+      if (roundBet > balanceRef.current) break;
+
+      const result = await playRound({ betAmount: roundBet, stepsTarget });
+      if (!result) break;
+
+      const lastNet = normalizeMoney(result.winAmount - result.betAmount);
+
+      if (result.winAmount > 0) {
+        if (onWinMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+          betAmountRef.current = autoOriginalBetRef.current;
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+          setBetBoth(next);
+          betAmountRef.current = next;
+        }
+      } else {
+        if (onLoseMode === "reset") {
+          setBetBoth(autoOriginalBetRef.current);
+          betAmountRef.current = autoOriginalBetRef.current;
+        } else {
+          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+          setBetBoth(next);
+          betAmountRef.current = next;
+        }
+      }
+
+      if (stopProfit > 0 && lastNet >= stopProfit) {
+        stopAutoBet();
+        break;
+      }
+      if (stopLoss > 0 && lastNet <= -stopLoss) {
+        stopAutoBet();
+        break;
+      }
+    }
+
+    isAutoBettingRef.current = false;
+    setIsAutoBetting(false);
+  }, [
+    autoStepsInput,
+    onLoseMode,
+    onLosePctInput,
+    onWinMode,
+    onWinPctInput,
+    playRound,
+    stopAutoBet,
+    stopLossInput,
+    stopProfitInput,
+  ]);
+
+  const changePlayMode = useCallback(
+    (mode: "manual" | "auto") => {
+      try {
+        stopAutoBet();
+      } catch {
+      }
+
+      if (resultTimeoutRef.current) {
+        window.clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+
+      setGameState("idle");
+      gameStateRef.current = "idle";
+      setCurrentStep(0);
+      currentStepRef.current = 0;
+      setPlannedSafeSteps(null);
+      plannedSafeStepsRef.current = null;
+      setIsAnimatingStep(false);
+      isAnimatingStepRef.current = false;
+      setLastWin(0);
+      setResultFx(null);
+      resetVisuals();
+
+      setBetBoth(100);
+      betAmountRef.current = 100;
+      setRisk("low");
+      riskRef.current = "low";
+
+      setAutoStepsInput("1");
+      setOnWinMode("reset");
+      setOnWinPctInput("0");
+      setOnLoseMode("reset");
+      setOnLosePctInput("0");
+      setStopProfitInput("0");
+      setStopLossInput("0");
+
+      isAutoBettingRef.current = false;
+      setIsAutoBetting(false);
+      autoOriginalBetRef.current = 0;
+
+      setPlayMode(mode);
+    },
+    [resetVisuals, stopAutoBet]
   );
 
   const walkOneStep = useCallback(async () => {
@@ -777,6 +1155,12 @@ export default function ChickenPage() {
   }, [risk, resetVisuals]);
 
   useEffect(() => {
+    return () => {
+      isAutoBettingRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (gameState !== "walking") {
       setSparkAtStep(null);
       return;
@@ -877,9 +1261,32 @@ export default function ChickenPage() {
     };
   }, [chickenTopPx, deathAnim?.startedAt, deathAnim?.type, gameState]);
 
+  const isBusy = gameState === "walking" || isAutoBetting;
+
   return (
-    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8 overflow-x-hidden">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+    <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8 overflow-x-hidden">
+      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Mode
+          </label>
+          <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+            {(["manual", "auto"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => !isBusy && changePlayMode(mode)}
+                disabled={isBusy}
+                className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  playMode === mode
+                    ? "bg-[#213743] text-white shadow-sm"
+                    : "text-[#b1bad3] hover:text-white"
+                }`}
+              >
+                {mode === "manual" ? "Manual" : "Auto"}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -896,10 +1303,10 @@ export default function ChickenPage() {
                 const raw = betInput.trim();
                 const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
                 const num = Number(sanitized);
-                setBetAmount(num);
-                setBetInput(sanitized);
+                setBetBoth(num);
+                betAmountRef.current = normalizeMoney(num);
               }}
-              disabled={gameState === "walking"}
+              disabled={isBusy}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
             />
           </div>
@@ -907,10 +1314,10 @@ export default function ChickenPage() {
             <button
               onClick={() => {
                 const newBet = Number((betAmount / 2).toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
+                betAmountRef.current = normalizeMoney(newBet);
               }}
-              disabled={gameState === "walking"}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               ½
@@ -918,10 +1325,10 @@ export default function ChickenPage() {
             <button
               onClick={() => {
                 const newBet = Number((betAmount * 2).toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
+                betAmountRef.current = normalizeMoney(newBet);
               }}
-              disabled={gameState === "walking"}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               2×
@@ -929,10 +1336,10 @@ export default function ChickenPage() {
             <button
               onClick={() => {
                 const newBet = Number(balance.toFixed(2));
-                setBetAmount(newBet);
-                setBetInput(String(newBet));
+                setBetBoth(newBet);
+                betAmountRef.current = normalizeMoney(newBet);
               }}
-              disabled={gameState === "walking"}
+              disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               All In
@@ -950,7 +1357,7 @@ export default function ChickenPage() {
                 <button
                   key={level}
                   onClick={() => setRisk(level)}
-                  disabled={gameState === "walking"}
+                  disabled={isBusy}
                   className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     risk === level
                       ? "bg-[#213743] text-white shadow-sm"
@@ -964,32 +1371,207 @@ export default function ChickenPage() {
           </div>
         </div>
 
-        <div>
-          {gameState === "walking" ? (
-            <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={walkOneStep}
-                  disabled={!canWalk}
-                  className="bg-[#2f4553] hover:bg-[#3e5666] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  Step
-                </button>
-                <button
-                  onClick={() => handleCashout(false)}
-                  disabled={!canCashout}
-                  className="bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  Cashout
-                </button>
+        {playMode === "auto" && (
+          <>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Steps
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={steps.length}
+                value={autoStepsInput}
+                onChange={(e) => setAutoStepsInput(e.target.value)}
+                onBlur={() => {
+                  const max = Math.max(1, steps.length);
+                  const raw = autoStepsInput.trim();
+                  const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                  const n = Math.floor(parseNumberLoose(sanitized));
+                  const clamped = clampInt(Number.isFinite(n) ? n : 1, 1, max);
+                  setAutoStepsInput(String(clamped));
+                }}
+                disabled={isBusy}
+                className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 px-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                On Win
+              </label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !isBusy && setOnWinMode(m)}
+                    disabled={isBusy}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      onWinMode === m
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+              {onWinMode === "raise" && (
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                    %
+                  </div>
+                  <input
+                    type="number"
+                    value={onWinPctInput}
+                    onChange={(e) => setOnWinPctInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = onWinPctInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setOnWinPctInput(sanitized);
+                    }}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                On Loss
+              </label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {(["reset", "raise"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => !isBusy && setOnLoseMode(m)}
+                    disabled={isBusy}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      onLoseMode === m
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {m === "reset" ? "Reset" : "Raise"}
+                  </button>
+                ))}
+              </div>
+              {onLoseMode === "raise" && (
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                    %
+                  </div>
+                  <input
+                    type="number"
+                    value={onLosePctInput}
+                    onChange={(e) => setOnLosePctInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = onLosePctInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setOnLosePctInput(sanitized);
+                    }}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                    placeholder="0"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Stop on Profit
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                  $
+                </div>
+                <input
+                  type="number"
+                  value={stopProfitInput}
+                  onChange={(e) => setStopProfitInput(e.target.value)}
+                  onBlur={() => {
+                    const raw = stopProfitInput.trim();
+                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                    setStopProfitInput(sanitized);
+                  }}
+                  disabled={isBusy}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Stop on Loss
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                  $
+                </div>
+                <input
+                  type="number"
+                  value={stopLossInput}
+                  onChange={(e) => setStopLossInput(e.target.value)}
+                  onBlur={() => {
+                    const raw = stopLossInput.trim();
+                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                    setStopLossInput(sanitized);
+                  }}
+                  disabled={isBusy}
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        <div>
+          {playMode === "manual" ? (
+            gameState === "walking" ? (
+              <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={walkOneStep}
+                    disabled={!canWalk}
+                    className="bg-[#2f4553] hover:bg-[#3e5666] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    Step
+                  </button>
+                  <button
+                    onClick={() => handleCashout(false)}
+                    disabled={!canCashout}
+                    className="bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    Cashout
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={startRound}
+                disabled={isAutoBetting || isCrashBlocking}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <PlayArrow /> Bet
+              </button>
+            )
+          ) : !isAutoBetting ? (
+            <button
+              onClick={startAutoBet}
+              disabled={gameState === "walking"}
+              className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <PlayArrow /> Autobet
+            </button>
           ) : (
             <button
-              onClick={startRound}
-              className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+              onClick={stopAutoBet}
+              className="w-full bg-[#ef4444] hover:bg-[#dc2626] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
             >
-              <PlayArrow /> Bet
+              Stop
             </button>
           )}
         </div>
