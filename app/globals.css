@@ -774,6 +774,16 @@ body {
   }
 }
 
+/* Force emoji glyphs to render as white silhouettes across platforms */
+.emoji-white {
+  display: inline-block;
+  /* Strong desaturate + brightness + invert to force white silhouette across platforms */
+  -webkit-filter: grayscale(1) saturate(0%) brightness(2) contrast(6) invert(1) !important;
+  filter: grayscale(1) saturate(0%) brightness(2) contrast(6) invert(1) !important;
+  will-change: filter;
+  -webkit-font-smoothing: antialiased;
+}
+
 .rps-thinking {
   animation: rps-thinking 520ms ease-in-out infinite;
   will-change: transform, filter;

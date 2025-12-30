@@ -229,6 +229,8 @@ export default function DartsPage() {
   const [lastWin, setLastWin] = useState<number>(0);
   const [lastHitColor, setLastHitColor] = useState<string | null>(null);
   const [lastMultiplier, setLastMultiplier] = useState<number | null>(null);
+  const [showAutoWinFlash, setShowAutoWinFlash] = useState(false);
+  const autoWinTimeoutRef = useRef<number | null>(null);
   const [dartPosition, setDartPosition] = useState<{
     x: number;
     y: number;
@@ -505,6 +507,19 @@ export default function DartsPage() {
       const result = await playRound({ betAmount: roundBet });
       if (!result) break;
 
+      // show brief "You Won" flash for autobet rounds when winning
+      if (result.winAmount > 0) {
+        setShowAutoWinFlash(true);
+        if (autoWinTimeoutRef.current) {
+          clearTimeout(autoWinTimeoutRef.current);
+          autoWinTimeoutRef.current = null;
+        }
+        autoWinTimeoutRef.current = window.setTimeout(() => {
+          setShowAutoWinFlash(false);
+          autoWinTimeoutRef.current = null;
+        }, 900);
+      }
+
       const lastNet = normalizeMoney(result.winAmount - result.betAmount);
       const isWin = result.multiplier >= 1;
       autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
@@ -537,6 +552,7 @@ export default function DartsPage() {
         stopAutoBet();
         break;
       }
+      await sleep(200);
     }
 
     isAutoBettingRef.current = false;
@@ -595,6 +611,15 @@ export default function DartsPage() {
     setLastMultiplier(null);
     setLastHitColor(null);
   }, [risk]);
+
+  useEffect(() => {
+    return () => {
+      if (autoWinTimeoutRef.current) {
+        clearTimeout(autoWinTimeoutRef.current);
+        autoWinTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const renderSegmentedRing = () => {
     const paths = [];

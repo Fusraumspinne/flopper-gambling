@@ -261,7 +261,13 @@ export default function HiloPage() {
         }`}
       >
         <div className="bj-card-inner">
-          <div className="bj-card-face bj-card-back rounded-lg border-2 border-[#0f212e] bg-[#2f4553]" />
+          <div className="bj-card-face bj-card-back rounded-lg border-2 border-[#0f212e] bg-[#007bff] relative overflow-hidden">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-18 h-22 sm:w-20 sm:h-26 border-2 border-white/10 rounded flex items-center justify-center transform rotate-12">
+                <span className="text-white/20 font-bold -rotate-12 text-xs">FLOPPER</span>
+              </div>
+            </div>
+          </div>
 
           <div
             className={`bj-card-face bj-card-front rounded-lg bg-white ${getCardColor(

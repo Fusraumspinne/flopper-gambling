@@ -458,7 +458,12 @@ export default function BlackjackPage() {
         style={{ animationDelay, marginTop: `${translateY}px`, zIndex }}
       >
         <div className="bj-card-inner">
-          <div className="bj-card-face bj-card-back rounded-lg border-2 border-[#0f212e] bg-[#2f4553]">
+          <div className="bj-card-face bj-card-back rounded-lg border-2 border-[#0f212e] bg-[#007bff] relative overflow-hidden">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-10 h-14 sm:w-12 sm:h-18 border-2 border-white/10 rounded flex items-center justify-center transform rotate-12">
+                <span className="text-white/20 font-bold -rotate-12 text-[8px]">FLOPPER</span>
+              </div>
+            </div>
           </div>
 
           <div className={`bj-card-face bj-card-front rounded-lg bg-white ${getCardColor(card.suit)} p-1 sm:p-2`}>

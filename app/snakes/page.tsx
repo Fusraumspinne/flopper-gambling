@@ -466,6 +466,7 @@ export default function SnakesPage() {
     for (let s = 1; s <= steps; s++) {
       const idx = (s - 1) % board.length;
       setCurrentPos(idx);
+      // step animation delay
       await sleep(120);
     }
 
@@ -675,7 +676,8 @@ export default function SnakesPage() {
         break;
       }
 
-      await sleep(120);
+      // pause 200ms after each completed autobet round
+      await sleep(800);
     }
 
     isAutoBettingRef.current = false;

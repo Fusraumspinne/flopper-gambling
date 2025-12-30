@@ -7,6 +7,12 @@ type Choice = "rock" | "paper" | "scissors";
 type GameResult = "win" | "lose" | "draw";
 type GameState = "idle" | "playing" | "cashed_out" | "lost";
 
+type RoundData = {
+  result: GameResult;
+  user: Choice;
+  computer: Choice;
+};
+
 const HOUSE_EDGE_MULTIPLIER = 1.98;
 const CHOICES: Choice[] = ["rock", "paper", "scissors"];
 
@@ -18,8 +24,10 @@ export default function RPSPage() {
   const [betInput, setBetInput] = useState<string>("100");
   const [gameState, setGameState] = useState<GameState>("idle");
   const [streak, setStreak] = useState<number>(0);
-  const [history, setHistory] = useState<GameResult[]>([]);
+  const [history, setHistory] = useState<RoundData[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isLocked, setIsLocked] = useState<boolean>(false);
+  const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
 
   const [userChoice, setUserChoice] = useState<Choice | null>(null);
   const [computerChoice, setComputerChoice] = useState<Choice | null>(null);
@@ -57,13 +65,26 @@ export default function RPSPage() {
   };
 
   const startGame = (choice: Choice) => {
-    if (balance < betAmount) return;
+    if (balance <= 0) return;
 
-    subtractFromBalance(betAmount);
+    // If the current bet is larger than available balance, auto-adjust to All In
+    let actualBet = betAmount;
+    if (betAmount > balance) {
+      actualBet = Number(balance.toFixed(2));
+      setBetAmount(actualBet);
+      setBetInput(String(actualBet));
+    }
+
+    subtractFromBalance(actualBet);
     setGameState("playing");
     setStreak(0);
     setHistory([]);
     setLastWin(0);
+    setIsLocked(false);
+    setActiveStepIndex(null);
+    setUserChoice(null);
+    setComputerChoice(null);
+    setLastResult(null);
     playRound(choice);
   };
 
@@ -90,8 +111,11 @@ export default function RPSPage() {
   };
 
   const playRound = async (choice: Choice) => {
-    if (isProcessing) return;
+    if (isProcessing || isLocked) return;
+
+    const stepIndex = streak;
     setIsProcessing(true);
+    setActiveStepIndex(stepIndex);
     setUserChoice(choice);
     setComputerChoice(null);
     setLastResult(null);
@@ -108,25 +132,68 @@ export default function RPSPage() {
 
     const result = determineWinner(choice, compChoice);
     setLastResult(result);
-    setHistory((prev) => [...prev, result]);
+    // Stop rolling FX once the outcome is known (win/lose may override).
+    setResultFx(null);
     setIsProcessing(false);
 
     if (result === "win") {
+      setIsLocked(true);
+      setHistory((prev) => {
+        const next = [...prev];
+        next[stepIndex] = { result, user: choice, computer: compChoice };
+        return next;
+      });
       setStreak((prev) => prev + 1);
+      setResultFx("win");
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+      }
+      resultTimeoutRef.current = window.setTimeout(() => {
+        setResultFx(null);
+        setComputerChoice(null);
+        setUserChoice(null);
+        setLastResult(null);
+        setActiveStepIndex(null);
+        setIsLocked(false);
+      }, 600);
+    } else if (result === "draw") {
+      // Do not advance and do not commit to history; flip back to covered and allow retry.
+      setIsLocked(true);
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+      }
+      resultTimeoutRef.current = window.setTimeout(() => {
+        setComputerChoice(null);
+        setUserChoice(null);
+        setLastResult(null);
+        setActiveStepIndex(null);
+        setResultFx(null);
+        setIsLocked(false);
+      }, 700);
     } else if (result === "lose") {
       setGameState("lost");
-      setStreak(0);
       finalizePendingLoss();
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
       }
       setResultFx("lose");
-      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
+      resultTimeoutRef.current = window.setTimeout(() => {
+        setResultFx(null);
+        setGameState("idle"); // Reset to idle to slide back to start
+        setStreak(0);
+        setHistory([]);
+        setComputerChoice(null);
+        setUserChoice(null);
+        setLastResult(null);
+        setActiveStepIndex(null);
+        setIsLocked(false);
+      }, 2000);
     }
   };
 
   const cashOut = () => {
     if (gameState !== "playing" || streak === 0) return;
+    if (isProcessing || isLocked) return;
 
     addToBalance(currentPayout);
     setLastWin(currentPayout);
@@ -150,30 +217,9 @@ export default function RPSPage() {
     }
   };
 
-  const userRingAnimClass =
-    lastResult === "win"
-      ? "rps-win"
-      : lastResult === "lose"
-      ? "rps-lose"
-      : lastResult === "draw"
-      ? "rps-draw"
-      : "";
-
-  const computerRingAnimClass =
-    lastResult === "lose"
-      ? "rps-win"
-      : lastResult === "win"
-      ? "rps-lose"
-      : lastResult === "draw"
-      ? "rps-draw"
-      : "";
-
-  const thinkingClass = isProcessing ? "rps-thinking" : "";
-  const computerRevealClass = computerChoice ? "rps-reveal" : "";
-
   return (
-    <main className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+    <main className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
+      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -232,7 +278,7 @@ export default function RPSPage() {
           <div className="flex flex-col gap-3">
             <button
               onClick={cashOut}
-              disabled={isProcessing || streak === 0}
+              disabled={isProcessing || isLocked || streak === 0}
               className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cashout
@@ -262,7 +308,7 @@ export default function RPSPage() {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px] overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-100 sm:min-h-125 overflow-hidden">
         {resultFx === "rolling" && (
           <div className="limbo-roll-glow absolute inset-0 pointer-events-none z-0" />
         )}
@@ -279,115 +325,196 @@ export default function RPSPage() {
           />
         )}
 
-        <div className="relative z-10 w-full">
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-8 mb-8 sm:mb-12 min-h-[200px]">
-          <div className="flex flex-col items-center gap-2 sm:gap-4">
-            <div className="text-[#b1bad3] text-xs sm:text-sm uppercase tracking-wider">
-              You
-            </div>
+        <div className="relative w-full h-full flex flex-col items-center justify-center z-10 gap-8">
+          {/* Track Window */}
+          <div 
+            className="w-full overflow-hidden relative h-60"
+            style={{ maskImage: 'linear-gradient(to right, transparent, black 10%, black 90%, transparent)', WebkitMaskImage: 'linear-gradient(to right, transparent, black 10%, black 90%, transparent)' }}
+          >
             <div
-              className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-[#213743] border-4 border-[#2f4553] flex items-center justify-center text-4xl sm:text-6xl shadow-lg transition-all duration-300
-                ${
-                  lastResult === "win"
-                    ? "border-[#00e701] shadow-[0_0_20px_rgba(0,231,1,0.2)] scale-110"
-                    : ""
-                }
-                ${thinkingClass}
-                ${userRingAnimClass}
-             `}
+              className="absolute left-1/2 top-8 flex gap-4 transition-transform duration-500 ease-out will-change-transform"
+              style={{
+                transform: `translateX(calc(-50px - ${streak * 116}px))`,
+              }}
             >
-              {userChoice ? (
-                <span
-                  key={`u-${history.length}-${userChoice}`}
-                  className={lastResult ? "rps-emoji-pop" : ""}
-                >
-                  {getEmoji(userChoice)}
-                </span>
-              ) : (
-                <span className="text-4xl opacity-20">👤</span>
+              {Array.from({ length: Math.max(streak, history.length) + 8 }).map(
+                (_, i) => {
+                  const currentStep = streak;
+                  const isPast = i < currentStep;
+                  const isCurrent = i === currentStep;
+                  const isFuture = i > currentStep;
+                  const stepMult = Math.pow(HOUSE_EDGE_MULTIPLIER, i + 1);
+                  const roundData = history[i];
+
+                  const isRevealingCurrent =
+                    isCurrent &&
+                    activeStepIndex === i &&
+                    (gameState === "playing" || gameState === "lost");
+                  const currentResult = isRevealingCurrent ? lastResult : null;
+
+                  const isCovered = isFuture || (isCurrent && !isRevealingCurrent);
+
+                  let borderClass = "border-[#2f4553]";
+                  let bgClass = "bg-[#0f212e]";
+                  let shadowClass = "";
+
+                  if (isCovered) {
+                    bgClass = "bg-[#007bff]";
+                    borderClass = "border-[#0056b3]";
+                    shadowClass = "shadow-[0_4px_0_#0056b3]";
+                  } else if (isCurrent) {
+                    bgClass = "bg-[#213743]";
+                    borderClass = "border-[#b1bad3]";
+                    shadowClass = "shadow-[0_0_30px_rgba(0,0,0,0.5)]";
+
+                    if (currentResult === "win") {
+                      borderClass = "border-[#00e701]";
+                      shadowClass = "shadow-[0_0_30px_rgba(0,231,1,0.2)]";
+                    } else if (currentResult === "lose") {
+                      borderClass = "border-red-500";
+                      shadowClass = "shadow-[0_0_30px_rgba(239,68,68,0.2)]";
+                    } else if (currentResult === "draw") {
+                      borderClass = "border-yellow-500";
+                      shadowClass = "shadow-[0_0_30px_rgba(234,179,8,0.2)]";
+                    }
+                  } else if (isPast && roundData) {
+                    bgClass = "bg-[#213743]";
+                    if (roundData.result === "win") {
+                      borderClass = "border-[#00e701]";
+                    } else if (roundData.result === "lose") {
+                      borderClass = "border-red-500";
+                    } else if (roundData.result === "draw") {
+                      borderClass = "border-yellow-500";
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={i}
+                      className="flex flex-col items-center gap-3 w-25 shrink-0 transition-opacity duration-300"
+                      style={{ opacity: 1 }}
+                    >
+                      <div
+                        className={`
+                    w-25 h-35 rounded-lg border flex items-center justify-center text-4xl shadow-lg transition-all duration-300 relative overflow-hidden
+                    ${bgClass} ${borderClass} ${shadowClass}
+                    ${isCurrent ? "scale-105 z-10" : ""}
+                  `}
+                      >
+                        {isCovered && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-18 h-26 border-2 border-white/10 rounded flex items-center justify-center transform rotate-12">
+                              <span className="text-white/20 font-bold -rotate-12 text-xs">
+                                FLOPPER
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {isPast && roundData && (
+                          <div className="flex flex-col items-center justify-center gap-1 h-full w-full">
+                            <div className="flex flex-col items-center">
+                              <span className="emoji-white text-2xl">{getEmoji(roundData.computer)}</span>
+                            </div>
+                            <div className="w-full h-px bg-white/10 my-1" />
+                            <div className="flex flex-col items-center opacity-80">
+                              <span className="emoji-white text-2xl">{getEmoji(roundData.user)}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {isRevealingCurrent && (
+                          <div className="flex flex-col items-center justify-center gap-1 h-full w-full">
+                            {computerChoice ? (
+                              <>
+                                <div className="flex flex-col items-center rps-emoji-pop">
+                                  <span className="emoji-white text-2xl sm:text-3xl">
+                                    {getEmoji(computerChoice)}
+                                  </span>
+                                </div>
+                                <div className="w-full h-px bg-white/10 my-1" />
+                                <div className="flex flex-col items-center opacity-80">
+                                  <span className="emoji-white text-2xl sm:text-3xl">
+                                    {getEmoji(userChoice)}
+                                  </span>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="w-full h-full bg-[#213743] flex items-center justify-center">
+                                <span className="emoji-white opacity-40 text-2xl animate-pulse">❓</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div
+                        className={`text-xs font-bold px-3 py-1 rounded-full ${
+                          isCurrent
+                            ? "bg-[#2f4553] text-white border border-[#b1bad3]"
+                            : "text-[#b1bad3]"
+                        }`}
+                      >
+                        {stepMult.toFixed(2)}x
+                      </div>
+                    </div>
+                  );
+                }
               )}
             </div>
-          </div>
 
-          <div className="text-xl sm:text-2xl font-bold text-[#2f4553] my-2 sm:my-0">
-            VS
-          </div>
-
-          <div className="flex flex-col items-center gap-2 sm:gap-4">
-            <div className="text-[#b1bad3] text-xs sm:text-sm uppercase tracking-wider">
-              Computer
+            {/* Center Indicator */}
+            <div className="absolute left-1/2 top-8 -translate-x-1/2 w-27.5 h-37.5 -mt-1.25 pointer-events-none z-20 flex flex-col items-center justify-end">
+              <div className="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-b-12 border-b-white translate-y-10 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
             </div>
-            <div
-              className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-[#213743] border-4 border-[#2f4553] flex items-center justify-center text-4xl sm:text-6xl shadow-lg transition-all duration-300
-                ${thinkingClass}
-                ${computerRingAnimClass}
-                ${computerRevealClass}
-                ${
-                  lastResult === "lose"
-                    ? "border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)] scale-110"
-                    : ""
+          </div>
+
+          {/* Connector Lines */}
+           <div className="absolute top-60 left-0 w-full h-15 pointer-events-none z-0">
+             <svg width="100%" height="100%" className="overflow-visible">
+                <path d="M 50% 0 L 50% 20 L 20% 60" fill="none" stroke="#2f4553" strokeWidth="4" className="opacity-50" />
+                <path d="M 50% 0 L 50% 60" fill="none" stroke="#2f4553" strokeWidth="4" className="opacity-50" />
+                <path d="M 50% 0 L 50% 20 L 80% 60" fill="none" stroke="#2f4553" strokeWidth="4" className="opacity-50" />
+                
+                {/* Animated active paths */}
+                {gameState === 'playing' && !isProcessing && (
+                   <>
+                     <path d="M 50% 0 L 50% 20 L 20% 60" fill="none" stroke="#00e701" strokeWidth="2" className="opacity-30 animate-pulse" />
+                     <path d="M 50% 0 L 50% 60" fill="none" stroke="#00e701" strokeWidth="2" className="opacity-30 animate-pulse" />
+                     <path d="M 50% 0 L 50% 20 L 80% 60" fill="none" stroke="#00e701" strokeWidth="2" className="opacity-30 animate-pulse" />
+                   </>
+                )}
+             </svg>
+          </div>
+
+          {/* Controls */}
+          <div className="flex gap-4 justify-center items-center relative z-30">
+            {CHOICES.map((choice) => (
+              <button
+                key={choice}
+                onClick={() =>
+                  gameState === "playing"
+                    ? continueGame(choice)
+                    : startGame(choice)
                 }
-             `}
-            >
-              {computerChoice ? (
-                <span
-                  key={`c-${history.length}-${computerChoice}`}
-                  className={lastResult ? "rps-emoji-pop" : ""}
-                >
-                  {getEmoji(computerChoice)}
-                </span>
-              ) : (
-                <span className="text-4xl opacity-20">🤖</span>
-              )}
-            </div>
+                disabled={
+                  isProcessing ||
+                  isLocked
+                }
+                className={`
+                  w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-[#374151] border-b-4 border-[#1f2937] 
+                  hover:bg-[#4b5563] hover:-translate-y-1 active:translate-y-0 active:border-b-0
+                  transition-all flex items-center justify-center text-4xl shadow-lg
+                  disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0
+                  text-white
+                `}
+              >
+                <span className="emoji-white text-2xl sm:text-4xl">{getEmoji(choice)}</span>
+              </button>
+            ))}
           </div>
-        </div>
-
-        <div className="flex gap-2 sm:gap-4 w-full max-w-2xl mx-auto justify-center">
-          {CHOICES.map((choice) => (
-            <button
-              key={choice}
-              onClick={() =>
-          gameState === "playing"
-            ? continueGame(choice)
-            : startGame(choice)
-              }
-              disabled={
-          isProcessing ||
-          (gameState === "playing" &&
-            streak === 0 &&
-            lastResult !== "draw")
-              }
-              className={`
-          px-6 min-w-[88px] py-4 sm:py-6 rounded-xl font-bold text-lg sm:text-xl transition-all active:scale-95 flex flex-col items-center gap-1 sm:gap-2
-          disabled:opacity-50 disabled:cursor-not-allowed
-          bg-[#213743] hover:bg-[#2f4553] text-white shadow-lg border-b-4 border-[#0f212e]
-              `}
-            >
-              <span className="text-2xl sm:text-4xl">{getEmoji(choice)}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-8 sm:mt-12 flex gap-2 overflow-x-auto max-w-full p-2 w-full justify-start sm:justify-center">
-          {history.map((res, i) => (
-            <div
-              key={i}
-              className={`w-6 h-6 sm:w-8 sm:h-8 shrink-0 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] font-bold border-2 animate-scale-in ${
-                res === "win"
-                  ? "bg-[#00e701] border-[#00c201] text-black"
-                  : res === "lose"
-                  ? "bg-red-500 border-red-600 text-white"
-                  : "bg-yellow-500 border-yellow-600 text-black"
-              }`}
-              style={{ animationDelay: `${i * 0.05}s` }}
-            >
-              {res === "win" ? "W" : res === "lose" ? "L" : "D"}
-            </div>
-          ))}
         </div>
       </div>
-    </div>
     </main>
   );
 }
