@@ -1,154 +1,60 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Casino, Diamond, GridOn, MonetizationOn, ScatterPlot, SportsMma, ShowChart } from "@mui/icons-material";
+
+const games = [
+  { name: "Blackjack", href: "/blackjack", tagline: "Beat the dealer", image: "/images/BlackJack.png" },
+  { name: "Mines", href: "/mines", tagline: "Find diamonds, avoid mines", image: "/images/Mines.png" },
+  { name: "Keno", href: "/keno", tagline: "Pick 10 numbers", image: "/images/Keno.png" },
+  { name: "Dragon Tower", href: "/dragontower", tagline: "Climb without hitting traps", image: "/images/DragonTower.png" },
+  { name: "Pump", href: "/pump", tagline: "Pump and cash out", image: "/images/Pump.png" },
+  { name: "Limbo", href: "/limbo", tagline: "Hit your target multiplier", image: "/images/Limbo.png" },
+  { name: "Dice", href: "/dice", tagline: "Roll and set your chance", image: "/images/Dice.png" },
+  { name: "Chicken", href: "/chicken", tagline: "Cross safely for rewards", image: "/images/Chicken.png" },
+  { name: "Cases", href: "/cases", tagline: "Open and reveal rewards", image: "/images/Cases.png" },
+  { name: "Plinko", href: "/plinko", tagline: "Drop and win", image: "/images/Plinko.png" },
+  { name: "Spinning Wheel", href: "/spinningwheel", tagline: "Spin and hit a multiplier", image: "/images/SpinningWheel.png" },
+  { name: "Darts", href: "/darts", tagline: "Aim for a high score", image: "/images/Darts.png" },
+  { name: "Snakes", href: "/snakes", tagline: "Climb high, dodge snakes", image: "/images/Snakes.png" },
+  { name: "Coin Flip", href: "/coinflip", tagline: "Build a streak multiplier", image: "/images/Coinflip.png" },
+  { name: "Rock Paper Scissors", href: "/rps", tagline: "Build a streak and cash out", image: "/images/RPS.png" },
+  { name: "HiLo", href: "/hilo", tagline: "Wette, ob die nächste Karte höher oder niedriger ist.", image: "/images/HiLo.png" },
+];
 
 export default function Home() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Casino Lobby</h1>
-        <p className="text-[#b1bad3]">Willkommen bei Flopper Gambling. Wähle ein Spiel, um zu starten.</p>
+        <h1 className="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-indigo-400 via-pink-400 to-yellow-300 bg-clip-text text-transparent mb-2">Flopper Casino — Play Your Way</h1>
+        <p className="text-[#b1bad3] text-lg">Welcome to Flopper — pick a game, chase the thrill, and cash out the moment luck smiles.</p>
+        <p className="text-sm text-[#557086] mt-2">Live jackpots • Daily challenges • Play responsibly</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Link
-          href="/keno"
-          className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group"
-        >
-          <div className="h-40 bg-[#0f212e] flex items-center justify-center relative">
-            <div className="absolute inset-0 bg-linear-to-t from-[#213743] to-transparent opacity-50"></div>
-            <GridOn sx={{ fontSize: 48, opacity: 0.5 }} className="group-hover:opacity-100 transition-opacity text-white" />
-          </div>
-          <div className="p-4">
-            <h3 className="text-white font-bold text-lg">Keno</h3>
-            <p className="text-sm text-[#b1bad3] mt-1">Pick 10 numbers</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/blackjack"
-          className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group"
-        >
-          <div className="h-40 bg-[#0f212e] flex items-center justify-center relative">
-            <div className="absolute inset-0 bg-linear-to-t from-[#213743] to-transparent opacity-50"></div>
-            <Casino sx={{ fontSize: 48, opacity: 0.5 }} className="group-hover:opacity-100 transition-opacity text-white" />
-          </div>
-          <div className="p-4">
-            <h3 className="text-white font-bold text-lg">Blackjack</h3>
-            <p className="text-sm text-[#b1bad3] mt-1">Beat the dealer</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/plinko"
-          className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group"
-        >
-          <div className="h-40 bg-[#0f212e] flex items-center justify-center relative">
-            <div className="absolute inset-0 bg-linear-to-t from-[#213743] to-transparent opacity-50"></div>
-            <ScatterPlot sx={{ fontSize: 48, opacity: 0.5 }} className="group-hover:opacity-100 transition-opacity text-white" />
-          </div>
-          <div className="p-4">
-            <h3 className="text-white font-bold text-lg">Plinko</h3>
-            <p className="text-sm text-[#b1bad3] mt-1">Drop and win</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/spinningwheel"
-          className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group"
-        >
-          <div className="h-40 bg-[#0f212e] flex items-center justify-center relative">
-            <div className="absolute inset-0 bg-linear-to-t from-[#213743] to-transparent opacity-50"></div>
-            <Casino sx={{ fontSize: 48, opacity: 0.5 }} className="group-hover:opacity-100 transition-opacity text-white" />
-          </div>
-          <div className="p-4">
-            <h3 className="text-white font-bold text-lg">Spinning Wheel</h3>
-            <p className="text-sm text-[#b1bad3] mt-1">Spin and hit a multiplier</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/pump"
-          className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group"
-        >
-          <div className="h-40 bg-[#0f212e] flex items-center justify-center relative">
-            <div className="absolute inset-0 bg-linear-to-t from-[#213743] to-transparent opacity-50"></div>
-            <ShowChart sx={{ fontSize: 48, opacity: 0.5 }} className="group-hover:opacity-100 transition-opacity text-white" />
-          </div>
-          <div className="p-4">
-            <h3 className="text-white font-bold text-lg">Pump</h3>
-            <p className="text-sm text-[#b1bad3] mt-1">Pump and cash out</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/hilo"
-          className="bg-[#29424b] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group border-2 border-[#00e701]"
-        >
-          <div className="h-44 bg-[#0f212e] flex flex-col items-center justify-center relative">
-            <div className="absolute inset-0 bg-linear-to-t from-[#29424b] to-transparent opacity-30"></div>
-            <ShowChart sx={{ fontSize: 56, opacity: 0.85 }} className="group-hover:opacity-100 transition-opacity text-white" />
-          </div>
-          <div className="p-4">
-            <h3 className="text-white font-bold text-lg">HiLo</h3>
-            <p className="text-sm text-[#b1bad3] mt-1">Wette, ob die nächste Karte höher oder niedriger ist.</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/limbo"
-          className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group"
-        >
-          <div className="h-40 bg-[#0f212e] flex items-center justify-center relative">
-            <div className="absolute inset-0 bg-linear-to-t from-[#213743] to-transparent opacity-50"></div>
-            <ShowChart sx={{ fontSize: 48, opacity: 0.5 }} className="group-hover:opacity-100 transition-opacity text-white" />
-          </div>
-          <div className="p-4">
-            <h3 className="text-white font-bold text-lg">Limbo</h3>
-            <p className="text-sm text-[#b1bad3] mt-1">Hit your target multiplier</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/mines"
-          className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group"
-        >
-          <div className="h-40 bg-[#0f212e] flex items-center justify-center relative">
-            <div className="absolute inset-0 bg-linear-to-t from-[#213743] to-transparent opacity-50"></div>
-            <Diamond sx={{ fontSize: 48, opacity: 0.5 }} className="group-hover:opacity-100 transition-opacity text-white" />
-          </div>
-          <div className="p-4">
-            <h3 className="text-white font-bold text-lg">Mines</h3>
-            <p className="text-sm text-[#b1bad3] mt-1">Find diamonds, avoid mines</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/coinflip"
-          className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group"
-        >
-          <div className="h-40 bg-[#0f212e] flex items-center justify-center relative">
-            <div className="absolute inset-0 bg-linear-to-t from-[#213743] to-transparent opacity-50"></div>
-            <MonetizationOn sx={{ fontSize: 48, opacity: 0.5 }} className="group-hover:opacity-100 transition-opacity text-white" />
-          </div>
-          <div className="p-4">
-            <h3 className="text-white font-bold text-lg">Coin Flip</h3>
-            <p className="text-sm text-[#b1bad3] mt-1">Build a streak multiplier</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/rps"
-          className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group"
-        >
-          <div className="h-40 bg-[#0f212e] flex items-center justify-center relative">
-            <div className="absolute inset-0 bg-linear-to-t from-[#213743] to-transparent opacity-50"></div>
-            <SportsMma sx={{ fontSize: 48, opacity: 0.5 }} className="group-hover:opacity-100 transition-opacity text-white" />
-          </div>
-          <div className="p-4">
-            <h3 className="text-white font-bold text-lg">Rock Paper Scissors</h3>
-            <p className="text-sm text-[#b1bad3] mt-1">Build a streak and cash out</p>
-          </div>
-        </Link>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
+        {games.map((game) => (
+          <Link
+            key={game.href}
+            href={game.href}
+            className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group border border-[#2f4553]/60"
+          >
+            <div className="relative aspect-square bg-[#0f212e]">
+              <Image
+                src={game.image}
+                alt={`${game.name} preview`}
+                fill
+                className="object-contain transition-transform duration-500 group-hover:scale-105"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+                priority={game.name === "Blackjack"}
+              />
+              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#0f212e] via-[#0f212e]/80 to-transparent"></div>
+              <div className="absolute inset-x-0 bottom-0 px-3 pb-3 flex items-end">
+                <span className="text-white font-semibold text-lg drop-shadow">{game.name}</span>
+              </div>
+            </div>
+            <div className="p-4 pt-3">
+              <p className="text-sm text-[#b1bad3]">{game.tagline}</p>
+            </div>
+          </Link>
+        ))}
       </div>
     </div>
   );

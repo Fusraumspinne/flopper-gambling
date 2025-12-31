@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { PlayArrow, Refresh } from "@mui/icons-material";
 import { useWallet } from "@/components/WalletProvider";
 
@@ -108,7 +114,10 @@ function parseNumberLoose(raw: string) {
 }
 
 function pickWeighted(entries: CaseEntry[], rnd = Math.random) {
-  const total = entries.reduce((s, e) => s + (Number.isFinite(e.chance) ? e.chance : 0), 0);
+  const total = entries.reduce(
+    (s, e) => s + (Number.isFinite(e.chance) ? e.chance : 0),
+    0
+  );
   if (total <= 0) return entries[0];
 
   let r = rnd() * total;
@@ -121,7 +130,10 @@ function pickWeighted(entries: CaseEntry[], rnd = Math.random) {
 }
 
 function buildDisplayTable(entries: CaseEntry[]) {
-  const total = entries.reduce((s, e) => s + (Number.isFinite(e.chance) ? e.chance : 0), 0);
+  const total = entries.reduce(
+    (s, e) => s + (Number.isFinite(e.chance) ? e.chance : 0),
+    0
+  );
   const uniform = entries.length > 0 ? total / entries.length : 0;
 
   const DISPLAY_MIX = 0.2;
@@ -147,76 +159,146 @@ function formatMultiplier(m: number) {
 function colorStyles(color: CaseColor) {
   switch (color) {
     case "gray":
-      return { bg: "bg-[#2f4553]", text: "text-white", accent: "ring-[#2f4553]" };
+      return {
+        bg: "bg-[#2f4553]",
+        text: "text-white",
+        accent: "ring-[#2f4553]",
+      };
     case "lightblue":
-      return { bg: "bg-[#00ffff]/70", text: "text-black", accent: "ring-[#00ffff]" };
+      return {
+        bg: "bg-[#00ffff]",
+        text: "text-black",
+        accent: "ring-[#00ffff]",
+      };
     case "blue":
-      return { bg: "bg-[#3b82f6]", text: "text-white", accent: "ring-[#3b82f6]" };
+      return {
+        bg: "bg-[#3b82f6]",
+        text: "text-white",
+        accent: "ring-[#3b82f6]",
+      };
     case "red":
-      return { bg: "bg-[#ef4444]", text: "text-black", accent: "ring-[#ef4444]" };
+      return {
+        bg: "bg-[#ef4444]",
+        text: "text-black",
+        accent: "ring-[#ef4444]",
+      };
     case "green":
-      return { bg: "bg-[#00e701]", text: "text-black", accent: "ring-[#00e701]" };
+      return {
+        bg: "bg-[#00e701]",
+        text: "text-black",
+        accent: "ring-[#00e701]",
+      };
     case "purple":
-      return { bg: "bg-[#8b5cf6]", text: "text-white", accent: "ring-[#8b5cf6]" };
+      return {
+        bg: "bg-[#8b5cf6]",
+        text: "text-white",
+        accent: "ring-[#8b5cf6]",
+      };
     case "gold":
-      return { bg: "bg-[#eab308]", text: "text-black", accent: "ring-[#eab308]" };
+      return {
+        bg: "bg-[#eab308]",
+        text: "text-black",
+        accent: "ring-[#eab308]",
+      };
     default:
-      return { bg: "bg-[#2f4553]", text: "text-white", accent: "ring-[#2f4553]" };
+      return {
+        bg: "bg-[#2f4553]",
+        text: "text-white",
+        accent: "ring-[#2f4553]",
+      };
   }
 }
 
-  const COLOR_HEX: Record<CaseColor, string> = {
-    gray: "#2f4553",
-    lightblue: "#00ffff",
-    blue: "#3b82f6",
-    red: "#ef4444",
-    green: "#00e701",
-    purple: "#8b5cf6",
-    gold: "#eab308",
-  };
+const COLOR_HEX: Record<CaseColor, string> = {
+  gray: "#2f4553",
+  lightblue: "#00ffff",
+  blue: "#3b82f6",
+  red: "#ef4444",
+  green: "#00e701",
+  purple: "#8b5cf6",
+  gold: "#eab308",
+};
 
-  function PlateIndicator({ color, tier }: { color: CaseColor; tier: PlateTier }) {
-    const hex = COLOR_HEX[color] ?? "#ffffff";
-    const topOn = tier >= 3;
-    const midOn = tier >= 2;
-    const bottomOn = true;
+function PlateIndicator({
+  color,
+  tier,
+}: {
+  color: CaseColor;
+  tier: PlateTier;
+}) {
+  const hex = COLOR_HEX[color] ?? "#ffffff";
+  const topOn = tier >= 3;
+  const midOn = tier >= 2;
+  const bottomOn = true;
 
-    return (
-      <div className="w-12 h-16 flex items-center justify-center" aria-hidden>
-          <svg viewBox="0 0 80 120" width="50" height="60" preserveAspectRatio="xMidYMid meet" overflow="visible" style={{ transform: 'translateY(-10px) scale(1.25)', transformOrigin: '50% 50%' }}>
-          <path
-            d="M18 6 H62 L74 18 V102 L62 114 H18 L6 102 V18 Z"
-            fill="#2f4553"
-            stroke="#0f212e"
-            strokeWidth="3"
+  return (
+    <div className="w-12 h-16 flex items-center justify-center" aria-hidden>
+      <svg
+        viewBox="0 0 80 120"
+        width="50"
+        height="60"
+        preserveAspectRatio="xMidYMid meet"
+        overflow="visible"
+        style={{
+          transform: "translateY(-10px) scale(1.25)",
+          transformOrigin: "50% 50%",
+        }}
+      >
+        <path
+          d="M18 6 H62 L74 18 V102 L62 114 H18 L6 102 V18 Z"
+          fill="#2f4553"
+          stroke="#0f212e"
+          strokeWidth="3"
+        />
+
+        <path
+          d="M24 12 H56 L68 24 V96 L56 108 H24 L12 96 V24 Z"
+          fill="none"
+          stroke={hex}
+          strokeWidth="3"
+        />
+
+        <path
+          d="M26 18 H54 L62 26 V94 L54 102 H26 L18 94 V26 Z"
+          fill="#1a2c38"
+          stroke="#0f212e"
+          strokeWidth="1"
+        />
+
+        <g>
+          <rect
+            x="30"
+            y="28"
+            width="20"
+            height="20"
+            rx="5"
+            fill={topOn ? hex : "none"}
           />
-
-          <path
-            d="M24 12 H56 L68 24 V96 L56 108 H24 L12 96 V24 Z"
-            fill="none"
-            stroke={hex}
-            strokeWidth="3"
+          <rect
+            x="30"
+            y="52"
+            width="20"
+            height="20"
+            rx="5"
+            fill={midOn ? hex : "none"}
           />
-
-          <path
-            d="M26 18 H54 L62 26 V94 L54 102 H26 L18 94 V26 Z"
-            fill="#1a2c38"
-            stroke="#0f212e"
-            strokeWidth="1"
+          <rect
+            x="30"
+            y="76"
+            width="20"
+            height="20"
+            rx="5"
+            fill={bottomOn ? hex : "none"}
           />
-
-          <g>
-            <rect x="30" y="28" width="20" height="20" rx="5" fill={topOn ? hex : "none"}/>
-            <rect x="30" y="52" width="20" height="20" rx="5" fill={midOn ? hex : "none"}/>
-            <rect x="30" y="76" width="20" height="20" rx="5" fill={bottomOn ? hex : "none"}/>
-          </g>
-        </svg>
-      </div>
-    );
-  }
+        </g>
+      </svg>
+    </div>
+  );
+}
 
 export default function CasesPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
+    useWallet();
 
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
@@ -241,7 +323,9 @@ export default function CasesPage() {
   const autoOriginalBetRef = useRef<number>(0);
   const autoNetRef = useRef<number>(0);
 
-  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(
+    null
+  );
   const resultTimeoutRef = useRef<number | null>(null);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -303,7 +387,10 @@ export default function CasesPage() {
     return true;
   }, [betAmount, balance, isBusy]);
 
-  const displayEntries = useMemo(() => buildDisplayTable(CASE_TABLE[risk]), [risk]);
+  const displayEntries = useMemo(
+    () => buildDisplayTable(CASE_TABLE[risk]),
+    [risk]
+  );
 
   const plateTierByKey = useMemo(() => {
     const table = CASE_TABLE[risk];
@@ -340,7 +427,10 @@ export default function CasesPage() {
   const computeActiveIndex = useCallback(
     (x: number) => {
       if (stripRef.current.length === 0) return null;
-      const vpW = viewportWidth || viewportRef.current?.getBoundingClientRect().width || 0;
+      const vpW =
+        viewportWidth ||
+        viewportRef.current?.getBoundingClientRect().width ||
+        0;
       if (vpW <= 0) return null;
       const centerX = vpW / 2;
 
@@ -358,7 +448,10 @@ export default function CasesPage() {
       const len = stripRef.current.length;
       if (len === 0) return { start: 0, end: 0 };
 
-      const vpW = viewportWidth || viewportRef.current?.getBoundingClientRect().width || 0;
+      const vpW =
+        viewportWidth ||
+        viewportRef.current?.getBoundingClientRect().width ||
+        0;
       if (vpW <= 0) return { start: 0, end: len };
 
       const step = ITEM_W + ITEM_GAP;
@@ -374,14 +467,20 @@ export default function CasesPage() {
     [ITEM_GAP, ITEM_W, viewportWidth]
   );
 
-  const makeItem = useCallback((entry: CaseEntry) => {
-    return {
-      id: `${Date.now()}_${risk}_${Math.random().toString(16).slice(2)}`,
-      entry,
-    } as StripItem;
-  }, [risk]);
+  const makeItem = useCallback(
+    (entry: CaseEntry) => {
+      return {
+        id: `${Date.now()}_${risk}_${Math.random().toString(16).slice(2)}`,
+        entry,
+      } as StripItem;
+    },
+    [risk]
+  );
 
-  const makeRandomItem = useCallback(() => makeItem(pickWeighted(displayEntries)), [displayEntries, makeItem]);
+  const makeRandomItem = useCallback(
+    () => makeItem(pickWeighted(displayEntries)),
+    [displayEntries, makeItem]
+  );
 
   const initStrip = useCallback(() => {
     const items: StripItem[] = [];
@@ -427,7 +526,13 @@ export default function CasesPage() {
       setRenderEnd(rr.end);
     });
     return () => cancelAnimationFrame(id);
-  }, [computeActiveIndex, computeFinalTranslate, computeRenderRange, setTrackX, strip]);
+  }, [
+    computeActiveIndex,
+    computeFinalTranslate,
+    computeRenderRange,
+    setTrackX,
+    strip,
+  ]);
 
   useEffect(() => {
     const onResize = () => {
@@ -444,7 +549,12 @@ export default function CasesPage() {
     onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [computeActiveIndex, computeFinalTranslate, computeRenderRange, setTrackX]);
+  }, [
+    computeActiveIndex,
+    computeFinalTranslate,
+    computeRenderRange,
+    setTrackX,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -455,123 +565,145 @@ export default function CasesPage() {
     };
   }, []);
 
-  const playRound = useCallback(async (opts?: { betAmount?: number; postDelayMs?: number }) => {
-    if (isSpinningRef.current) return null as null | { betAmount: number; multiplier: number; winAmount: number };
+  const playRound = useCallback(
+    async (opts?: { betAmount?: number; postDelayMs?: number }) => {
+      if (isSpinningRef.current)
+        return null as null | {
+          betAmount: number;
+          multiplier: number;
+          winAmount: number;
+        };
 
-    const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
-    const currentRisk = riskRef.current;
-    if (bet <= 0 || bet > balanceRef.current) return null;
+      const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
+      const currentRisk = riskRef.current;
+      if (bet <= 0 || bet > balanceRef.current) return null;
 
-    const target = pickWeighted(CASE_TABLE[currentRisk]);
+      const target = pickWeighted(CASE_TABLE[currentRisk]);
 
-    const landingIndex = TARGET_INDEX + SPIN_STEPS;
+      const landingIndex = TARGET_INDEX + SPIN_STEPS;
 
-    const base = stripRef.current;
-    let planned = base.length > 0 ? base.slice() : initStrip();
-    while (planned.length <= landingIndex + 6) {
-      planned.push(makeRandomItem());
-    }
-    if (planned.length > STRIP_LEN) {
-      planned = planned.slice(0, STRIP_LEN);
-    }
-    if (landingIndex < planned.length) {
-      planned[landingIndex] = makeItem(target);
-    }
+      const base = stripRef.current;
+      let planned = base.length > 0 ? base.slice() : initStrip();
+      while (planned.length <= landingIndex + 6) {
+        planned.push(makeRandomItem());
+      }
+      if (planned.length > STRIP_LEN) {
+        planned = planned.slice(0, STRIP_LEN);
+      }
+      if (landingIndex < planned.length) {
+        planned[landingIndex] = makeItem(target);
+      }
 
-    setOpenedIndex(null);
-    setLastMultiplier(null);
-    setLastWin(0);
-    setResultFx("rolling");
+      setOpenedIndex(null);
+      setLastMultiplier(null);
+      setLastWin(0);
+      setResultFx("rolling");
 
-    subtractFromBalance(bet);
+      subtractFromBalance(bet);
 
-    setIsSpinning(true);
-    isSpinningRef.current = true;
+      setIsSpinning(true);
+      isSpinningRef.current = true;
 
-    setStrip(planned);
+      setStrip(planned);
 
-    const duration = 2400;
-    const startTime = performance.now();
+      const duration = 2400;
+      const startTime = performance.now();
 
-    const baseX = computeFinalTranslate();
-    const travel = (ITEM_W + ITEM_GAP) * SPIN_STEPS;
-    const startX = baseX;
-    const endX = baseX - travel;
+      const baseX = computeFinalTranslate();
+      const travel = (ITEM_W + ITEM_GAP) * SPIN_STEPS;
+      const startX = baseX;
+      const endX = baseX - travel;
 
-    await new Promise<void>((resolve) => {
-      const animate = (now: number) => {
-        const t = Math.min((now - startTime) / duration, 1);
-        const eased = easeOutCubic(t);
-        const x = startX + (endX - startX) * eased;
-        setTrackX(x);
+      await new Promise<void>((resolve) => {
+        const animate = (now: number) => {
+          const t = Math.min((now - startTime) / duration, 1);
+          const eased = easeOutCubic(t);
+          const x = startX + (endX - startX) * eased;
+          setTrackX(x);
 
-        const nextActive = computeActiveIndex(x);
-        setActiveIndex((prev) => (prev === nextActive ? prev : nextActive));
+          const nextActive = computeActiveIndex(x);
+          setActiveIndex((prev) => (prev === nextActive ? prev : nextActive));
 
-        const rr = computeRenderRange(x);
-        setRenderStart((prev) => (prev === rr.start ? prev : rr.start));
-        setRenderEnd((prev) => (prev === rr.end ? prev : rr.end));
+          const rr = computeRenderRange(x);
+          setRenderStart((prev) => (prev === rr.start ? prev : rr.start));
+          setRenderEnd((prev) => (prev === rr.end ? prev : rr.end));
 
-        if (t < 1) {
-          rafRef.current = requestAnimationFrame(animate);
-          return;
-        }
-        resolve();
+          if (t < 1) {
+            rafRef.current = requestAnimationFrame(animate);
+            return;
+          }
+          resolve();
+        };
+
+        rafRef.current = requestAnimationFrame(animate);
+      });
+
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+
+      const shifted: StripItem[] = planned.slice(SPIN_STEPS);
+      while (shifted.length < STRIP_LEN) shifted.push(makeRandomItem());
+      setStrip(shifted);
+      setTrackX(baseX);
+      setActiveIndex(computeActiveIndex(baseX));
+      const rr = computeRenderRange(baseX);
+      setRenderStart(rr.start);
+      setRenderEnd(rr.end);
+
+      const payout = normalizeMoney(bet * target.multiplier);
+      setOpenedIndex(TARGET_INDEX);
+      setLastMultiplier(target.multiplier);
+      setLastWin(payout);
+
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+
+      const isWin = target.multiplier >= 1;
+
+      if (payout > 0) {
+        addToBalance(payout);
+      } else {
+        finalizePendingLoss();
+      }
+
+      setResultFx(isWin ? "win" : "lose");
+
+      // Allow faster manual re-bets: don't block "busy" state on the FX timeout.
+      setIsSpinning(false);
+      isSpinningRef.current = false;
+
+      resultTimeoutRef.current = window.setTimeout(() => {
+        setResultFx(null);
+        resultTimeoutRef.current = null;
+      }, 450);
+
+      // AutoBet should still show the opening/result briefly before the next round resets UI.
+      const postDelayMs = Math.max(0, Math.floor(opts?.postDelayMs ?? 0));
+      if (postDelayMs > 0) {
+        await new Promise<void>((resolve) =>
+          window.setTimeout(resolve, postDelayMs)
+        );
+      }
+      return {
+        betAmount: bet,
+        multiplier: target.multiplier,
+        winAmount: payout,
       };
-
-      rafRef.current = requestAnimationFrame(animate);
-    });
-
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-
-    const shifted: StripItem[] = planned.slice(SPIN_STEPS);
-    while (shifted.length < STRIP_LEN) shifted.push(makeRandomItem());
-    setStrip(shifted);
-    setTrackX(baseX);
-    setActiveIndex(computeActiveIndex(baseX));
-    const rr = computeRenderRange(baseX);
-    setRenderStart(rr.start);
-    setRenderEnd(rr.end);
-
-    const payout = normalizeMoney(bet * target.multiplier);
-    setOpenedIndex(TARGET_INDEX);
-    setLastMultiplier(target.multiplier);
-    setLastWin(payout);
-
-    if (resultTimeoutRef.current) {
-      clearTimeout(resultTimeoutRef.current);
-      resultTimeoutRef.current = null;
-    }
-
-    const isWin = target.multiplier >= 1;
-
-    if (payout > 0) {
-      addToBalance(payout);
-    } else {
-      finalizePendingLoss();
-    }
-
-    setResultFx(isWin ? "win" : "lose");
-
-    // Allow faster manual re-bets: don't block "busy" state on the FX timeout.
-    setIsSpinning(false);
-    isSpinningRef.current = false;
-
-    resultTimeoutRef.current = window.setTimeout(() => {
-      setResultFx(null);
-      resultTimeoutRef.current = null;
-    }, 450);
-
-    // AutoBet should still show the opening/result briefly before the next round resets UI.
-    const postDelayMs = Math.max(0, Math.floor(opts?.postDelayMs ?? 0));
-    if (postDelayMs > 0) {
-      await new Promise<void>((resolve) => window.setTimeout(resolve, postDelayMs));
-    }
-    return { betAmount: bet, multiplier: target.multiplier, winAmount: payout };
-  }, [addToBalance, computeFinalTranslate, finalizePendingLoss, initStrip, makeItem, makeRandomItem, subtractFromBalance]);
+    },
+    [
+      addToBalance,
+      computeFinalTranslate,
+      finalizePendingLoss,
+      initStrip,
+      makeItem,
+      makeRandomItem,
+      subtractFromBalance,
+    ]
+  );
 
   const playGame = useCallback(async () => {
     await playRound();
@@ -596,8 +728,14 @@ export default function CasesPage() {
     setIsAutoBetting(true);
 
     while (isAutoBettingRef.current) {
-      const stopProfit = Math.max(0, normalizeMoney(parseNumberLoose(stopProfitInput)));
-      const stopLoss = Math.max(0, normalizeMoney(parseNumberLoose(stopLossInput)));
+      const stopProfit = Math.max(
+        0,
+        normalizeMoney(parseNumberLoose(stopProfitInput))
+      );
+      const stopLoss = Math.max(
+        0,
+        normalizeMoney(parseNumberLoose(stopLossInput))
+      );
       const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
       const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
 
@@ -616,11 +754,17 @@ export default function CasesPage() {
       const isRoundWin = result.multiplier >= 1;
 
       // Stop conditions: support both "total session" net (autoNet) and "single-round" net (lastNet).
-      if (stopProfit > 0 && (autoNetRef.current >= stopProfit || lastNet >= stopProfit)) {
+      if (
+        stopProfit > 0 &&
+        (autoNetRef.current >= stopProfit || lastNet >= stopProfit)
+      ) {
         stopAutoBet();
         break;
       }
-      if (stopLoss > 0 && (autoNetRef.current <= -stopLoss || lastNet <= -stopLoss)) {
+      if (
+        stopLoss > 0 &&
+        (autoNetRef.current <= -stopLoss || lastNet <= -stopLoss)
+      ) {
         stopAutoBet();
         break;
       }
@@ -644,52 +788,65 @@ export default function CasesPage() {
           betAmountRef.current = next;
         }
       }
-
     }
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, [onLoseMode, onLosePctInput, onWinMode, onWinPctInput, playRound, stopAutoBet, stopLossInput, stopProfitInput]);
+  }, [
+    onLoseMode,
+    onLosePctInput,
+    onWinMode,
+    onWinPctInput,
+    playRound,
+    stopAutoBet,
+    stopLossInput,
+    stopProfitInput,
+  ]);
 
-  const changePlayMode = useCallback((mode: "manual" | "auto") => {
-    try {
-      stopAutoBet();
-    } catch (e) {}
+  const changePlayMode = useCallback(
+    (mode: "manual" | "auto") => {
+      try {
+        stopAutoBet();
+      } catch (e) {}
 
-    if (resultTimeoutRef.current) {
-      clearTimeout(resultTimeoutRef.current);
-      resultTimeoutRef.current = null;
-    }
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
 
-    setOpenedIndex(null);
-    setLastMultiplier(null);
-    setLastWin(0);
-    setResultFx(null);
+      setOpenedIndex(null);
+      setLastMultiplier(null);
+      setLastWin(0);
+      setResultFx(null);
 
-    setBetBoth(100);
-    betAmountRef.current = 100;
-    setRisk("low");
+      setBetBoth(100);
+      betAmountRef.current = 100;
+      setRisk("low");
 
-    setOnWinMode("reset");
-    setOnWinPctInput("0");
-    setOnLoseMode("reset");
-    setOnLosePctInput("0");
-    setStopProfitInput("0");
-    setStopLossInput("0");
+      setOnWinMode("reset");
+      setOnWinPctInput("0");
+      setOnLoseMode("reset");
+      setOnLosePctInput("0");
+      setStopProfitInput("0");
+      setStopLossInput("0");
 
-    isAutoBettingRef.current = false;
-    setIsAutoBetting(false);
-    autoOriginalBetRef.current = 0;
-    autoNetRef.current = 0;
+      isAutoBettingRef.current = false;
+      setIsAutoBetting(false);
+      autoOriginalBetRef.current = 0;
+      autoNetRef.current = 0;
 
-    setPlayMode(mode);
-  }, [stopAutoBet]);
+      setPlayMode(mode);
+    },
+    [stopAutoBet]
+  );
 
   return (
     <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-8">
       <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Mode</label>
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Mode
+          </label>
           <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
             {(["manual", "auto"] as const).map((mode) => (
               <button
@@ -698,7 +855,9 @@ export default function CasesPage() {
                 disabled={isBusy}
                 className={cn(
                   "flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                  playMode === mode ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
+                  playMode === mode
+                    ? "bg-[#213743] text-white shadow-sm"
+                    : "text-[#b1bad3] hover:text-white"
                 )}
               >
                 {mode === "manual" ? "Manual" : "Auto"}
@@ -708,9 +867,13 @@ export default function CasesPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Bet Amount
+          </label>
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+              $
+            </div>
             <input
               type="number"
               value={betInput}
@@ -761,21 +924,27 @@ export default function CasesPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Risk</label>
+          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+            Risk
+          </label>
           <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-            {(["low", "medium", "high", "expert"] as RiskLevel[]).map((level) => (
-              <button
-                key={level}
-                onClick={() => !isBusy && setRisk(level)}
-                disabled={isBusy}
-                className={cn(
-                  "flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                  risk === level ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
-                )}
-              >
-                {level}
-              </button>
-            ))}
+            {(["low", "medium", "high", "expert"] as RiskLevel[]).map(
+              (level) => (
+                <button
+                  key={level}
+                  onClick={() => !isBusy && setRisk(level)}
+                  disabled={isBusy}
+                  className={cn(
+                    "flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                    risk === level
+                      ? "bg-[#213743] text-white shadow-sm"
+                      : "text-[#b1bad3] hover:text-white"
+                  )}
+                >
+                  {level}
+                </button>
+              )
+            )}
           </div>
         </div>
 
@@ -785,7 +954,11 @@ export default function CasesPage() {
             disabled={!canSpin}
             className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
           >
-            {isSpinning ? <Refresh className="animate-spin" /> : <PlayArrow sx={{ fill: "currentColor" }} />}
+            {isSpinning ? (
+              <Refresh className="animate-spin" />
+            ) : (
+              <PlayArrow sx={{ fill: "currentColor" }} />
+            )}
             {isSpinning ? "Playing..." : "Bet"}
           </button>
         )}
@@ -793,7 +966,9 @@ export default function CasesPage() {
         {playMode === "auto" && (
           <>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">On Win</label>
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                On Win
+              </label>
               <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
                 {(["reset", "raise"] as const).map((m) => (
                   <button
@@ -802,7 +977,9 @@ export default function CasesPage() {
                     disabled={isBusy}
                     className={cn(
                       "flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                      onWinMode === m ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
+                      onWinMode === m
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
                     )}
                   >
                     {m === "reset" ? "Reset" : "Raise"}
@@ -811,7 +988,9 @@ export default function CasesPage() {
               </div>
               {onWinMode === "raise" && (
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%</div>
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                    %
+                  </div>
                   <input
                     type="number"
                     value={onWinPctInput}
@@ -830,7 +1009,9 @@ export default function CasesPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">On Loss</label>
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                On Loss
+              </label>
               <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
                 {(["reset", "raise"] as const).map((m) => (
                   <button
@@ -839,7 +1020,9 @@ export default function CasesPage() {
                     disabled={isBusy}
                     className={cn(
                       "flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                      onLoseMode === m ? "bg-[#213743] text-white shadow-sm" : "text-[#b1bad3] hover:text-white"
+                      onLoseMode === m
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
                     )}
                   >
                     {m === "reset" ? "Reset" : "Raise"}
@@ -848,7 +1031,9 @@ export default function CasesPage() {
               </div>
               {onLoseMode === "raise" && (
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%</div>
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                    %
+                  </div>
                   <input
                     type="number"
                     value={onLosePctInput}
@@ -867,9 +1052,13 @@ export default function CasesPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Stop on Profit</label>
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Stop on Profit
+              </label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                  $
+                </div>
                 <input
                   type="number"
                   value={stopProfitInput}
@@ -886,9 +1075,13 @@ export default function CasesPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Stop on Loss</label>
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Stop on Loss
+              </label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                  $
+                </div>
                 <input
                   type="number"
                   value={stopLossInput}
@@ -927,7 +1120,9 @@ export default function CasesPage() {
         {lastMultiplier !== null && lastWin > 0 && (
           <div className="mt-2 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center animate-pulse">
             <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
-            <div className="text-2xl font-bold text-[#00e701]">${lastWin.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-[#00e701]">
+              ${lastWin.toFixed(2)}
+            </div>
           </div>
         )}
       </div>
@@ -961,54 +1156,66 @@ export default function CasesPage() {
                         />
                       )}
 
-                      {strip.slice(renderStart, renderEnd).map((it, localIdx) => {
-                        const idx = renderStart + localIdx;
-                        const s = colorStyles(it.entry.color);
-                        const isOpen = openedIndex === idx;
-                        const isActive = activeIndex === idx;
-                        const tier = (plateTierByKey.get(`${it.entry.color}:${it.entry.multiplier}`) ?? 1) as PlateTier;
-                        return (
-                          <div
-                            key={it.id}
-                            className={cn(
-                              "relative shrink-0 rounded-lg border border-[#0f212e] shadow-[0_6px_0_#0b1720] overflow-hidden transition-transform duration-200 ease-out",
-                              isActive && "-translate-y-2",
-                              isOpen && "scale-[1.04]",
-                              isOpen ? "z-20" : isActive ? "z-10" : "z-0"
-                            )}
-                            style={{ width: ITEM_W, height: 84, marginRight: idx < strip.length - 1 ? ITEM_GAP : 0 }}
-                          >
-                            <div className={cn("absolute inset-0", s.bg)} />
-
+                      {strip
+                        .slice(renderStart, renderEnd)
+                        .map((it, localIdx) => {
+                          const idx = renderStart + localIdx;
+                          const s = colorStyles(it.entry.color);
+                          const isOpen = openedIndex === idx;
+                          const isActive = activeIndex === idx;
+                          const tier = (plateTierByKey.get(
+                            `${it.entry.color}:${it.entry.multiplier}`
+                          ) ?? 1) as PlateTier;
+                          return (
                             <div
+                              key={it.id}
                               className={cn(
-                                "absolute top-0 left-0 w-full h-7 rounded-t-lg border-b border-[#0f212e] transition-transform duration-300 ease-out",
-                                s.bg,
-                                isOpen ? "-translate-y-full" : "translate-y-0"
+                                "relative shrink-0 rounded-lg border border-[#0f212e] shadow-[0_6px_0_#0b1720] overflow-hidden transition-transform duration-200 ease-out",
+                                isActive && "-translate-y-2",
+                                isOpen && "scale-[1.04]",
+                                isOpen ? "z-20" : isActive ? "z-10" : "z-0"
                               )}
+                              style={{
+                                width: ITEM_W,
+                                height: 84,
+                                marginRight:
+                                  idx < strip.length - 1 ? ITEM_GAP : 0,
+                              }}
                             >
-                              <div className="absolute left-0 right-0 bottom-0 h-1 bg-[#1a2c38]" />
-                              <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-8 h-3 bg-[#1a2c38] rounded-b-sm" />
-                            </div>
+                              <div className={cn("absolute inset-0", s.bg)} />
 
-                            <div
-                              className={cn(
-                                "absolute left-2 right-2 bottom-2 transition-all duration-300 ease-out pointer-events-none overflow-visible",
-                                isOpen ? "opacity-100" : "opacity-0"
-                              )}
-                              style={{ height: 44 }}
-                            >
-                              <div className="relative h-full w-full flex items-center justify-center">
-                                <div className="flex flex-col items-center justify-center gap-1">
-                                  <PlateIndicator color={it.entry.color} tier={tier} />
+                              <div
+                                className={cn(
+                                  "absolute top-0 left-0 w-full h-7 rounded-t-lg border-b border-[#0f212e] transition-transform duration-300 ease-out",
+                                  s.bg,
+                                  isOpen ? "-translate-y-full" : "translate-y-0"
+                                )}
+                              >
+                                <div className="absolute left-0 right-0 bottom-0 h-1 bg-[#1a2c38]" />
+                                <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-8 h-3 bg-[#1a2c38] rounded-b-sm" />
+                              </div>
+
+                              <div
+                                className={cn(
+                                  "absolute left-2 right-2 bottom-2 transition-all duration-300 ease-out pointer-events-none overflow-visible",
+                                  isOpen ? "opacity-100" : "opacity-0"
+                                )}
+                                style={{ height: 44 }}
+                              >
+                                <div className="relative h-full w-full flex items-center justify-center">
+                                  <div className="flex flex-col items-center justify-center gap-1">
+                                    <PlateIndicator
+                                      color={it.entry.color}
+                                      tier={tier}
+                                    />
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_0_1px_rgba(15,33,46,0.25)]" />
-                          </div>
-                        );
-                      })}
+                              <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_0_1px_rgba(15,33,46,0.25)]" />
+                            </div>
+                          );
+                        })}
 
                       {renderEnd < strip.length && (
                         <div
@@ -1047,8 +1254,12 @@ export default function CasesPage() {
                 }
 
                 const cols = Array.from(map.entries()).map(([color, items]) => {
-                  const tiers = items.slice().sort((a, b) => a.multiplier - b.multiplier); 
-                  const best = Math.max(...tiers.map((t) => Number(t.multiplier) || 0));
+                  const tiers = items
+                    .slice()
+                    .sort((a, b) => a.multiplier - b.multiplier);
+                  const best = Math.max(
+                    ...tiers.map((t) => Number(t.multiplier) || 0)
+                  );
                   return { color, tiers, best };
                 });
 
@@ -1059,14 +1270,19 @@ export default function CasesPage() {
                   const hex = COLOR_HEX[col.color as CaseColor] ?? "#ffffff";
                   const n = col.tiers.length;
                   return (
-                    <div key={col.color} className="flex flex-col items-center gap-2">
+                    <div
+                      key={col.color}
+                      className="flex flex-col items-center gap-2"
+                    >
                       <div className="flex flex-col-reverse justify-end bg-transparent gap-1">
                         {col.tiers.map((t, idx) => {
                           return (
                             <div
                               key={`${col.color}_${t.multiplier}_${idx}`}
                               className="bg-[#0f212e] border border-[#2f4553] rounded-md px-2 py-1 flex items-center gap-1 whitespace-nowrap"
-                              title={`${formatMultiplier(t.multiplier)} — ${t.chance}%`}
+                              title={`${formatMultiplier(t.multiplier)} — ${
+                                t.chance
+                              }%`}
                             >
                               <span
                                 className="w-2.5 h-2.5 rounded-full border border-[#2f4553] shrink-0"
@@ -1074,9 +1290,13 @@ export default function CasesPage() {
                                 aria-hidden
                               />
 
-                              <span className="text-[12px] text-white font-bold">{formatMultiplier(t.multiplier)}</span>
+                              <span className="text-[12px] text-white font-bold">
+                                {formatMultiplier(t.multiplier)}
+                              </span>
 
-                              <span className="text-[10px] text-[#b1bad3] font-mono">{t.chance}%</span>
+                              <span className="text-[10px] text-[#b1bad3] font-mono">
+                                {t.chance}%
+                              </span>
                             </div>
                           );
                         })}

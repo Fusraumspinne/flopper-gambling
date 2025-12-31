@@ -309,11 +309,16 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     const a = normalizeMoney(amount);
     if (a <= 0) return;
     // Bets should not affect net until the round is settled (payout or loss).
-    // IMPORTANT: avoid side-effects inside the state-updater (React dev/StrictMode may invoke it twice).
-    // All games already check `betAmount > balance` before calling this, so we can treat `amount` as the bet.
-    if (a > balance) return;
+    // Use the latest balance inside the updater so rapid successive bets cannot overdraw/overcount.
+    let accepted = false;
+    setBalance((prev) => {
+      if (a > prev) return prev;
+      accepted = true;
+      return normalizeMoney(prev - a);
+    });
+    if (!accepted) return;
+
     pendingBetsRef.current.push(a);
-    setBalance((prev) => normalizeMoney(prev - a));
 
     // record last bet timestamp for activity tracking
     try {
