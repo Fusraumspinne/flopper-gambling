@@ -16,6 +16,7 @@ interface Game {
 }
 
 const games: Game[] = [
+  { name: "Cases", icon: <Casino className="w-5 h-5" />, href: "/cases" },
   { name: "Keno", icon: <GridOn className="w-5 h-5" />, href: "/keno" },
   { name: "Blackjack", icon: <Casino className="w-5 h-5" />, href: "/blackjack" },
   { name: "Plinko", icon: <ScatterPlot className="w-5 h-5" />, href: "/plinko" },

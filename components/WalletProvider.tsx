@@ -26,6 +26,7 @@ export type LiveStatsState = {
 
 export const GAME_OPTIONS = [
   { id: "blackjack", label: "Blackjack" },
+  { id: "cases", label: "Cases" },
   { id: "coinflip", label: "Coinflip" },
   { id: "darts", label: "Darts" },
   { id: "dice", label: "Dice" },
