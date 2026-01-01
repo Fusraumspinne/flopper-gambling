@@ -8,6 +8,7 @@ import { useWallet } from "./WalletProvider";
 import LiveStatsPanel from "./LiveStatsPanel";
 import { useSidebar } from "./Shell";
 import { useHourlyReward } from "./useHourlyReward";
+import { useSoundVolume } from "./SoundVolumeProvider";
 
 interface Game {
   name: string;
@@ -38,6 +39,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const { balance } = useWallet();
   const { collapsed, toggleCollapsed, sidebarWidth } = useSidebar();
+  const { volume, setVolume } = useSoundVolume();
 
   const { addToBalance } = useWallet();
   const { claimableAmount, lastClaimISO, claim } = useHourlyReward({ amountPerHour: 100, storageKeyPrefix: "flopper_hourly_reward" });
@@ -85,6 +87,23 @@ export default function Navbar() {
             <QueryStats sx={{ fontSize: 18 }} />
             Live-Stats
           </button>
+
+          <div className="mt-3 w-full rounded-md bg-[#1a2c38] border border-[#2f4553] p-3">
+            <div className="flex items-center justify-between text-xs text-[#8399aa]">
+              <span>Volume</span>
+              <span className="font-mono">{Math.round(volume * 100)}%</span>
+            </div>
+            <input
+              aria-label="Sound volume"
+              className="mt-2 w-full accent-[#00e701]"
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={Math.round(volume * 100)}
+              onChange={(e) => setVolume(Number(e.target.value) / 100)}
+            />
+          </div>
         </div>
       )}
 
