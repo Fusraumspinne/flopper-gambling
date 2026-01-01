@@ -712,7 +712,6 @@ export default function CasesPage() {
       setOpenedIndex(TARGET_INDEX);
       setLastMultiplier(target.multiplier);
       setLastWin(payout);
-      // case opening sound
       setTimeout(() => playAudio(audioRef.current.caseOpen), 80);
 
       if (resultTimeoutRef.current) {
@@ -1178,7 +1177,7 @@ export default function CasesPage() {
         )}
 
         {lastMultiplier !== null && lastWin > 0 && (
-          <div className="mt-2 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center animate-pulse">
+          <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center animate-pulse">
             <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
             <div className="text-2xl font-bold text-[#00e701]">
               ${lastWin.toFixed(2)}

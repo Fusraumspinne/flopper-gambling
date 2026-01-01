@@ -837,7 +837,7 @@ export default function KenoPage() {
         )}
 
         {lastWin > 0 && (
-          <div className="mt-2 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center animate-pulse">
+          <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center animate-pulse">
             <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
             <div className="text-2xl font-bold text-[#00e701]">
               ${lastWin.toFixed(2)}

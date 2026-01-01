@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { PlayArrow } from "@mui/icons-material";
 
 type CoinSide = "heads" | "tails";
 type GameState = "idle" | "playing" | "cashed_out" | "lost";
@@ -92,6 +93,18 @@ export default function CoinFlipPage() {
     setBetInput(sanitized);
   };
 
+  const placeBet = () => {
+    if (balance < betAmount) return;
+    subtractFromBalance(betAmount);
+    playAudio(audioRef.current.bet);
+    setGameState("playing");
+    setStreak(0);
+    setHistory([]);
+    setLastWin(0);
+    setLastChoice(null);
+    setFx(null);
+  };
+
   const startGame = (choice: CoinSide) => {
     if (balance < betAmount) return;
 
@@ -171,8 +184,8 @@ export default function CoinFlipPage() {
   };
 
   return (
-    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs cf-ui-float">
+    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row items-start gap-4 lg:gap-8">
+      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs self-start">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -225,19 +238,31 @@ export default function CoinFlipPage() {
               All In
             </button>
           </div>
+          {gameState !== "playing" && (
+            <div className="mt-2">
+              <button
+                onClick={placeBet}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 cf-press"
+              >
+                <PlayArrow />
+                Bet
+              </button>
+            </div>
+          )}
+
+          {gameState === "playing" && (
+            <div className="flex flex-col mt-2">
+              <button
+                onClick={cashOut}
+                disabled={isFlipping || streak === 0}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cf-press"
+              >
+                Cashout
+              </button>
+            </div>
+          )}
         </div>
 
-        {gameState === "playing" && (
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={cashOut}
-              disabled={isFlipping || streak === 0}
-              className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cf-press"
-            >
-              Cashout
-            </button>
-          </div>
-        )}
 
         {gameState === "playing" && (
           <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
@@ -252,7 +277,7 @@ export default function CoinFlipPage() {
         )}
 
         {lastWin > 0 && gameState === "cashed_out" && (
-          <div className="mt-4 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
+          <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
             <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
             <div className="text-xl font-bold text-[#00e701]">
               {lastWin.toFixed(2)}
@@ -346,12 +371,8 @@ export default function CoinFlipPage() {
 
         <div className="flex gap-4 w-full max-w-md justify-center">
           <button
-            onClick={() =>
-              gameState === "playing"
-                ? continueGame("heads")
-                : startGame("heads")
-            }
-            disabled={isFlipping || (gameState === "playing" && streak === 0)}
+            onClick={() => continueGame("heads")}
+            disabled={isFlipping || gameState !== "playing"}
             aria-label="Heads"
             className="w-20 sm:w-24 h-12 sm:h-14 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 disabled:cursor-not-allowed text-black rounded-xl shadow-[0_0_8px_rgba(0,0,0,0.25)] transition-all active:scale-95 flex items-center justify-center cf-press"
           >
@@ -359,12 +380,8 @@ export default function CoinFlipPage() {
           </button>
 
           <button
-            onClick={() =>
-              gameState === "playing"
-                ? continueGame("tails")
-                : startGame("tails")
-            }
-            disabled={isFlipping || (gameState === "playing" && streak === 0)}
+            onClick={() => continueGame("tails")}
+            disabled={isFlipping || gameState !== "playing"}
             aria-label="Tails"
             className="w-20 sm:w-24 h-12 sm:h-14 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 disabled:cursor-not-allowed text-black rounded-xl shadow-[0_0_8px_rgba(0,0,0,0.25)] transition-all active:scale-95 flex items-center justify-center cf-press"
           >

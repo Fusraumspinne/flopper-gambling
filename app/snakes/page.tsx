@@ -1121,7 +1121,7 @@ export default function SnakesPage() {
         )}
 
         {gameState === "cashed" && lastWin > 0 && (
-          <div className="p-3 rounded-md bg-[#213743] border border-[#00e701] text-center">
+          <div className="p-4 rounded-md bg-[#213743] border border-[#00e701] text-center">
             <div className="text-xs uppercase text-[#b1bad3]">You Won</div>
             <div className="text-2xl font-bold text-[#00e701]">
               ${lastWin.toFixed(2)}

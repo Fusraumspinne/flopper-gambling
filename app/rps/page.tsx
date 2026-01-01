@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { PlayArrow } from "@mui/icons-material";
 
 type Choice = "rock" | "paper" | "scissors";
 type GameResult = "win" | "lose" | "draw";
@@ -108,6 +109,29 @@ export default function RPSPage() {
     const num = Number(sanitized);
     setBetAmount(num);
     setBetInput(sanitized);
+  };
+
+  const placeBet = () => {
+    if (balance <= 0) return;
+
+    let actualBet = betAmount;
+    if (betAmount > balance) {
+      actualBet = Number(balance.toFixed(2));
+      setBetAmount(actualBet);
+      setBetInput(String(actualBet));
+    }
+
+    subtractFromBalance(actualBet);
+    playAudio(audioRef.current.bet);
+    setGameState("playing");
+    setStreak(0);
+    setHistory([]);
+    setLastWin(0);
+    setIsLocked(false);
+    setActiveStepIndex(null);
+    setUserChoice(null);
+    setComputerChoice(null);
+    setLastResult(null);
   };
 
   const startGame = (choice: Choice) => {
@@ -266,8 +290,8 @@ export default function RPSPage() {
   };
 
   return (
-    <main className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+    <main className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row items-start gap-4 lg:gap-8">
+      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs self-start">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -320,19 +344,31 @@ export default function RPSPage() {
               All In
             </button>
           </div>
+          {gameState !== "playing" && (
+            <div className="mt-2">
+              <button
+                onClick={placeBet}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <PlayArrow />
+                Bet
+              </button>
+            </div>
+          )}
+ 
+          {gameState === "playing" && (
+            <div className="flex flex-col mt-2">
+              <button
+                onClick={cashOut}
+                disabled={isProcessing || isLocked || streak === 0}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cashout
+              </button>
+            </div>
+          )}
         </div>
 
-        {gameState === "playing" && (
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={cashOut}
-              disabled={isProcessing || isLocked || streak === 0}
-              className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Cashout
-            </button>
-          </div>
-        )}
 
         {gameState === "playing" && (
           <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
@@ -347,7 +383,7 @@ export default function RPSPage() {
         )}
 
         {lastWin > 0 && gameState === "cashed_out" && (
-          <div className="mt-4 p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
+          <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
             <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
             <div className="text-xl font-bold text-[#00e701]">
               ${lastWin.toFixed(2)}
@@ -374,7 +410,6 @@ export default function RPSPage() {
         )}
 
         <div className="relative w-full h-full flex flex-col items-center justify-center z-10 gap-8">
-          {/* Track Window */}
           <div 
             className="w-full overflow-hidden relative h-60"
             style={{ maskImage: 'linear-gradient(to right, transparent, black 10%, black 90%, transparent)', WebkitMaskImage: 'linear-gradient(to right, transparent, black 10%, black 90%, transparent)' }}
@@ -540,14 +575,11 @@ export default function RPSPage() {
             {CHOICES.map((choice) => (
               <button
                 key={choice}
-                onClick={() =>
-                  gameState === "playing"
-                    ? continueGame(choice)
-                    : startGame(choice)
-                }
+                onClick={() => continueGame(choice)}
                 disabled={
                   isProcessing ||
-                  isLocked
+                  isLocked ||
+                  gameState !== "playing"
                 }
                 className={`
                   w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-[#374151] border-b-4 border-[#1f2937] 

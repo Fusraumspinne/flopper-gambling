@@ -51,7 +51,7 @@ function createEmptyStats() {
     wagered: 0,
     wins: 0,
     losses: 0,
-    history: [{ t: now, net: 0 }],
+    history: [],
   };
 }
 
@@ -103,9 +103,11 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
 
   const chartData = useMemo(() => {
     const points = selectedStats.history;
-    if (points.length === 0) return [] as Array<{ t: number; net: number; pos: number | null; neg: number | null }>;
+    if (points.length === 0) return [] as Array<{ x: number; net: number; pos: number | null; neg: number | null }>;
 
-    const out: Array<{ t: number; net: number }> = [{ t: points[0].t, net: points[0].net }];
+    // Use bet index as the X axis to avoid long flat segments when time passes between bets.
+    // Each history point represents the net after a settled round.
+    const out: Array<{ x: number; net: number }> = [{ x: 1, net: points[0].net }];
 
     for (let i = 1; i < points.length; i++) {
       const prev = points[i - 1];
@@ -117,22 +119,25 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
       const prevSign = prevNet === 0 ? 0 : prevNet > 0 ? 1 : -1;
       const currSign = currNet === 0 ? 0 : currNet > 0 ? 1 : -1;
 
+      const prevX = i;
+      const currX = i + 1;
+
       if (prevSign !== 0 && currSign !== 0 && prevSign !== currSign) {
         const denom = currNet - prevNet;
         if (denom !== 0) {
           const ratio = (0 - prevNet) / denom; // 0..1
-          const tCross = prev.t + (curr.t - prev.t) * ratio;
-          out.push({ t: tCross, net: 0 });
+          const xCross = prevX + (currX - prevX) * ratio;
+          out.push({ x: xCross, net: 0 });
         }
       }
 
-      out.push({ t: curr.t, net: currNet });
+      out.push({ x: currX, net: currNet });
     }
 
     return out.map((p) => {
       const net = p.net;
       return {
-        t: p.t,
+        x: p.x,
         net,
         pos: net >= 0 ? net : null,
         neg: net <= 0 ? net : null,
@@ -237,7 +242,7 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
               <div className="h-12 xl:h-32">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-                    <XAxis dataKey="t" hide />
+                    <XAxis dataKey="x" hide />
                     <YAxis
                       hide
                       domain={[(dMin: number) => Math.min(dMin, yDomain.min, 0), (dMax: number) => Math.max(dMax, yDomain.max, 0)]}

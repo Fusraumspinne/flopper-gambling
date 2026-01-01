@@ -76,7 +76,7 @@ function createEmptyLiveStats(): LiveStatsState {
     wagered: 0,
     wins: 0,
     losses: 0,
-    history: [{ t: now, net: 0 }],
+    history: [],
   };
 }
 
@@ -132,7 +132,7 @@ function buildAllAggregate(map: LiveStatsByGame): LiveStatsState {
   events.sort((a, b) => a.t - b.t);
 
   let net = 0;
-  const history: LiveStatsPoint[] = [{ t: startedAt, net }];
+  const history: LiveStatsPoint[] = [];
   for (const ev of events) {
     net = normalizeMoney(net + ev.delta);
     history.push({ t: ev.t, net });
@@ -144,7 +144,7 @@ function buildAllAggregate(map: LiveStatsByGame): LiveStatsState {
     wagered: normalizeMoney(wagered),
     wins,
     losses,
-    history: history.length > 0 ? history : [{ t: startedAt, net: 0 }],
+    history,
   };
 }
 
@@ -191,14 +191,17 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         for (const key of Object.keys(parsed)) {
           const maybe = parsed[key as keyof LiveStatsByGame];
           if (isValidLiveStats(maybe)) {
+            const normalizedNet = normalizeMoney(maybe.net);
             next[key as GameKey] = {
               ...maybe,
-              net: normalizeMoney(maybe.net),
+              net: normalizedNet,
               wagered: normalizeMoney(maybe.wagered),
               history:
                 maybe.history.length > 0
                   ? maybe.history.map((p) => ({ t: p.t, net: normalizeMoney(p.net) }))
-                  : [{ t: Date.now(), net: normalizeMoney(maybe.net) }],
+                  : normalizedNet === 0
+                    ? []
+                    : [{ t: Date.now(), net: normalizedNet }],
             };
           }
         }
@@ -247,7 +250,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   const applyNetChange = (roundNet: number) => {
     const delta = normalizeMoney(roundNet);
-    if (delta === 0) return;
     updateCurrentAndAll((prev, now) => {
       const nextNet = normalizeMoney(prev.net + delta);
       const nextHistory = [...prev.history, { t: now, net: nextNet }];
