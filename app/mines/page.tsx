@@ -165,6 +165,64 @@ export default function MinesPage() {
   const autoNetRef = useRef<number>(0);
   const autoPickOrderRef = useRef<number[]>([]);
 
+  const audioRef = useRef({
+    bet: new Audio("/sounds/Bet.mp3"),
+    minePop: new Audio("/sounds/MinePop.mp3"),
+    reveal1: new Audio("/sounds/MineReveal1.mp3"),
+    reveal2: new Audio("/sounds/MineReveal2.mp3"),
+    reveal3: new Audio("/sounds/MineReveal3.mp3"),
+    select: new Audio("/sounds/Select.mp3"),
+    win: new Audio("/sounds/Win.mp3"),
+  });
+
+  const playAudio = (a?: HTMLAudioElement) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {
+    }
+  };
+
+  const playRevealSound = (revealed: number, totalSafe: number) => {
+    if (totalSafe <= 0) return;
+    const pct = revealed / totalSafe;
+    if (pct <= 1 / 3) {
+      playAudio(audioRef.current.reveal1);
+    } else if (pct <= 2 / 3) {
+      playAudio(audioRef.current.reveal2);
+    } else {
+      playAudio(audioRef.current.reveal3);
+    }
+  };
+
+  const playMinePopSound = () => playAudio(audioRef.current.minePop);
+
+  const playWinSound = () => playAudio(audioRef.current.win);
+
+  useEffect(() => {
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   useEffect(() => {
     betAmountRef.current = betAmount;
   }, [betAmount]);
@@ -251,8 +309,10 @@ export default function MinesPage() {
         if (idx >= 0) {
           const next = [...prev];
           next.splice(idx, 1);
+          playAudio(audioRef.current.select);
           return next;
         }
+        playAudio(audioRef.current.select);
         return [...prev, id];
       });
     },
@@ -288,6 +348,7 @@ export default function MinesPage() {
 
     subtractFromBalance(betAmount);
     setGameState("playing");
+    playAudio(audioRef.current.bet);
     setRevealedCount(0);
     setLastWin(0);
 
@@ -328,14 +389,15 @@ export default function MinesPage() {
     setGrid(newGrid);
 
     if (tile.isMine) {
+      playMinePopSound();
       setGameState("game_over");
       setGrid(newGrid.map((t) => ({ ...t, isRevealed: true })));
-      // popped on mine -> red flash
       setResultFx("lose");
       resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
       finalizePendingLoss();
     } else {
       const newRevealedCount = revealedCount + 1;
+      playRevealSound(newRevealedCount, 25 - mineCount);
       setRevealedCount(newRevealedCount);
 
       const totalSafeTiles = 25 - mineCount;
@@ -344,7 +406,7 @@ export default function MinesPage() {
           betAmount * MULTIPLIERS[mineCount][newRevealedCount - 1];
         addToBalance(winAmount);
         setLastWin(winAmount);
-        // final win -> green flash
+        playWinSound();
         if (resultTimeoutRef.current) {
           clearTimeout(resultTimeoutRef.current);
           resultTimeoutRef.current = null;
@@ -355,7 +417,6 @@ export default function MinesPage() {
 
         setGrid(newGrid.map((t) => ({ ...t, isRevealed: true })));
       }
-      // clear rolling overlay after a safe pick
       setResultFx(null);
     }
   };
@@ -369,6 +430,8 @@ export default function MinesPage() {
     addToBalance(winAmount);
     setLastWin(winAmount);
     setGameState("cashed_out");
+
+    playWinSound();
 
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);
@@ -410,6 +473,7 @@ export default function MinesPage() {
       setRevealedCount(0);
       setBetBoth(bet);
       subtractFromBalance(bet);
+      playAudio(audioRef.current.bet);
       setGameState("playing");
 
       let gridLocal: Tile[] = Array.from({ length: 25 }, (_, i) => ({
@@ -457,12 +521,14 @@ export default function MinesPage() {
           setGameState("game_over");
           gridLocal = gridLocal.map((t) => ({ ...t, isRevealed: true }));
           setGrid(gridLocal);
+          playMinePopSound();
           finalizePendingLoss();
           await showFx("lose");
           return { betAmount: bet, winAmount: 0, didWin: false };
         }
 
         revealedLocal++;
+        playRevealSound(revealedLocal, totalSafeTiles);
         setRevealedCount(revealedLocal);
         setResultFx(null);
 
@@ -472,6 +538,7 @@ export default function MinesPage() {
           addToBalance(winAmount);
           setLastWin(winAmount);
           setGameState("cashed_out");
+          playWinSound();
           gridLocal = gridLocal.map((t) => ({ ...t, isRevealed: true }));
           setGrid(gridLocal);
           await showFx("win");
@@ -481,7 +548,6 @@ export default function MinesPage() {
         await sleep(120);
       }
 
-      // cashout after last planned safe pick (if any)
       if (revealedLocal <= 0) {
         setGameState("game_over");
         gridLocal = gridLocal.map((t) => ({ ...t, isRevealed: true }));
@@ -496,6 +562,7 @@ export default function MinesPage() {
       addToBalance(winAmount);
       setLastWin(winAmount);
       setGameState("cashed_out");
+      playWinSound();
       gridLocal = gridLocal.map((t) => ({ ...t, isRevealed: true }));
       setGrid(gridLocal);
       await showFx("win");

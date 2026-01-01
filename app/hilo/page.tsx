@@ -83,6 +83,64 @@ export default function HiloPage() {
   );
   const resultTimeoutRef = React.useRef<number | null>(null);
 
+  const audioRef = React.useRef<{
+    bet: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    limboLose: HTMLAudioElement | null;
+    flipCards: HTMLAudioElement | null;
+  }>({ bet: null, win: null, limboLose: null, flipCards: null });
+
+  const audioUnlockedRef = React.useRef(false);
+
+  const playAudio = (a: HTMLAudioElement | null) => {
+    if (!a) return;
+    // Do not attempt to play before the user has unlocked audio
+    if (!audioUnlockedRef.current) return;
+    try {
+      a.currentTime = 0;
+      const p = a.play();
+      if (p && typeof (p as Promise<void>).catch === "function") {
+        (p as Promise<void>).catch(() => {});
+      }
+    } catch (e) {
+      // ignore sync errors
+    }
+  };
+
+  useEffect(() => {
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      limboLose: new Audio("/sounds/LimboLose.mp3"),
+      flipCards: new Audio("/sounds/FlipCards.mp3"),
+    };
+
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          if (!a) continue;
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+        audioUnlockedRef.current = true;
+      } catch (e) {
+        audioUnlockedRef.current = true;
+      }
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true, capture: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   useEffect(() => {
     setCurrentCard(generateCard());
   }, []);
@@ -103,6 +161,7 @@ export default function HiloPage() {
     setRevealedCards((r) => ({ ...r, [currentCard.id]: false }));
     const t = window.setTimeout(() => {
       setRevealedCards((r) => ({ ...r, [currentCard.id]: true }));
+      playAudio(audioRef.current.flipCards);
     }, 140);
     revealTimeouts.current.push(t);
   }, [currentCard]);
@@ -112,6 +171,7 @@ export default function HiloPage() {
     setRevealedCards((r) => ({ ...r, [nextCard.id]: false }));
     const t = window.setTimeout(() => {
       setRevealedCards((r) => ({ ...r, [nextCard.id]: true }));
+      playAudio(audioRef.current.flipCards);
     }, 140);
     revealTimeouts.current.push(t);
   }, [nextCard]);
@@ -157,6 +217,7 @@ export default function HiloPage() {
     if (gameState === "playing") return;
 
     subtractFromBalance(betAmount);
+    playAudio(audioRef.current.bet);
     setGameState("playing");
     setHistory([]);
     setMultiplier(1);
@@ -204,6 +265,7 @@ export default function HiloPage() {
         if (resultTimeoutRef.current) {
           clearTimeout(resultTimeoutRef.current);
         }
+        playAudio(audioRef.current.limboLose);
         setResultFx("lose");
         resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
         setGameState("idle");
@@ -220,6 +282,7 @@ export default function HiloPage() {
     const winAmount = betAmount * multiplier;
     addToBalance(winAmount);
     setLastWin(winAmount);
+    playAudio(audioRef.current.win);
     setGameState("cashed_out");
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);

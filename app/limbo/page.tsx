@@ -9,7 +9,7 @@ type GameState = "idle" | "rolling" | "won" | "lost";
 const HOUSE_EDGE = 0.99;
 const MIN_TARGET = 1.01;
 const MAX_TARGET = Infinity;
-const ROLL_ANIMATION_MS = 1000;
+const ROLL_ANIMATION_MS = 750;
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
@@ -71,6 +71,59 @@ export default function LimboPage() {
   const autoOriginalBetRef = useRef<number>(0);
   const autoNetRef = useRef<number>(0);
   const resultTimeoutRef = useRef<number | null>(null);
+
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    limboLose: HTMLAudioElement | null;
+    tick: HTMLAudioElement | null;
+  }>({
+    bet: null,
+    win: null,
+    limboLose: null,
+    tick: null,
+  });
+
+  useEffect(() => {
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      limboLose: new Audio("/sounds/LimboLose.mp3"),
+      tick: new Audio("/sounds/Tick.mp3"),
+    };
+  }, []);
+
+  const playAudio = (a: HTMLAudioElement | null) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current);
+        for (const a of items) {
+          if (!a) continue;
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
 
   useEffect(() => {
     betAmountRef.current = betAmount;
@@ -143,6 +196,8 @@ export default function LimboPage() {
       }
 
       subtractFromBalance(bet);
+      playAudio(audioRef.current.bet);
+      setTimeout(() => playAudio(audioRef.current.tick), 150);
       setLastWin(0);
       isRollingRef.current = true;
       setGameState("rolling");
@@ -193,12 +248,14 @@ export default function LimboPage() {
         addToBalance(payout);
         setLastWin(payout);
         setGameState("won");
+        playAudio(audioRef.current.win);
         setResultAnimNonce((n) => n + 1);
         isRollingRef.current = false;
         winAmount = payout;
       } else {
         finalizePendingLoss();
         setGameState("lost");
+        playAudio(audioRef.current.limboLose);
         setResultAnimNonce((n) => n + 1);
         isRollingRef.current = false;
         winAmount = 0;

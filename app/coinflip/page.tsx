@@ -27,6 +27,54 @@ export default function CoinFlipPage() {
   const [pendingResult, setPendingResult] = useState<CoinSide | null>(null);
   const [flipKey, setFlipKey] = useState<number>(0);
 
+  const audioRef = React.useRef<{
+    bet: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    limboLose: HTMLAudioElement | null;
+    coinflip: HTMLAudioElement | null;
+    coin: HTMLAudioElement | null;
+  }>({ bet: null, win: null, limboLose: null, coinflip: null, coin: null });
+
+  const playAudio = (a: HTMLAudioElement | null) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {}
+  };
+
+  React.useEffect(() => {
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      limboLose: new Audio("/sounds/LimboLose.mp3"),
+      coinflip: new Audio("/sounds/Coinflip.mp3"),
+      coin: new Audio("/sounds/Coin.mp3"),
+    };
+
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          if (!a) continue;
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   const currentMultiplier = Math.pow(HOUSE_EDGE_MULTIPLIER, streak);
   const nextMultiplier = Math.pow(HOUSE_EDGE_MULTIPLIER, streak + 1);
   const currentPayout = betAmount * currentMultiplier;
@@ -48,6 +96,7 @@ export default function CoinFlipPage() {
     if (balance < betAmount) return;
 
     subtractFromBalance(betAmount);
+    playAudio(audioRef.current.bet);
     setGameState("playing");
     setStreak(0);
     setHistory([]);
@@ -68,6 +117,8 @@ export default function CoinFlipPage() {
     setIsFlipping(true);
     setFx(null);
 
+    playAudio(audioRef.current.coinflip);
+
     const result: CoinSide = Math.random() > 0.5 ? "heads" : "tails";
     setPendingResult(result);
     setFlipKey((k) => k + 1);
@@ -81,14 +132,15 @@ export default function CoinFlipPage() {
 
     const didWin = result === choice;
     if (didWin) {
-      // do not show green on each win; only show on cashout
       setFx(null);
+      playAudio(audioRef.current.coin);
     } else {
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
         resultTimeoutRef.current = null;
       }
       setFx("lose");
+      playAudio(audioRef.current.limboLose);
       setFxKey((k) => k + 1);
       resultTimeoutRef.current = window.setTimeout(() => setFx(null), 900);
     }
@@ -107,6 +159,7 @@ export default function CoinFlipPage() {
 
     addToBalance(currentPayout);
     setLastWin(currentPayout);
+    playAudio(audioRef.current.win);
     setGameState("cashed_out");
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);

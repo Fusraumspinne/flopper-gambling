@@ -413,6 +413,66 @@ export default function ChickenPage() {
     null
   );
 
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    chickenJump: HTMLAudioElement | null;
+    chickenFire: HTMLAudioElement | null;
+    chickenSquash: HTMLAudioElement | null;
+    barricade: HTMLAudioElement | null;
+    chickenCarCrash: HTMLAudioElement | null;
+  }>({
+    bet: null,
+    win: null,
+    chickenJump: null,
+    chickenFire: null,
+    chickenSquash: null,
+    barricade: null,
+    chickenCarCrash: null,
+  });
+
+  const playAudio = (a: HTMLAudioElement | null) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      chickenJump: new Audio("/sounds/ChickenJump.mp3"),
+      chickenFire: new Audio("/sounds/ChickenFire.mp3"),
+      chickenSquash: new Audio("/sounds/ChickenSquash.mp3"),
+      barricade: new Audio("/sounds/Barricade.mp3"),
+      chickenCarCrash: new Audio("/sounds/ChickenCarCrash.mp3"),
+    };
+
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          if (!a) continue;
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   const [isCrashBlocking, setIsCrashBlocking] = useState(false);
   const isCrashBlockingRef = useRef<boolean>(false);
 
@@ -536,6 +596,7 @@ export default function ChickenPage() {
     if (gameStateRef.current === "walking") return;
 
     subtractFromBalance(bet);
+    playAudio(audioRef.current.bet);
     setGameState("walking");
     gameStateRef.current = "walking";
     setCurrentStep(0);
@@ -575,6 +636,12 @@ export default function ChickenPage() {
         carBaseDurationMs,
         carDelayMs,
       });
+      // play appropriate death sound
+      if (type === "fire") {
+        playAudio(audioRef.current.chickenFire);
+      } else {
+        playAudio(audioRef.current.chickenSquash);
+      }
       if (resultTimeoutRef.current) {
         window.clearTimeout(resultTimeoutRef.current);
       }
@@ -614,6 +681,7 @@ export default function ChickenPage() {
         window.clearTimeout(resultTimeoutRef.current);
       }
       setResultFx("win");
+      playAudio(audioRef.current.win);
       resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
     },
     [addToBalance, multiplierForStep]
@@ -649,6 +717,7 @@ export default function ChickenPage() {
       );
 
       subtractFromBalance(bet);
+      playAudio(audioRef.current.bet);
       setGameState("walking");
       gameStateRef.current = "walking";
       setCurrentStep(0);
@@ -698,6 +767,9 @@ export default function ChickenPage() {
         }
 
         setCurrentStep(next);
+        // step sound + barricade placement sound
+        playAudio(audioRef.current.chickenJump);
+        playAudio(audioRef.current.barricade);
         currentStepRef.current = next;
         setIsAnimatingStep(false);
         isAnimatingStepRef.current = false;
@@ -904,6 +976,9 @@ export default function ChickenPage() {
     }
 
     setCurrentStep(nextStep);
+    // play jump + barricade sound for the step
+    playAudio(audioRef.current.chickenJump);
+    playAudio(audioRef.current.barricade);
     setIsAnimatingStep(false);
 
     if (nextStep === steps.length && safeLimit >= steps.length) {
@@ -1065,6 +1140,9 @@ export default function ChickenPage() {
       .map((c) => c.id);
 
     if (idsToCrash.length === 0) return;
+
+    // play car->barricade crash sound
+    playAudio(audioRef.current.chickenCarCrash);
 
     const computeCurrentY = (car: CarAnim) => {
       const durationMs = Math.max(1, car.duration / 3 / 2);

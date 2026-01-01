@@ -119,6 +119,47 @@ export default function KenoPage() {
   );
   const resultTimeoutRef = React.useRef<number | null>(null);
 
+  const audioRef = React.useRef({
+    bet: new Audio("/sounds/Bet.mp3"),
+    select: new Audio("/sounds/Select.mp3"),
+    reveal: new Audio("/sounds/KenoReveal.mp3"),
+    match: new Audio("/sounds/KenoMatch.mp3"),
+    win: new Audio("/sounds/Win.mp3"),
+    limboLose: new Audio("/sounds/LimboLose.mp3"),
+  });
+
+  const playAudio = (a?: HTMLAudioElement) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {
+    }
+  };
+
+  useEffect(() => {
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (resultTimeoutRef.current) {
@@ -142,9 +183,11 @@ export default function KenoPage() {
     }
     if (selectedNumbers.includes(num)) {
       setSelectedNumbers((prev) => prev.filter((n) => n !== num));
+      playAudio(audioRef.current.select);
     } else {
       if (selectedNumbers.length < 10) {
         setSelectedNumbers((prev) => [...prev, num]);
+        playAudio(audioRef.current.select);
       }
     }
   };
@@ -274,6 +317,7 @@ export default function KenoPage() {
       }
 
       subtractFromBalance(bet);
+      playAudio(audioRef.current.bet);
       setLastWin(0);
       setDrawnNumbers([]);
       isAnimatingRef.current = true;
@@ -288,7 +332,13 @@ export default function KenoPage() {
 
       for (let i = 0; i < newDrawn.length; i++) {
         await new Promise((resolve) => setTimeout(resolve, 150));
-        setDrawnNumbers((prev) => [...prev, newDrawn[i]]);
+        const n = newDrawn[i];
+        setDrawnNumbers((prev) => [...prev, n]);
+        if (selectedNumbersRef.current.includes(n)) {
+          playAudio(audioRef.current.match);
+        } else {
+          playAudio(audioRef.current.reveal);
+        }
       }
 
       const matches = currentSelected.filter((n) => newDrawn.includes(n)).length;
@@ -300,12 +350,12 @@ export default function KenoPage() {
         await new Promise((resolve) => setTimeout(resolve, 300));
         addToBalance(winAmount);
         setLastWin(winAmount);
+        playAudio(audioRef.current.win);
         if (resultTimeoutRef.current) {
           clearTimeout(resultTimeoutRef.current);
           resultTimeoutRef.current = null;
         }
         setResultFx("win");
-        // allow immediate manual re-play while result FX still shows
         isAnimatingRef.current = false;
         setIsAnimating(false);
         await new Promise<void>((resolve) => {
@@ -322,6 +372,7 @@ export default function KenoPage() {
           resultTimeoutRef.current = null;
         }
         setResultFx("lose");
+        playAudio(audioRef.current.limboLose);
         isAnimatingRef.current = false;
         setIsAnimating(false);
         await new Promise<void>((resolve) => {
@@ -365,7 +416,6 @@ export default function KenoPage() {
     autoOriginalBetRef.current = startingBet;
     autoNetRef.current = 0;
 
-    // Critical: set ref immediately so the loop actually starts.
     isAutoBettingRef.current = true;
     setIsAutoBetting(true);
 

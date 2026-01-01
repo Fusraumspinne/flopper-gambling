@@ -290,6 +290,50 @@ export default function PlinkoPage() {
   const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
   const [resultKey, setResultKey] = useState(0);
 
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    impact: HTMLAudioElement | null;
+    limboLose: HTMLAudioElement | null;
+  }>({ bet: null, impact: null, limboLose: null });
+
+  const playAudio = (a: HTMLAudioElement | null) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      impact: new Audio("/sounds/PlinkoImpact.mp3"),
+      limboLose: new Audio("/sounds/LimboLose.mp3"),
+    };
+
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          if (!a) continue;
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   const syncCanvasDpi = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -332,6 +376,7 @@ export default function PlinkoPage() {
     setIsDroppingState(true);
 
     subtractFromBalance(bet);
+    playAudio(audioRef.current.bet);
     setLastWin(0);
     setResultFx("rolling");
     setResultKey((k) => k + 1);
@@ -536,9 +581,14 @@ export default function PlinkoPage() {
             setHistory((prev) => [mult, ...prev].slice(0, 7));
 
             const win = ball.bet * mult;
-            if (win > 0) {
-              addToBalance(win);
-              setLastWin(win);
+              if (win > 0) {
+                addToBalance(win);
+                setLastWin(win);
+                if (mult >= 1) {
+                  playAudio(audioRef.current.impact);
+                } else {
+                  playAudio(audioRef.current.limboLose);
+                }
 
               const slotPos = getSlotPos(slotIndex);
               const strength = Math.min(2.0, Math.max(0.85, Math.log10(win + 1)));
@@ -570,6 +620,7 @@ export default function PlinkoPage() {
               }
             } else {
               finalizePendingLoss();
+              playAudio(audioRef.current.limboLose);
               if (resultTimeoutRef.current) clearTimeout(resultTimeoutRef.current);
               setResultFx("lose");
               setResultKey((k) => k + 1);

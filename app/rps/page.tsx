@@ -38,6 +38,52 @@ export default function RPSPage() {
   );
   const resultTimeoutRef = useRef<number | null>(null);
 
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    limboLose: HTMLAudioElement | null;
+    flipCards: HTMLAudioElement | null;
+  }>({ bet: null, win: null, limboLose: null, flipCards: null });
+
+  const playAudio = (a: HTMLAudioElement | null) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      limboLose: new Audio("/sounds/LimboLose.mp3"),
+      flipCards: new Audio("/sounds/FlipCards.mp3"),
+    };
+
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          if (!a) continue;
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (resultTimeoutRef.current) {
@@ -67,7 +113,6 @@ export default function RPSPage() {
   const startGame = (choice: Choice) => {
     if (balance <= 0) return;
 
-    // If the current bet is larger than available balance, auto-adjust to All In
     let actualBet = betAmount;
     if (betAmount > balance) {
       actualBet = Number(balance.toFixed(2));
@@ -76,6 +121,7 @@ export default function RPSPage() {
     }
 
     subtractFromBalance(actualBet);
+    playAudio(audioRef.current.bet);
     setGameState("playing");
     setStreak(0);
     setHistory([]);
@@ -129,10 +175,10 @@ export default function RPSPage() {
 
     const compChoice = getComputerChoice();
     setComputerChoice(compChoice);
+    playAudio(audioRef.current.flipCards);
 
     const result = determineWinner(choice, compChoice);
     setLastResult(result);
-    // Stop rolling FX once the outcome is known (win/lose may override).
     setResultFx(null);
     setIsProcessing(false);
 
@@ -176,6 +222,7 @@ export default function RPSPage() {
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
       }
+      playAudio(audioRef.current.limboLose);
       setResultFx("lose");
       resultTimeoutRef.current = window.setTimeout(() => {
         setResultFx(null);
@@ -197,6 +244,7 @@ export default function RPSPage() {
 
     addToBalance(currentPayout);
     setLastWin(currentPayout);
+    playAudio(audioRef.current.win);
     setGameState("cashed_out");
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);

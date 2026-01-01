@@ -133,6 +133,46 @@ export default function DragonTowerPage() {
     Array.from({ length: TOWER_LEVELS }, () => null)
   );
 
+  const audioRef = useRef({
+    bet: new Audio("/sounds/Bet.mp3"),
+    select: new Audio("/sounds/Select.mp3"),
+    fireReveal: new Audio("/sounds/FireReveal.mp3"),
+    dragonWin: new Audio("/sounds/DragonWin.mp3"),
+    eggReveal: new Audio("/sounds/EggReveal.mp3"),
+    win: new Audio("/sounds/Win.mp3"),
+  });
+
+  const playAudio = (a?: HTMLAudioElement) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {
+    }
+  };
+
+  useEffect(() => {
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   const stepsScrollRef = useRef<HTMLDivElement | null>(null);
   const stepRefs = useRef<Array<HTMLDivElement | null>>([]);
 
@@ -173,7 +213,6 @@ export default function DragonTowerPage() {
   }, [autoPickPlan]);
 
   useEffect(() => {
-    // Clamp pick plan when risk/fields-count changes.
     setAutoPickPlan((prev) =>
       prev.map((v) => {
         if (v == null) return null;
@@ -299,6 +338,7 @@ export default function DragonTowerPage() {
     setLastWin(0);
 
     subtractFromBalance(betAmount);
+    playAudio(audioRef.current.bet);
 
     const traps: number[][] = [];
     const trapsPerLevel = TRAPS_PER_LEVEL[riskLevel] ?? 1;
@@ -331,7 +371,7 @@ export default function DragonTowerPage() {
     await new Promise((r) => setTimeout(r, 150));
     addToBalance(win);
     setLastWin(win);
-    // show green cashout flash
+    playAudio(audioRef.current.win);
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);
       resultTimeoutRef.current = null;
@@ -418,10 +458,15 @@ export default function DragonTowerPage() {
 
     setReveals((prev) => [...prev, reveal]);
 
+    if (outcome === "safe") {
+      playAudio(audioRef.current.eggReveal);
+    }
+
     await new Promise((r) => setTimeout(r, 180));
 
     if (outcome === "trap") {
       revealAllRemainingRows();
+      playAudio(audioRef.current.fireReveal);
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
         resultTimeoutRef.current = null;
@@ -443,6 +488,8 @@ export default function DragonTowerPage() {
       await new Promise((r) => setTimeout(r, 200));
       addToBalance(win);
       setLastWin(win);
+      playAudio(audioRef.current.dragonWin);
+      playAudio(audioRef.current.win);
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
         resultTimeoutRef.current = null;
@@ -546,6 +593,7 @@ export default function DragonTowerPage() {
       setLastWin(0);
       setBetBoth(bet);
       subtractFromBalance(bet);
+      playAudio(audioRef.current.bet);
 
       const traps: number[][] = [];
       for (let i = 0; i < TOWER_LEVELS; i++) {
@@ -589,10 +637,15 @@ export default function DragonTowerPage() {
         };
         setReveals((prev) => [...prev, reveal]);
 
+        if (outcome === "safe") {
+          playAudio(audioRef.current.eggReveal);
+        }
+
         await sleep(180);
 
         if (outcome === "trap") {
           revealAllRemainingRowsFrom(traps);
+          playAudio(audioRef.current.fireReveal);
           await showFx("lose");
           finalizePendingLoss();
           setRoundState("busted");
@@ -609,6 +662,8 @@ export default function DragonTowerPage() {
           await sleep(200);
           addToBalance(win);
           setLastWin(win);
+          playAudio(audioRef.current.dragonWin);
+          playAudio(audioRef.current.win);
           await showFx("win");
           revealAllRemainingRowsFrom(traps);
           setRoundState("cashed");
@@ -619,7 +674,6 @@ export default function DragonTowerPage() {
         setIsBusy(false);
       }
 
-      // Cashout after last planned safe pick (or level 0 would have returned null earlier)
       const cashLevel = Math.max(1, plannedPicks);
       const cashMult = roundMultipliers[cashLevel - 1] ?? 1;
       const win = normalizeMoney(bet * cashMult);
@@ -1283,7 +1337,8 @@ export default function DragonTowerPage() {
                                 next[rowLevel] = prev[rowLevel] === idx ? null : idx;
                                 return next;
                               });
-                              return;
+                                                      playAudio(audioRef.current.select);
+                                                      return;
                             }
 
                             pickField(idx);

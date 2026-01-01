@@ -69,6 +69,62 @@ export default function DicePage() {
   const isAutoBettingRef = useRef<boolean>(false);
   const autoOriginalBetRef = useRef<number>(0);
 
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    limboLose: HTMLAudioElement | null;
+    diceRolling: HTMLAudioElement | null;
+    diceSelected: HTMLAudioElement | null;
+  }>({
+    bet: null,
+    win: null,
+    limboLose: null,
+    diceRolling: null,
+    diceSelected: null,
+  });
+
+  const playAudio = (a: HTMLAudioElement | null) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      limboLose: new Audio("/sounds/LimboLose.mp3"),
+      diceRolling: new Audio("/sounds/DiceRolling.mp3"),
+      diceSelected: new Audio("/sounds/DiceSelected.mp3"),
+    };
+  }, []);
+
+  useEffect(() => {
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current);
+        for (const a of items) {
+          if (!a) continue;
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   const winChance = useMemo(() => {
     if (rollOver) {
       return 100 - sliderValue;
@@ -146,6 +202,7 @@ export default function DicePage() {
   };
 
   const toggleMode = () => {
+    playAudio(audioRef.current.diceSelected);
     setRollOver(!rollOver);
     const next = round2(100 - sliderValue);
     setSliderValue(next);
@@ -199,6 +256,8 @@ export default function DicePage() {
       const fullWinAmount = normalizeMoney(bet * roundMultiplier);
 
       subtractFromBalance(bet);
+      playAudio(audioRef.current.bet);
+      playAudio(audioRef.current.diceRolling);
       setLastWin(0);
       setGameState("rolling");
       setLastResult(null);
@@ -245,10 +304,12 @@ export default function DicePage() {
         setLastWin(winAmount);
         setGameState("won");
         setResultFx("win");
+        playAudio(audioRef.current.win);
       } else {
         finalizePendingLoss();
         setGameState("lost");
         setResultFx("lose");
+        playAudio(audioRef.current.limboLose);
       }
 
       await new Promise<void>((resolve) => {

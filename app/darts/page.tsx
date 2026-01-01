@@ -235,6 +235,50 @@ export default function DartsPage() {
     x: number;
     y: number;
   } | null>(null);
+
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    dartsLose: HTMLAudioElement | null;
+  }>({ bet: null, win: null, dartsLose: null });
+
+  const playAudio = (a: HTMLAudioElement | null) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      dartsLose: new Audio("/sounds/DartsLose.mp3"),
+    };
+
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          if (!a) continue;
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
   const [history, setHistory] = useState<
     { multiplier: number; color: string }[]
   >([]);
@@ -370,6 +414,7 @@ export default function DartsPage() {
       setArrowPos(null);
 
       subtractFromBalance(bet);
+      playAudio(audioRef.current.bet);
 
       const rand = Math.random() * 100;
       const probs = currentConfig.probabilities;
@@ -446,13 +491,22 @@ export default function DartsPage() {
       setLastMultiplier(multiplier);
       setDartPosition({ x, y });
 
-      await sleep(300);
+      if (multiplier >= 1) {
+        playAudio(audioRef.current.win);
+      } else {
+        playAudio(audioRef.current.dartsLose);
+      }
+
+      await sleep(220);
       if (playNonceRef.current !== myNonce) return null;
 
-      if (winAmount > 0) addToBalance(winAmount);
-      else finalizePendingLoss();
-
-      setLastWin(winAmount);
+      if (multiplier >= 1) {
+        addToBalance(winAmount);
+        setLastWin(winAmount);
+      } else {
+        finalizePendingLoss();
+        setLastWin(0);
+      }
       setHistory((prev) => [{ multiplier, color: COLORS[outcome] }, ...prev].slice(0, 5));
 
       isPlayingRef.current = false;

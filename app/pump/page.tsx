@@ -185,6 +185,45 @@ export default function PumpPage() {
   const autoOriginalBetRef = useRef<number>(0);
   const autoNetRef = useRef<number>(0);
 
+  const audioRef = useRef({
+    bet: new Audio("/sounds/Bet.mp3"),
+    spawn: new Audio("/sounds/BallonSpawn.mp3"),
+    pump: new Audio("/sounds/Pump.mp3"),
+    pop: new Audio("/sounds/BallonPop.mp3"),
+    win: new Audio("/sounds/Win.mp3"),
+  });
+
+  const playAudio = (a?: HTMLAudioElement) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {
+    }
+  };
+
+  useEffect(() => {
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   useEffect(() => {
     betAmountRef.current = betAmount;
   }, [betAmount]);
@@ -199,7 +238,6 @@ export default function PumpPage() {
   }, [isAutoBetting]);
 
   useEffect(() => {
-    // Clamp pumps-per-round whenever difficulty changes (different max pumps).
     setPumpsPerRoundInput((prev) => {
       const raw = prev.trim();
       const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
@@ -259,6 +297,9 @@ export default function PumpPage() {
     if (isAutoBettingRef.current) return;
 
     subtractFromBalance(betAmount);
+    subtractFromBalance(betAmount);
+    playAudio(audioRef.current.bet);
+    playAudio(audioRef.current.spawn);
     setIsFlyingAway(false);
     setGameState("playing");
     setCurrentStepIndex(0);
@@ -353,6 +394,7 @@ export default function PumpPage() {
     setIsPumping(false);
     const pressTimer = window.setTimeout(() => {
       setIsPumping(true);
+      playAudio(audioRef.current.pump);
 
       const safeLimit = plannedSafeSteps ?? (currentData.length - 1);
       const nextIndex = currentStepIndex + 1;
@@ -371,6 +413,7 @@ export default function PumpPage() {
         } else {
           setIsFlyingAway(false);
           setGameState("popped");
+          playAudio(audioRef.current.pop);
           finalizePendingLoss();
           setResultFx("lose");
           resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
@@ -387,6 +430,7 @@ export default function PumpPage() {
     addToBalance(payout);
     setLastWin(payout);
     setGameState("cashed_out");
+    playAudio(audioRef.current.win);
     setIsFlyingAway(true);
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);
@@ -432,6 +476,7 @@ export default function PumpPage() {
       }
 
       subtractFromBalance(bet);
+      playAudio(audioRef.current.bet);
       setBetBoth(bet);
 
       setIsFlyingAway(false);
@@ -460,10 +505,10 @@ export default function PumpPage() {
         setResultFx("rolling");
         setHasPumped(true);
 
-        // Restart pump animation each iteration by toggling isPumping
         setIsPumping(false);
         await sleep(10);
         setIsPumping(true);
+        playAudio(audioRef.current.pump);
         await sleep(300);
         setIsPumping(false);
 
@@ -477,6 +522,7 @@ export default function PumpPage() {
         } else {
           setIsFlyingAway(false);
           setGameState("popped");
+          playAudio(audioRef.current.pop);
           finalizePendingLoss();
           setResultFx("lose");
           await new Promise<void>((resolve) => {
@@ -494,6 +540,7 @@ export default function PumpPage() {
       addToBalance(payout);
       setLastWin(payout);
       setGameState("cashed_out");
+      playAudio(audioRef.current.win);
       setIsFlyingAway(true);
       setResultFx("win");
       await new Promise<void>((resolve) => {

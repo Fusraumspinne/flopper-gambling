@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { PlayArrow, Refresh, Bolt } from "@mui/icons-material";
 
@@ -101,6 +101,45 @@ export default function BlackjackPage() {
   const resultTimeoutRef = React.useRef<number | null>(null);
   const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
 
+  const audioRef = useRef({
+    bet: new Audio("/sounds/Bet.mp3"),
+    deal: new Audio("/sounds/DealCards.mp3"),
+    flip: new Audio("/sounds/FlipCards.mp3"),
+    remove: new Audio("/sounds/RemoveCards.mp3"),
+    win: new Audio("/sounds/Win.mp3"),
+  });
+
+  const playAudio = (a?: HTMLAudioElement) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {
+    }
+  };
+
+  useEffect(() => {
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (resultTimeoutRef.current) {
@@ -116,6 +155,7 @@ export default function BlackjackPage() {
     if (betAmount <= 0 || betAmount > balance) return;
 
     subtractFromBalance(betAmount);
+    playAudio(audioRef.current.bet);
     const newDeck = createDeck();
 
     const pCard1 = newDeck.pop()!;
@@ -142,11 +182,12 @@ export default function BlackjackPage() {
     setRevealedCards({});
     dealTimeouts.current.forEach((t) => clearTimeout(t));
     dealTimeouts.current = [];
-
+    playAudio(audioRef.current.deal);
     const dealtOrder = [pCard1, dCard1, pCard2];
     dealtOrder.forEach((c, i) => {
       const delay = 120 + i * 80;
       const t = window.setTimeout(() => {
+        playAudio(audioRef.current.flip);
         setRevealedCards((r) => ({ ...r, [c.id]: true }));
       }, delay);
       dealTimeouts.current.push(t);
@@ -180,6 +221,9 @@ export default function BlackjackPage() {
       setRevealedCards((r) => ({ ...r, [card.id]: true }));
     }, 160);
     dealTimeouts.current.push(t);
+    playAudio(audioRef.current.deal);
+    const flipT = window.setTimeout(() => playAudio(audioRef.current.flip), 160);
+    dealTimeouts.current.push(flipT);
 
     const value = calculateHandValue(currentHand.cards);
     if (value > 21) {
@@ -223,6 +267,10 @@ export default function BlackjackPage() {
       setRevealedCards((r) => ({ ...r, [card.id]: true }));
     }, 160);
     dealTimeouts.current.push(t);
+
+    playAudio(audioRef.current.deal);
+    const flipT2 = window.setTimeout(() => playAudio(audioRef.current.flip), 160);
+    dealTimeouts.current.push(flipT2);
 
     const value = calculateHandValue(hand.cards);
     if (value > 21) {
@@ -278,7 +326,10 @@ export default function BlackjackPage() {
 
     const t1 = window.setTimeout(() => setRevealedCards((r) => ({ ...r, [card1.id]: true })), 140);
     const t2 = window.setTimeout(() => setRevealedCards((r) => ({ ...r, [card2.id]: true })), 280);
-    dealTimeouts.current.push(t1, t2);
+    playAudio(audioRef.current.deal);
+    const f1 = window.setTimeout(() => playAudio(audioRef.current.flip), 140);
+    const f2 = window.setTimeout(() => playAudio(audioRef.current.flip), 280);
+    dealTimeouts.current.push(t1, t2, f1, f2);
   };
 
   const processNextHand = (hands: Hand[]) => {
@@ -330,6 +381,7 @@ export default function BlackjackPage() {
 
         if (dHand[1] && !revealedCards[dHand[1].id]) {
           const tHole = window.setTimeout(() => {
+            playAudio(audioRef.current.flip);
             setRevealedCards((r) => ({ ...r, [dHand[1].id]: true }));
           }, 160);
           dealTimeouts.current.push(tHole);
@@ -339,6 +391,7 @@ export default function BlackjackPage() {
           await new Promise((r) => setTimeout(r, 800));
           const card = currentDeck.pop();
           if (!card) break;
+          playAudio(audioRef.current.deal);
           dHand = [...dHand, card];
           setDealerHand(dHand);
           setDeck(currentDeck);
@@ -347,6 +400,7 @@ export default function BlackjackPage() {
           const latest = dHand[dHand.length - 1];
           if (latest && !revealedCards[latest.id]) {
             const t = window.setTimeout(() => {
+              playAudio(audioRef.current.flip);
               setRevealedCards((r) => ({ ...r, [latest.id]: true }));
             }, 180);
             dealTimeouts.current.push(t);
@@ -411,6 +465,11 @@ export default function BlackjackPage() {
       clearTimeout(resultTimeoutRef.current);
     }
     const anyWin = totalWin > 0;
+    if (anyWin) {
+      playAudio(audioRef.current.win);
+    } else {
+      playAudio(audioRef.current.remove);
+    }
     setResultFx(anyWin ? "win" : "lose");
     resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
   };

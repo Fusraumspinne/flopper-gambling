@@ -327,6 +327,59 @@ export default function CasesPage() {
     null
   );
   const resultTimeoutRef = useRef<number | null>(null);
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    limboLose: HTMLAudioElement | null;
+    spin: HTMLAudioElement | null;
+    caseOpen: HTMLAudioElement | null;
+  }>({
+    bet: null,
+    win: null,
+    limboLose: null,
+    spin: null,
+    caseOpen: null,
+  });
+
+  const playAudio = (a: HTMLAudioElement | null) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      limboLose: new Audio("/sounds/LimboLose.mp3"),
+      spin: new Audio("/sounds/Spin.mp3"),
+      caseOpen: new Audio("/sounds/CaseOpen.mp3"),
+    };
+
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          if (!a) continue;
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -600,6 +653,9 @@ export default function CasesPage() {
       setResultFx("rolling");
 
       subtractFromBalance(bet);
+      playAudio(audioRef.current.bet);
+      // play spin sound when a spin starts
+      setTimeout(() => playAudio(audioRef.current.spin), 40);
 
       setIsSpinning(true);
       isSpinningRef.current = true;
@@ -656,6 +712,8 @@ export default function CasesPage() {
       setOpenedIndex(TARGET_INDEX);
       setLastMultiplier(target.multiplier);
       setLastWin(payout);
+      // case opening sound
+      setTimeout(() => playAudio(audioRef.current.caseOpen), 80);
 
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
@@ -664,10 +722,12 @@ export default function CasesPage() {
 
       const isWin = target.multiplier >= 1;
 
-      if (payout > 0) {
+      if (isWin) {
         addToBalance(payout);
+        playAudio(audioRef.current.win);
       } else {
         finalizePendingLoss();
+        playAudio(audioRef.current.limboLose);
       }
 
       setResultFx(isWin ? "win" : "lose");

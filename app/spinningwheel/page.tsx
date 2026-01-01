@@ -346,6 +346,50 @@ export default function SpinningWheelPage() {
   const resultTimeoutRef = useRef<number | null>(null);
   const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
 
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    limboLose: HTMLAudioElement | null;
+  }>({ bet: null, win: null, limboLose: null });
+
+  const playAudio = (a: HTMLAudioElement | null) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      limboLose: new Audio("/sounds/LimboLose.mp3"),
+    };
+
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          if (!a) continue;
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   const betAmountRef = useRef<number>(100);
   const balanceRef = useRef<number>(0);
   const isSpinningRef = useRef(false);
@@ -503,6 +547,7 @@ export default function SpinningWheelPage() {
       }
 
       subtractFromBalance(bet);
+      playAudio(audioRef.current.bet);
       setLastWin(0);
       setLastMultiplier(null);
       setLastColor(null);
@@ -543,6 +588,14 @@ export default function SpinningWheelPage() {
           } else {
             finalizePendingLoss();
           }
+
+          // Play sounds: Win only for multis >= 1x, otherwise Limbo lose
+          if (chosen.multiplier >= 1) {
+            playAudio(audioRef.current.win);
+          } else {
+            playAudio(audioRef.current.limboLose);
+          }
+
           if (resultTimeoutRef.current) {
             clearTimeout(resultTimeoutRef.current);
             resultTimeoutRef.current = null;

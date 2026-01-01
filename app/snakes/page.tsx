@@ -254,6 +254,56 @@ export default function SnakesPage() {
   const autoOriginalBetRef = useRef<number>(0);
   const autoNetRef = useRef<number>(0);
 
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    limboLose: HTMLAudioElement | null;
+    rollDice: HTMLAudioElement | null;
+    tick: HTMLAudioElement | null;
+    kenoReveal: HTMLAudioElement | null;
+  }>({ bet: null, win: null, limboLose: null, rollDice: null, tick: null, kenoReveal: null });
+
+  const playAudio = (a: HTMLAudioElement | null) => {
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      void a.play();
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      limboLose: new Audio("/sounds/LimboLose.mp3"),
+      rollDice: new Audio("/sounds/RollDice.mp3"),
+      tick: new Audio("/sounds/Tick.mp3"),
+      kenoReveal: new Audio("/sounds/KenoReveal.mp3"),
+    };
+
+    const prime = async () => {
+      try {
+        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        for (const a of items) {
+          if (!a) continue;
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+      document.removeEventListener("pointerdown", prime);
+    };
+
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, []);
+
   useEffect(() => {
     betAmountRef.current = betAmount;
   }, [betAmount]);
@@ -336,6 +386,8 @@ export default function SnakesPage() {
       setBetBoth(bet);
       subtractFromBalance(bet);
 
+      playAudio(audioRef.current.bet);
+
       // reset round state
       gameStateRef.current = "playing";
       setGameState("playing");
@@ -379,6 +431,7 @@ export default function SnakesPage() {
       if (payout > 0) {
         addToBalance(payout);
         setLastWin(payout);
+        playAudio(audioRef.current.win);
         if (resultTimeoutRef.current) {
           clearTimeout(resultTimeoutRef.current);
           resultTimeoutRef.current = null;
@@ -448,6 +501,8 @@ export default function SnakesPage() {
     setCurrentPos(-1);
     setResultFx("rolling");
 
+    playAudio(audioRef.current.rollDice);
+
     const finalDie1 = Math.floor(Math.random() * 6) + 1;
     const finalDie2 = Math.floor(Math.random() * 6) + 1;
 
@@ -466,6 +521,8 @@ export default function SnakesPage() {
     for (let s = 1; s <= steps; s++) {
       const idx = (s - 1) % board.length;
       setCurrentPos(idx);
+      // reveal sound for each highlighted tile
+      playAudio(audioRef.current.kenoReveal);
       // step animation delay
       await sleep(120);
     }
@@ -485,6 +542,11 @@ export default function SnakesPage() {
     totalMultiplierRef.current = nextMult;
     setTotalMultiplier(nextMult);
 
+    // play tick when multiplier increases compared to base
+    if (nextMult > baseMult) {
+      playAudio(audioRef.current.tick);
+    }
+
     if (newState === "dead") {
       gameStateRef.current = "dead";
       setGameState("dead");
@@ -494,6 +556,7 @@ export default function SnakesPage() {
         resultTimeoutRef.current = null;
       }
       setResultFx("lose");
+      playAudio(audioRef.current.limboLose);
       resultTimeoutRef.current = window.setTimeout(
         () => setResultFx(null),
         900
@@ -676,7 +739,6 @@ export default function SnakesPage() {
         break;
       }
 
-      // pause 200ms after each completed autobet round
       await sleep(800);
     }
 
