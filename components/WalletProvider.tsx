@@ -53,6 +53,8 @@ interface WalletContextType {
   balance: number;
   addToBalance: (amount: number) => void;
   subtractFromBalance: (amount: number) => void;
+  creditBalance: (amount: number) => void;
+  debitBalance: (amount: number) => boolean;
   liveStats: LiveStatsState;
   liveStatsByGame: LiveStatsByGame;
   currentGameId: GameKey;
@@ -149,6 +151,7 @@ function buildAllAggregate(map: LiveStatsByGame): LiveStatsState {
 
 export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const [balance, setBalance] = useState<number>(0);
+  const balanceRef = useRef<number>(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [liveStatsByGame, setLiveStatsByGame] = useState<LiveStatsByGame>(() => {
     const empty: Partial<LiveStatsByGame> = { all: createEmptyLiveStats(), unknown: createEmptyLiveStats() };
@@ -166,8 +169,11 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const storedBalance = localStorage.getItem("flopper_balance");
     if (storedBalance) {
-      setBalance(normalizeMoney(parseFloat(storedBalance)));
+      const initial = normalizeMoney(parseFloat(storedBalance));
+      balanceRef.current = initial;
+      setBalance(initial);
     } else {
+      balanceRef.current = 1000.0;
       setBalance(1000.0);
       localStorage.setItem("flopper_balance", "1000.00");
     }
@@ -218,6 +224,10 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
     setIsLoaded(true);
   }, []);
+
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -299,7 +309,9 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const addToBalance = (amount: number) => {
     const a = normalizeMoney(amount);
     if (a <= 0) return;
-    setBalance((prev) => normalizeMoney(prev + a));
+    const next = normalizeMoney(balanceRef.current + a);
+    balanceRef.current = next;
+    setBalance(next);
 
     settleBetWithPayout(a);
   };
@@ -307,13 +319,10 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const subtractFromBalance = (amount: number) => {
     const a = normalizeMoney(amount);
     if (a <= 0) return;
-    let accepted = false;
-    setBalance((prev) => {
-      if (a > prev) return prev;
-      accepted = true;
-      return normalizeMoney(prev - a);
-    });
-    if (!accepted) return;
+    if (a > balanceRef.current) return;
+    const next = normalizeMoney(balanceRef.current - a);
+    balanceRef.current = next;
+    setBalance(next);
 
     pendingBetsRef.current.push(a);
 
@@ -322,6 +331,24 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     } catch {}
 
     updateCurrentAndAll((s) => ({ ...s, wagered: normalizeMoney(s.wagered + a) }));
+  };
+
+  const creditBalance = (amount: number) => {
+    const a = normalizeMoney(amount);
+    if (a <= 0) return;
+    const next = normalizeMoney(balanceRef.current + a);
+    balanceRef.current = next;
+    setBalance(next);
+  };
+
+  const debitBalance = (amount: number): boolean => {
+    const a = normalizeMoney(amount);
+    if (a <= 0) return false;
+    if (a > balanceRef.current) return false;
+    const next = normalizeMoney(balanceRef.current - a);
+    balanceRef.current = next;
+    setBalance(next);
+    return true;
   };
 
   if (!isLoaded) {
@@ -336,6 +363,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         balance,
         addToBalance,
         subtractFromBalance,
+        creditBalance,
+        debitBalance,
         liveStats,
         liveStatsByGame,
         currentGameId,

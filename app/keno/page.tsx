@@ -97,6 +97,7 @@ export default function KenoPage() {
   const betAmountRef = React.useRef<number>(100);
   const balanceRef = React.useRef<number>(0);
   const isAnimatingRef = React.useRef(false);
+  const roundLockRef = React.useRef(false);
   const isAutoBettingRef = React.useRef(false);
   const autoOriginalBetRef = React.useRef<number>(0);
   const autoNetRef = React.useRef<number>(0);
@@ -312,90 +313,98 @@ export default function KenoPage() {
 
   const playRound = useCallback(
     async (opts?: { betAmount?: number }) => {
-      const currentSelected = selectedNumbersRef.current;
-      const currentRisk = riskLevelRef.current;
-      const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
-
-      if (
-        currentSelected.length === 0 ||
-        bet <= 0 ||
-        bet > balanceRef.current ||
-        isAnimatingRef.current
-      ) {
+      if (roundLockRef.current) {
         return null as null | { betAmount: number; matches: number; multiplier: number; winAmount: number };
       }
+      roundLockRef.current = true;
+      try {
+        const currentSelected = selectedNumbersRef.current;
+        const currentRisk = riskLevelRef.current;
+        const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
 
-      subtractFromBalance(bet);
-      playAudio(audioRef.current.bet);
-      setLastWin(0);
-      setDrawnNumbers([]);
-      isAnimatingRef.current = true;
-      setIsAnimating(true);
-      setResultFx("rolling");
+        if (
+          currentSelected.length === 0 ||
+          bet <= 0 ||
+          bet > balanceRef.current ||
+          isAnimatingRef.current
+        ) {
+          return null as null | { betAmount: number; matches: number; multiplier: number; winAmount: number };
+        }
 
-      const newDrawn: number[] = [];
-      while (newDrawn.length < DRAW_COUNT) {
-        const r = Math.floor(Math.random() * GRID_SIZE) + 1;
-        if (!newDrawn.includes(r)) newDrawn.push(r);
-      }
+        subtractFromBalance(bet);
+        playAudio(audioRef.current.bet);
+        setLastWin(0);
+        setDrawnNumbers([]);
+        isAnimatingRef.current = true;
+        setIsAnimating(true);
+        setResultFx("rolling");
 
-      for (let i = 0; i < newDrawn.length; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 150));
-        const n = newDrawn[i];
-        setDrawnNumbers((prev) => [...prev, n]);
-        if (selectedNumbersRef.current.includes(n)) {
-          playAudio(audioRef.current.match);
+        const newDrawn: number[] = [];
+        while (newDrawn.length < DRAW_COUNT) {
+          const r = Math.floor(Math.random() * GRID_SIZE) + 1;
+          if (!newDrawn.includes(r)) newDrawn.push(r);
+        }
+
+        for (let i = 0; i < newDrawn.length; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          const n = newDrawn[i];
+          setDrawnNumbers((prev) => [...prev, n]);
+          if (selectedNumbersRef.current.includes(n)) {
+            playAudio(audioRef.current.match);
+          } else {
+            playAudio(audioRef.current.reveal);
+          }
+        }
+
+        const matches = currentSelected.filter((n) => newDrawn.includes(n)).length;
+        const table = MULTIPLIERS[currentRisk][currentSelected.length];
+        const multiplier = table && table[matches] ? table[matches] : 0;
+        const winAmount = normalizeMoney(bet * multiplier);
+
+        if (winAmount > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          addToBalance(winAmount);
+          setLastWin(winAmount);
+          playAudio(audioRef.current.win);
+          if (resultTimeoutRef.current) {
+            clearTimeout(resultTimeoutRef.current);
+            resultTimeoutRef.current = null;
+          }
+          setResultFx("win");
+          isAnimatingRef.current = false;
+          setIsAnimating(false);
+          await new Promise<void>((resolve) => {
+            resultTimeoutRef.current = window.setTimeout(() => {
+              setResultFx(null);
+              resultTimeoutRef.current = null;
+              resolve();
+            });
+          });
         } else {
-          playAudio(audioRef.current.reveal);
+          finalizePendingLoss();
+          if (resultTimeoutRef.current) {
+            clearTimeout(resultTimeoutRef.current);
+            resultTimeoutRef.current = null;
+          }
+          setResultFx("lose");
+          playAudio(audioRef.current.limboLose);
+          isAnimatingRef.current = false;
+          setIsAnimating(false);
+          await new Promise<void>((resolve) => {
+            resultTimeoutRef.current = window.setTimeout(() => {
+              setResultFx(null);
+              resultTimeoutRef.current = null;
+              resolve();
+            });
+          });
         }
-      }
 
-      const matches = currentSelected.filter((n) => newDrawn.includes(n)).length;
-      const table = MULTIPLIERS[currentRisk][currentSelected.length];
-      const multiplier = table && table[matches] ? table[matches] : 0;
-      const winAmount = normalizeMoney(bet * multiplier);
-
-      if (winAmount > 0) {
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        addToBalance(winAmount);
-        setLastWin(winAmount);
-        playAudio(audioRef.current.win);
-        if (resultTimeoutRef.current) {
-          clearTimeout(resultTimeoutRef.current);
-          resultTimeoutRef.current = null;
-        }
-        setResultFx("win");
         isAnimatingRef.current = false;
         setIsAnimating(false);
-        await new Promise<void>((resolve) => {
-          resultTimeoutRef.current = window.setTimeout(() => {
-            setResultFx(null);
-            resultTimeoutRef.current = null;
-            resolve();
-          }, 900);
-        });
-      } else {
-        finalizePendingLoss();
-        if (resultTimeoutRef.current) {
-          clearTimeout(resultTimeoutRef.current);
-          resultTimeoutRef.current = null;
-        }
-        setResultFx("lose");
-        playAudio(audioRef.current.limboLose);
-        isAnimatingRef.current = false;
-        setIsAnimating(false);
-        await new Promise<void>((resolve) => {
-          resultTimeoutRef.current = window.setTimeout(() => {
-            setResultFx(null);
-            resultTimeoutRef.current = null;
-            resolve();
-          }, 900);
-        });
+        return { betAmount: bet, matches, multiplier, winAmount };
+      } finally {
+        roundLockRef.current = false;
       }
-
-      isAnimatingRef.current = false;
-      setIsAnimating(false);
-      return { betAmount: bet, matches, multiplier, winAmount };
     },
     [
       subtractFromBalance,
