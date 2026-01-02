@@ -75,7 +75,7 @@ export default function Navbar() {
 
       {!collapsed && (
         <div className="px-6 py-4">
-          <div className="bg-[#1a2c38] p-3 rounded-md border border-[#2f4553] flex justify-between items-center shadow-inner">
+          <div className="bg-[#1a2c38] p-2 rounded-md border border-[#2f4553] flex justify-between items-center shadow-inner">
             <span className="text-sm text-gray-400">Balance</span>
             <span className="text-[#00e701] font-bold font-mono">${balance.toFixed(2)}</span>
           </div>
@@ -88,7 +88,7 @@ export default function Navbar() {
             Live-Stats
           </button>
 
-          <div className="mt-3 w-full rounded-md bg-[#1a2c38] border border-[#2f4553] p-3">
+          <div className="mt-3 w-full rounded-md bg-[#1a2c38] border border-[#2f4553] p-2">
             <div className="flex items-center justify-between text-xs text-[#8399aa]">
               <span>Volume</span>
               <span className="font-mono">{Math.round(volume * 100)}%</span>
@@ -103,6 +103,9 @@ export default function Navbar() {
               value={Math.round(volume * 100)}
               onChange={(e) => setVolume(Number(e.target.value) / 100)}
             />
+            <div className="text-xs text-[#8399aa] mt-2">
+              If games lag, set Volume to 0% to increase performance.
+            </div>
           </div>
         </div>
       )}

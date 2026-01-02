@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import { PlayArrow } from "@mui/icons-material";
 
 type Choice = "rock" | "paper" | "scissors";
@@ -20,6 +21,8 @@ const CHOICES: Choice[] = ["rock", "paper", "scissors"];
 export default function RPSPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
     useWallet();
+
+  const { volume } = useSoundVolume();
 
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
@@ -48,19 +51,29 @@ export default function RPSPage() {
 
   const playAudio = (a: HTMLAudioElement | null) => {
     if (!a) return;
+    const v =
+      typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
+        ? (window as any).__flopper_sound_volume__
+        : 1;
+    if (!v) return;
     try {
+      a.volume = v;
       a.currentTime = 0;
       void a.play();
     } catch (e) {}
   };
 
   useEffect(() => {
-    audioRef.current = {
-      bet: new Audio("/sounds/Bet.mp3"),
-      win: new Audio("/sounds/Win.mp3"),
-      limboLose: new Audio("/sounds/LimboLose.mp3"),
-      flipCards: new Audio("/sounds/FlipCards.mp3"),
-    };
+    if (volume <= 0) return;
+
+    if (!audioRef.current.bet) {
+      audioRef.current = {
+        bet: new Audio("/sounds/Bet.mp3"),
+        win: new Audio("/sounds/Win.mp3"),
+        limboLose: new Audio("/sounds/LimboLose.mp3"),
+        flipCards: new Audio("/sounds/FlipCards.mp3"),
+      };
+    }
 
     const prime = async () => {
       try {
@@ -78,12 +91,11 @@ export default function RPSPage() {
           }
         }
       } catch (e) {}
-      document.removeEventListener("pointerdown", prime);
     };
 
     document.addEventListener("pointerdown", prime, { once: true });
     return () => document.removeEventListener("pointerdown", prime);
-  }, []);
+  }, [volume]);
 
   useEffect(() => {
     return () => {

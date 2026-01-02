@@ -10,7 +10,6 @@ type LiveStatsPoint = {
 
 function normalizeMoney(value: number): number {
   if (!Number.isFinite(value)) return 0;
-  // Round to cents and avoid -0.
   const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
   return Object.is(rounded, -0) ? 0 : rounded;
 }
@@ -287,7 +286,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         for (const game of GAME_OPTIONS) {
           next[game.id] = createEmptyLiveStats();
         }
-        // ensure unknown + all present
         next.unknown = createEmptyLiveStats();
         next.all = createEmptyLiveStats();
         return next;
@@ -303,15 +301,12 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     if (a <= 0) return;
     setBalance((prev) => normalizeMoney(prev + a));
 
-    // If this is a game payout, settle one pending bet to count win/loss.
     settleBetWithPayout(a);
   };
 
   const subtractFromBalance = (amount: number) => {
     const a = normalizeMoney(amount);
     if (a <= 0) return;
-    // Bets should not affect net until the round is settled (payout or loss).
-    // Use the latest balance inside the updater so rapid successive bets cannot overdraw/overcount.
     let accepted = false;
     setBalance((prev) => {
       if (a > prev) return prev;
@@ -322,7 +317,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
     pendingBetsRef.current.push(a);
 
-    // record last bet timestamp for activity tracking
     try {
       setLastBetAt(Date.now());
     } catch {}

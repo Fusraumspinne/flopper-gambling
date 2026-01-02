@@ -8,6 +8,7 @@ import React, {
   useRef,
 } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import {
   PlayArrow,
   DirectionsWalk,
@@ -345,6 +346,8 @@ export default function ChickenPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
     useWallet();
 
+  const { volume } = useSoundVolume();
+
   const normalizeMoney = (value: number) => {
     if (!Number.isFinite(value)) return 0;
     const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
@@ -433,22 +436,32 @@ export default function ChickenPage() {
 
   const playAudio = (a: HTMLAudioElement | null) => {
     if (!a) return;
+    const v =
+      typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
+        ? (window as any).__flopper_sound_volume__
+        : 1;
+    if (!v) return;
     try {
+      a.volume = v;
       a.currentTime = 0;
       void a.play();
     } catch (e) {}
   };
 
   useEffect(() => {
-    audioRef.current = {
-      bet: new Audio("/sounds/Bet.mp3"),
-      win: new Audio("/sounds/Win.mp3"),
-      chickenJump: new Audio("/sounds/ChickenJump.mp3"),
-      chickenFire: new Audio("/sounds/ChickenFire.mp3"),
-      chickenSquash: new Audio("/sounds/ChickenSquash.mp3"),
-      barricade: new Audio("/sounds/Barricade.mp3"),
-      chickenCarCrash: new Audio("/sounds/ChickenCarCrash.mp3"),
-    };
+    if (volume <= 0) return;
+
+    if (!audioRef.current.bet) {
+      audioRef.current = {
+        bet: new Audio("/sounds/Bet.mp3"),
+        win: new Audio("/sounds/Win.mp3"),
+        chickenJump: new Audio("/sounds/ChickenJump.mp3"),
+        chickenFire: new Audio("/sounds/ChickenFire.mp3"),
+        chickenSquash: new Audio("/sounds/ChickenSquash.mp3"),
+        barricade: new Audio("/sounds/Barricade.mp3"),
+        chickenCarCrash: new Audio("/sounds/ChickenCarCrash.mp3"),
+      };
+    }
 
     const prime = async () => {
       try {
@@ -466,12 +479,11 @@ export default function ChickenPage() {
           }
         }
       } catch (e) {}
-      document.removeEventListener("pointerdown", prime);
     };
 
     document.addEventListener("pointerdown", prime, { once: true });
     return () => document.removeEventListener("pointerdown", prime);
-  }, []);
+  }, [volume]);
 
   const [isCrashBlocking, setIsCrashBlocking] = useState(false);
   const isCrashBlockingRef = useRef<boolean>(false);

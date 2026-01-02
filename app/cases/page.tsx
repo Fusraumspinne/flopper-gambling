@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { PlayArrow, Refresh } from "@mui/icons-material";
 import { useWallet } from "@/components/WalletProvider";
+import { useSoundVolume } from "@/components/SoundVolumeProvider";
 
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -300,6 +301,8 @@ export default function CasesPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
     useWallet();
 
+  const { volume } = useSoundVolume();
+
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
   const [risk, setRisk] = useState<RiskLevel>("low");
@@ -343,20 +346,30 @@ export default function CasesPage() {
 
   const playAudio = (a: HTMLAudioElement | null) => {
     if (!a) return;
+    const v =
+      typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
+        ? (window as any).__flopper_sound_volume__
+        : 1;
+    if (!v) return;
     try {
+      a.volume = v;
       a.currentTime = 0;
       void a.play();
     } catch (e) {}
   };
 
   useEffect(() => {
-    audioRef.current = {
-      bet: new Audio("/sounds/Bet.mp3"),
-      win: new Audio("/sounds/Win.mp3"),
-      limboLose: new Audio("/sounds/LimboLose.mp3"),
-      spin: new Audio("/sounds/Spin.mp3"),
-      caseOpen: new Audio("/sounds/CaseOpen.mp3"),
-    };
+    if (volume <= 0) return;
+
+    if (!audioRef.current.bet) {
+      audioRef.current = {
+        bet: new Audio("/sounds/Bet.mp3"),
+        win: new Audio("/sounds/Win.mp3"),
+        limboLose: new Audio("/sounds/LimboLose.mp3"),
+        spin: new Audio("/sounds/Spin.mp3"),
+        caseOpen: new Audio("/sounds/CaseOpen.mp3"),
+      };
+    }
 
     const prime = async () => {
       try {
@@ -374,12 +387,11 @@ export default function CasesPage() {
           }
         }
       } catch (e) {}
-      document.removeEventListener("pointerdown", prime);
     };
 
     document.addEventListener("pointerdown", prime, { once: true });
     return () => document.removeEventListener("pointerdown", prime);
-  }, []);
+  }, [volume]);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);

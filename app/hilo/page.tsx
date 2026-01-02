@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import {
   PlayArrow,
   SkipNext,
@@ -66,6 +67,8 @@ export default function HiloPage() {
   const { balance, addToBalance, subtractFromBalance, finalizePendingLoss } =
     useWallet();
 
+  const { volume } = useSoundVolume();
+
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
   const [gameState, setGameState] = useState<GameState>("idle");
@@ -94,9 +97,15 @@ export default function HiloPage() {
 
   const playAudio = (a: HTMLAudioElement | null) => {
     if (!a) return;
+    const v =
+      typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
+        ? (window as any).__flopper_sound_volume__
+        : 1;
+    if (!v) return;
     // Do not attempt to play before the user has unlocked audio
     if (!audioUnlockedRef.current) return;
     try {
+      a.volume = v;
       a.currentTime = 0;
       const p = a.play();
       if (p && typeof (p as Promise<void>).catch === "function") {
@@ -108,12 +117,16 @@ export default function HiloPage() {
   };
 
   useEffect(() => {
-    audioRef.current = {
-      bet: new Audio("/sounds/Bet.mp3"),
-      win: new Audio("/sounds/Win.mp3"),
-      limboLose: new Audio("/sounds/LimboLose.mp3"),
-      flipCards: new Audio("/sounds/FlipCards.mp3"),
-    };
+    if (volume <= 0) return;
+
+    if (!audioRef.current.bet) {
+      audioRef.current = {
+        bet: new Audio("/sounds/Bet.mp3"),
+        win: new Audio("/sounds/Win.mp3"),
+        limboLose: new Audio("/sounds/LimboLose.mp3"),
+        flipCards: new Audio("/sounds/FlipCards.mp3"),
+      };
+    }
 
     const prime = async () => {
       try {
@@ -134,12 +147,11 @@ export default function HiloPage() {
       } catch (e) {
         audioUnlockedRef.current = true;
       }
-      document.removeEventListener("pointerdown", prime);
     };
 
     document.addEventListener("pointerdown", prime, { once: true, capture: true });
-    return () => document.removeEventListener("pointerdown", prime);
-  }, []);
+    return () => document.removeEventListener("pointerdown", prime, { capture: true } as any);
+  }, [volume]);
 
   useEffect(() => {
     setCurrentCard(generateCard());

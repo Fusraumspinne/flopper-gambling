@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import { PlayArrow, Refresh, SwapHoriz } from "@mui/icons-material";
 
 type GameState = "idle" | "rolling" | "won" | "lost";
@@ -13,6 +14,8 @@ const MAX_THRESHOLD = 98;
 export default function DicePage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
     useWallet();
+
+  const { volume } = useSoundVolume();
 
   const normalizeMoney = (value: number) => {
     if (!Number.isFinite(value)) return 0;
@@ -85,7 +88,13 @@ export default function DicePage() {
 
   const playAudio = (a: HTMLAudioElement | null) => {
     if (!a) return;
+    const v =
+      typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
+        ? (window as any).__flopper_sound_volume__
+        : 1;
+    if (!v) return;
     try {
+      a.volume = v;
       a.currentTime = 0;
       void a.play();
     } catch (e) {}
@@ -102,6 +111,7 @@ export default function DicePage() {
   }, []);
 
   useEffect(() => {
+    if (volume <= 0) return;
     const prime = async () => {
       try {
         const items = Object.values(audioRef.current);
@@ -118,12 +128,11 @@ export default function DicePage() {
           }
         }
       } catch (e) {}
-      document.removeEventListener("pointerdown", prime);
     };
 
     document.addEventListener("pointerdown", prime, { once: true });
     return () => document.removeEventListener("pointerdown", prime);
-  }, []);
+  }, [volume]);
 
   const winChance = useMemo(() => {
     if (rollOver) {

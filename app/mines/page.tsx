@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import {
   Diamond,
   LocalFireDepartment,
@@ -111,6 +112,8 @@ export default function MinesPage() {
   const { balance, addToBalance, subtractFromBalance, finalizePendingLoss } =
     useWallet();
 
+  const { volume } = useSoundVolume();
+
   const normalizeMoney = (value: number) => {
     if (!Number.isFinite(value)) return 0;
     const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
@@ -177,7 +180,13 @@ export default function MinesPage() {
 
   const playAudio = (a?: HTMLAudioElement) => {
     if (!a) return;
+    const v =
+      typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
+        ? (window as any).__flopper_sound_volume__
+        : 1;
+    if (!v) return;
     try {
+      a.volume = v;
       a.currentTime = 0;
       void a.play();
     } catch (e) {
@@ -201,6 +210,7 @@ export default function MinesPage() {
   const playWinSound = () => playAudio(audioRef.current.win);
 
   useEffect(() => {
+    if (volume <= 0) return;
     const prime = async () => {
       try {
         const items = Object.values(audioRef.current) as HTMLAudioElement[];
@@ -216,12 +226,11 @@ export default function MinesPage() {
           }
         }
       } catch (e) {}
-      document.removeEventListener("pointerdown", prime);
     };
 
     document.addEventListener("pointerdown", prime, { once: true });
     return () => document.removeEventListener("pointerdown", prime);
-  }, []);
+  }, [volume]);
 
   useEffect(() => {
     betAmountRef.current = betAmount;

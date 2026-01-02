@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import { PlayArrow, Refresh } from "@mui/icons-material";
 
 type RiskLevel = "Low" | "Medium" | "High" | "Expert";
@@ -193,6 +194,8 @@ const getSegmentPattern = (risk: RiskLevel) => {
 export default function DartsPage() {
   const { balance, addToBalance, subtractFromBalance, finalizePendingLoss } = useWallet();
 
+  const { volume } = useSoundVolume();
+
   const normalizeMoney = (value: number) => {
     if (!Number.isFinite(value)) return 0;
     const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
@@ -244,18 +247,28 @@ export default function DartsPage() {
 
   const playAudio = (a: HTMLAudioElement | null) => {
     if (!a) return;
+    const v =
+      typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
+        ? (window as any).__flopper_sound_volume__
+        : 1;
+    if (!v) return;
     try {
+      a.volume = v;
       a.currentTime = 0;
       void a.play();
     } catch (e) {}
   };
 
   useEffect(() => {
-    audioRef.current = {
-      bet: new Audio("/sounds/Bet.mp3"),
-      win: new Audio("/sounds/Win.mp3"),
-      dartsLose: new Audio("/sounds/DartsLose.mp3"),
-    };
+    if (volume <= 0) return;
+
+    if (!audioRef.current.bet) {
+      audioRef.current = {
+        bet: new Audio("/sounds/Bet.mp3"),
+        win: new Audio("/sounds/Win.mp3"),
+        dartsLose: new Audio("/sounds/DartsLose.mp3"),
+      };
+    }
 
     const prime = async () => {
       try {
@@ -273,12 +286,11 @@ export default function DartsPage() {
           }
         }
       } catch (e) {}
-      document.removeEventListener("pointerdown", prime);
     };
 
     document.addEventListener("pointerdown", prime, { once: true });
     return () => document.removeEventListener("pointerdown", prime);
-  }, []);
+  }, [volume]);
   const [history, setHistory] = useState<
     { multiplier: number; color: string }[]
   >([]);

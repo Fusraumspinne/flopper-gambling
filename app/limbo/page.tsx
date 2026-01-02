@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import { PlayArrow, Refresh } from "@mui/icons-material";
 
 type GameState = "idle" | "rolling" | "won" | "lost";
@@ -38,6 +39,7 @@ const parseNumberLoose = (raw: string) => {
 
 export default function LimboPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
+  const { volume } = useSoundVolume();
 
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
@@ -95,13 +97,21 @@ export default function LimboPage() {
 
   const playAudio = (a: HTMLAudioElement | null) => {
     if (!a) return;
+    const v =
+      typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
+        ? (window as any).__flopper_sound_volume__
+        : 1;
+    if (!v) return;
     try {
+      a.volume = v;
       a.currentTime = 0;
       void a.play();
     } catch (e) {}
   };
 
   useEffect(() => {
+    if (volume <= 0) return;
+
     const prime = async () => {
       try {
         const items = Object.values(audioRef.current);
@@ -118,12 +128,11 @@ export default function LimboPage() {
           }
         }
       } catch (e) {}
-      document.removeEventListener("pointerdown", prime);
     };
 
     document.addEventListener("pointerdown", prime, { once: true });
     return () => document.removeEventListener("pointerdown", prime);
-  }, []);
+  }, [volume]);
 
   useEffect(() => {
     betAmountRef.current = betAmount;

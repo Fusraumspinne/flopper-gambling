@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import { PlayArrow, Refresh, Bolt } from "@mui/icons-material";
 
 type Suit = "hearts" | "diamonds" | "clubs" | "spades";
@@ -87,6 +88,7 @@ const calculateHandValue = (cards: Card[]): number => {
 
 export default function BlackjackPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
+  const { volume } = useSoundVolume();
 
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>(betAmount.toString());
@@ -111,7 +113,13 @@ export default function BlackjackPage() {
 
   const playAudio = (a?: HTMLAudioElement) => {
     if (!a) return;
+    const v =
+      typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
+        ? (window as any).__flopper_sound_volume__
+        : 1;
+    if (!v) return;
     try {
+      a.volume = v;
       a.currentTime = 0;
       void a.play();
     } catch (e) {
@@ -119,6 +127,7 @@ export default function BlackjackPage() {
   };
 
   useEffect(() => {
+    if (volume <= 0) return;
     const prime = async () => {
       try {
         const items = Object.values(audioRef.current) as HTMLAudioElement[];
@@ -134,11 +143,10 @@ export default function BlackjackPage() {
           }
         }
       } catch (e) {}
-      document.removeEventListener("pointerdown", prime);
     };
     document.addEventListener("pointerdown", prime, { once: true });
     return () => document.removeEventListener("pointerdown", prime);
-  }, []);
+  }, [volume]);
 
   useEffect(() => {
     return () => {

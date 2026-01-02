@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import { PlayArrow } from "@mui/icons-material";
 
 type CoinSide = "heads" | "tails";
@@ -12,6 +13,8 @@ const HOUSE_EDGE_MULTIPLIER = 1.98;
 export default function CoinFlipPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
     useWallet();
+
+  const { volume } = useSoundVolume();
 
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
@@ -38,20 +41,30 @@ export default function CoinFlipPage() {
 
   const playAudio = (a: HTMLAudioElement | null) => {
     if (!a) return;
+    const v =
+      typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
+        ? (window as any).__flopper_sound_volume__
+        : 1;
+    if (!v) return;
     try {
+      a.volume = v;
       a.currentTime = 0;
       void a.play();
     } catch (e) {}
   };
 
   React.useEffect(() => {
-    audioRef.current = {
-      bet: new Audio("/sounds/Bet.mp3"),
-      win: new Audio("/sounds/Win.mp3"),
-      limboLose: new Audio("/sounds/LimboLose.mp3"),
-      coinflip: new Audio("/sounds/Coinflip.mp3"),
-      coin: new Audio("/sounds/Coin.mp3"),
-    };
+    if (volume <= 0) return;
+
+    if (!audioRef.current.bet) {
+      audioRef.current = {
+        bet: new Audio("/sounds/Bet.mp3"),
+        win: new Audio("/sounds/Win.mp3"),
+        limboLose: new Audio("/sounds/LimboLose.mp3"),
+        coinflip: new Audio("/sounds/Coinflip.mp3"),
+        coin: new Audio("/sounds/Coin.mp3"),
+      };
+    }
 
     const prime = async () => {
       try {
@@ -69,12 +82,11 @@ export default function CoinFlipPage() {
           }
         }
       } catch (e) {}
-      document.removeEventListener("pointerdown", prime);
     };
 
     document.addEventListener("pointerdown", prime, { once: true });
     return () => document.removeEventListener("pointerdown", prime);
-  }, []);
+  }, [volume]);
 
   const currentMultiplier = Math.pow(HOUSE_EDGE_MULTIPLIER, streak);
   const nextMultiplier = Math.pow(HOUSE_EDGE_MULTIPLIER, streak + 1);
