@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import InvestmentPanel from "@/components/InvestmentPanel";
+import Leaderboard from "@/components/Leaderboard";
 
 const games = [
   { name: "Blackjack", href: "/blackjack", tagline: "Beat the dealer", image: "/images/BlackJack.png" },
@@ -30,7 +31,8 @@ export default function Home() {
         <p className="text-sm text-[#557086] mt-2">Live jackpots • Daily challenges • Play responsibly</p>
       </div>
 
-      <InvestmentPanel />
+        <InvestmentPanel />
+        <Leaderboard />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
         {games.map((game) => (

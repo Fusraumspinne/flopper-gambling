@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useWallet } from "./WalletProvider";
+import { getItem, setItem } from "../lib/indexedDB";
 
 const PLAYTIME_KEY = "flopper_playtime_v1";
 const INACTIVITY_MS = 10000;
@@ -18,22 +19,28 @@ function formatMs(ms: number) {
 export default function PlayTimeTracker() {
   const { lastBetAt } = useWallet();
 
-  const [totalMs, setTotalMs] = useState<number>(() => {
-    try {
-      const raw = localStorage.getItem(PLAYTIME_KEY);
-      if (!raw) return 0;
-      const n = parseInt(raw, 10);
-      return Number.isFinite(n) ? n : 0;
-    } catch {
-      return 0;
-    }
-  });
+  const [totalMs, setTotalMs] = useState<number>(0);
 
   const totalMsRef = useRef<number>(totalMs);
+  const hydratedRef = useRef(false);
   const runningRef = useRef(false);
   const intervalRef = useRef<number | null>(null);
   const pauseTimeoutRef = useRef<number | null>(null);
   const lastTickRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    getItem<string | number>(PLAYTIME_KEY).then((raw) => {
+      if (raw != null) {
+        const n = typeof raw === "number" ? raw : parseInt(String(raw), 10);
+        if (Number.isFinite(n)) {
+          setTotalMs(n);
+          totalMsRef.current = n;
+        }
+      }
+      // mark hydrated to avoid overwriting stored value before load completes
+      hydratedRef.current = true;
+    });
+  }, []);
 
   const startRunning = (now: number) => {
     if (runningRef.current) return;
@@ -51,9 +58,7 @@ export default function PlayTimeTracker() {
       }
       lastTickRef.current = t;
       // persist every tick to reduce lost time on reload
-      try {
-        localStorage.setItem(PLAYTIME_KEY, String(totalMsRef.current));
-      } catch {}
+      if (hydratedRef.current) setItem(PLAYTIME_KEY, String(totalMsRef.current));
     }, 1000);
   };
 
@@ -64,9 +69,7 @@ export default function PlayTimeTracker() {
     intervalRef.current = null;
     lastTickRef.current = null;
     // persist using ref to avoid stale state closure
-    try {
-      localStorage.setItem(PLAYTIME_KEY, String(totalMsRef.current));
-    } catch {}
+    if (hydratedRef.current) setItem(PLAYTIME_KEY, String(totalMsRef.current));
   };
 
   useEffect(() => {
@@ -96,9 +99,7 @@ export default function PlayTimeTracker() {
     return () => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
       if (pauseTimeoutRef.current) window.clearTimeout(pauseTimeoutRef.current);
-      try {
-        localStorage.setItem(PLAYTIME_KEY, String(totalMsRef.current));
-      } catch {}
+      if (hydratedRef.current) setItem(PLAYTIME_KEY, String(totalMsRef.current));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

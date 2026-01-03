@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
+import { getItem, setItem, removeItem } from "../lib/indexedDB";
 
 const HOUR_MS = 60 * 60 * 1000;
 const RATE_PER_HOUR = 0.01;
@@ -33,9 +34,9 @@ function computeCurrentValue(principal: number, startedAtMs: number, nowMs: numb
   return normalizeMoney(value);
 }
 
-function readStored(): StoredInvestment | null {
+async function readStored(): Promise<StoredInvestment | null> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = await getItem<string>(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredInvestment>;
     if (typeof parsed.principal !== "number" || typeof parsed.startedAtMs !== "number") return null;
@@ -49,13 +50,13 @@ function readStored(): StoredInvestment | null {
   }
 }
 
-function writeStored(next: StoredInvestment | null) {
+async function writeStored(next: StoredInvestment | null) {
   try {
     if (!next || next.principal <= 0) {
-      localStorage.removeItem(STORAGE_KEY);
+      await removeItem(STORAGE_KEY);
       return;
     }
-    localStorage.setItem(
+    await setItem(
       STORAGE_KEY,
       JSON.stringify({ principal: normalizeMoney(next.principal), startedAtMs: Math.floor(next.startedAtMs) })
     );
@@ -75,22 +76,13 @@ export default function InvestmentPanel() {
   const hydratedRef = useRef(false);
 
   useEffect(() => {
-    const stored = readStored();
-    if (stored) {
-      setPrincipal(stored.principal);
-      setStartedAtMs(stored.startedAtMs);
-    }
-    hydratedRef.current = true;
-
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== STORAGE_KEY) return;
-      const next = readStored();
-      setPrincipal(next?.principal ?? 0);
-      setStartedAtMs(next?.startedAtMs ?? Date.now());
-    };
-
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    readStored().then((stored) => {
+      if (stored) {
+        setPrincipal(stored.principal);
+        setStartedAtMs(stored.startedAtMs);
+      }
+      hydratedRef.current = true;
+    });
   }, []);
 
   useEffect(() => {
@@ -163,7 +155,7 @@ export default function InvestmentPanel() {
   };
 
   return (
-    <section className="mb-8 bg-[#213743] border border-[#2f4553]/60 rounded-xl p-5">
+    <section className="mb-6 bg-[#213743] border border-[#2f4553]/60 rounded-xl p-5">
       <div className="flex items-start">
         <div>
           <h2 className="text-white font-semibold text-xl">Invest</h2>
@@ -179,12 +171,12 @@ export default function InvestmentPanel() {
         <div className="text-white font-semibold text-2xl">{currentValue.toFixed(2)}</div>
       </div>
 
-      <div className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+      <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:items-center">
         <input
           value={amountRaw}
           onChange={(e) => setAmountRaw(e.target.value)}
           inputMode="decimal"
-          className="w-full sm:w-48 bg-[#0f212e] border border-[#2f4553]/60 rounded-lg px-3 py-2 text-white outline-none"
+          className="w-full bg-[#0f212e] border border-[#2f4553]/60 rounded-lg px-3 py-2 text-white outline-none"
           placeholder="Amount"
           aria-label="Amount"
         />

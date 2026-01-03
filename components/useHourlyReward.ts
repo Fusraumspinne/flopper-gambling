@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getItem, setItem } from "../lib/indexedDB";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -20,8 +21,8 @@ function safeParseNumber(value: unknown): number | null {
   return Number.isFinite(t) ? t : null;
 }
 
-function readStoredMs(primaryKey: string): number | null {
-  const raw = localStorage.getItem(primaryKey);
+async function readStoredMs(primaryKey: string): Promise<number | null> {
+  const raw = await getItem<string>(primaryKey);
   if (!raw) return null;
 
   // Support JSON payloads from future versions.
@@ -39,25 +40,25 @@ function readStoredMs(primaryKey: string): number | null {
   return safeParseNumber(raw);
 }
 
-function writeStoredState(primaryKey: string, lastClaimAtMs: number) {
-  localStorage.setItem(primaryKey, new Date(lastClaimAtMs).toISOString());
+async function writeStoredState(primaryKey: string, lastClaimAtMs: number) {
+  await setItem(primaryKey, new Date(lastClaimAtMs).toISOString());
 }
 
-function ensureInitialized(primaryKey: string, legacyKeys: string[]) {
+async function ensureInitialized(primaryKey: string, legacyKeys: string[]) {
   const nowMs = Date.now();
 
-  const existing = readStoredMs(primaryKey);
+  const existing = await readStoredMs(primaryKey);
   if (existing !== null) return;
 
   // Migrate: take the newest timestamp across all legacy keys.
   let bestMs: number | null = null;
   for (const key of legacyKeys) {
-    const ms = readStoredMs(key);
+    const ms = await readStoredMs(key);
     if (ms === null) continue;
     bestMs = bestMs === null ? ms : Math.max(bestMs, ms);
   }
 
-  writeStoredState(primaryKey, bestMs ?? nowMs);
+  await writeStoredState(primaryKey, bestMs ?? nowMs);
 }
 
 export type HourlyRewardState = {
@@ -91,10 +92,10 @@ export function useHourlyReward(options?: { amountPerHour?: number; storageKeyPr
 
   const hydratedRef = useRef(false);
 
-  const recomputeFromStorage = useCallback(() => {
+  const recomputeFromStorage = useCallback(async () => {
     try {
-      ensureInitialized(primaryKey, legacyKeys);
-      const storedMs = readStoredMs(primaryKey);
+      await ensureInitialized(primaryKey, legacyKeys);
+      const storedMs = await readStoredMs(primaryKey);
       if (storedMs === null) return;
 
       // First hydration must trust storage (avoid overwriting it with the initial in-memory value).
@@ -107,7 +108,7 @@ export function useHourlyReward(options?: { amountPerHour?: number; storageKeyPr
       // After hydration, just reflect storage; do not write back here.
       setState({ lastClaimAtMs: storedMs });
     } catch {
-      // If localStorage is unavailable, keep current in-memory state.
+      // If storage is unavailable, keep current in-memory state.
     }
   }, [primaryKey, legacyKeys]);
 
@@ -115,14 +116,9 @@ export function useHourlyReward(options?: { amountPerHour?: number; storageKeyPr
     recomputeFromStorage();
 
     const id = window.setInterval(recomputeFromStorage, 60_000);
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === primaryKey) recomputeFromStorage();
-    };
-
-    window.addEventListener("storage", onStorage);
+    
     return () => {
       window.clearInterval(id);
-      window.removeEventListener("storage", onStorage);
     };
   }, [recomputeFromStorage, primaryKey]);
 
@@ -139,12 +135,12 @@ export function useHourlyReward(options?: { amountPerHour?: number; storageKeyPr
     };
   }, [state.lastClaimAtMs, amountPerHour]);
 
-  const claim = useCallback((): number => {
+  const claim = useCallback(async (): Promise<number> => {
     const nowMs = Date.now();
 
     try {
-      ensureInitialized(primaryKey, legacyKeys);
-      const storedMs = readStoredMs(primaryKey);
+      await ensureInitialized(primaryKey, legacyKeys);
+      const storedMs = await readStoredMs(primaryKey);
       const baseMs = storedMs === null ? nowMs : storedMs;
       const diff = nowMs - baseMs;
       const hours = Math.floor(diff / HOUR_MS);
@@ -156,7 +152,7 @@ export function useHourlyReward(options?: { amountPerHour?: number; storageKeyPr
       }
 
       // Store the exact claim time so minutes/seconds update immediately.
-      writeStoredState(primaryKey, nowMs);
+      await writeStoredState(primaryKey, nowMs);
       setState({ lastClaimAtMs: nowMs });
       return amount;
     } catch {

@@ -14,6 +14,7 @@ import {
 import PlayTimeTracker from "./PlayTimeTracker";
 import { Close, RestartAlt, QueryStats } from "@mui/icons-material";
 import { DROPDOWN_GAME_OPTIONS, useWallet } from "./WalletProvider";
+import { getItem, setItem } from "../lib/indexedDB";
 
 type LiveStatsPanelProps = {
   open: boolean;
@@ -67,36 +68,38 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
 
   useEffect(() => {
     setMounted(true);
-    const stored = safeParsePos(localStorage.getItem(POS_KEY));
-    if (stored) {
-      setPos(stored);
-      return;
-    }
-
-    const x = Math.max(24, Math.floor(window.innerWidth * 0.22));
-    const y = 80;
-    setPos({ x, y });
+    getItem<string>(POS_KEY).then((raw) => {
+      const stored = safeParsePos(raw);
+      if (stored) {
+        setPos(stored);
+      } else {
+        const x = Math.max(24, Math.floor(window.innerWidth * 0.22));
+        const y = 80;
+        setPos({ x, y });
+      }
+    });
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem(SELECTED_GAME_KEY);
-    const validIds = new Set<string>(DROPDOWN_GAME_OPTIONS.map((g) => g.id));
-    if (stored && validIds.has(stored)) {
-      setSelectedGameId(stored as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]);
-      return;
-    }
+    getItem<string>(SELECTED_GAME_KEY).then((stored) => {
+      const validIds = new Set<string>(DROPDOWN_GAME_OPTIONS.map((g) => g.id));
+      if (stored && validIds.has(stored)) {
+        setSelectedGameId(stored as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]);
+        return;
+      }
 
-    if (validIds.has(currentGameId)) {
-      setSelectedGameId(currentGameId as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]);
-      return;
-    }
+      if (validIds.has(currentGameId)) {
+        setSelectedGameId(currentGameId as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]);
+        return;
+      }
 
-    setSelectedGameId("all");
+      setSelectedGameId("all");
+    });
   }, [currentGameId]);
 
   const handleGameChange = (value: (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]) => {
     setSelectedGameId(value);
-    localStorage.setItem(SELECTED_GAME_KEY, value);
+    setItem(SELECTED_GAME_KEY, value);
   };
 
   const selectedStats = liveStatsByGame[selectedGameId] ?? liveStatsByGame.all ?? emptyStatsRef.current;
@@ -165,7 +168,7 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
   const onStop = (_e: DraggableEvent, data: DraggableData) => {
     const nextPos = { x: data.x, y: data.y };
     setPos(nextPos);
-    localStorage.setItem(POS_KEY, JSON.stringify(nextPos));
+    setItem(POS_KEY, JSON.stringify(nextPos));
   };
 
   if (!open || !mounted) return null;

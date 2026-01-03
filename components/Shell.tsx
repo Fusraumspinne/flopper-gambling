@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import Navbar from "@/components/Navbar";
+import { getItem, setItem } from "../lib/indexedDB";
 
 type SidebarContextValue = {
   collapsed: boolean;
@@ -18,20 +19,13 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
+    getItem<string>(KEY).then((raw) => {
       if (raw === "1") setCollapsed(true);
-    } catch {
-      // ignore
-    }
+    });
   }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(KEY, collapsed ? "1" : "0");
-    } catch {
-      // ignore
-    }
+    setItem(KEY, collapsed ? "1" : "0");
   }, [collapsed]);
 
   const sidebarWidth = useMemo(() => (collapsed ? "72px" : "20%"), [collapsed]);

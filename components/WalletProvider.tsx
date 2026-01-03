@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { getItem, setItem } from "../lib/indexedDB";
 
 type LiveStatsPoint = {
   t: number;
@@ -61,6 +62,7 @@ interface WalletContextType {
   resetLiveStats: (gameId?: GameKey) => void;
   finalizePendingLoss: () => void;
   lastBetAt: number | null;
+  syncBalance: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -162,67 +164,119 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   });
 
   const pendingBetsRef = useRef<number[]>([]);
+  const betCountRef = useRef<number>(0);
   const pathname = usePathname();
   const currentGameId = useMemo(() => deriveGameId(pathname ?? "/"), [pathname]);
   const [lastBetAt, setLastBetAt] = useState<number | null>(null);
 
-  useEffect(() => {
-    const storedBalance = localStorage.getItem("flopper_balance");
-    if (storedBalance) {
-      const initial = normalizeMoney(parseFloat(storedBalance));
-      balanceRef.current = initial;
-      setBalance(initial);
-    } else {
-      balanceRef.current = 1000.0;
-      setBalance(1000.0);
-      localStorage.setItem("flopper_balance", "1000.00");
+  const getInvestmentValue = async (): Promise<number> => {
+    try {
+      const raw = await getItem<string>("flopper_investment_v1");
+      if (!raw) return 0;
+      const parsed = JSON.parse(raw);
+      if (typeof parsed.principal !== "number" || typeof parsed.startedAtMs !== "number") return 0;
+      
+      const HOUR_MS = 60 * 60 * 1000;
+      const RATE_PER_HOUR = 0.01;
+      const nowMs = Date.now();
+      
+      if (parsed.principal <= 0) return 0;
+      const elapsedMs = Math.max(0, nowMs - parsed.startedAtMs);
+      const hours = elapsedMs / HOUR_MS;
+      const value = parsed.principal * (1 + RATE_PER_HOUR * hours);
+      return normalizeMoney(value);
+    } catch {
+      return 0;
     }
+  };
 
-    const rawStats = (() => {
-      const primary = localStorage.getItem(LIVE_STATS_KEY);
-      if (primary) return primary;
-      for (const legacyKey of LEGACY_LIVE_STATS_KEYS) {
-        const legacy = localStorage.getItem(legacyKey);
-        if (legacy) return legacy;
-      }
-      return null;
-    })();
-
-    if (rawStats) {
+  const syncUserBalance = async (currentBalance: number) => {
+    const username = await getItem<string>("username");
+    if (username) {
       try {
-        const parsed = JSON.parse(rawStats) as LiveStatsByGame;
-        const next: Partial<LiveStatsByGame> = { all: createEmptyLiveStats(), unknown: createEmptyLiveStats() };
-
-        for (const key of Object.keys(parsed)) {
-          const maybe = parsed[key as keyof LiveStatsByGame];
-          if (isValidLiveStats(maybe)) {
-            const normalizedNet = normalizeMoney(maybe.net);
-            next[key as GameKey] = {
-              ...maybe,
-              net: normalizedNet,
-              wagered: normalizeMoney(maybe.wagered),
-              history:
-                maybe.history.length > 0
-                  ? maybe.history.map((p) => ({ t: p.t, net: normalizeMoney(p.net) }))
-                  : normalizedNet === 0
-                    ? []
-                    : [{ t: Date.now(), net: normalizedNet }],
-            };
-          }
-        }
-
-        for (const game of GAME_OPTIONS) {
-          if (!next[game.id]) next[game.id] = createEmptyLiveStats();
-        }
-        if (!next.unknown) next.unknown = createEmptyLiveStats();
-
-        next.all = buildAllAggregate(next as LiveStatsByGame);
-        setLiveStatsByGame(next as LiveStatsByGame);
-      } catch {
+        const investmentValue = await getInvestmentValue();
+        const totalBalance = normalizeMoney(currentBalance + investmentValue);
+        
+        await fetch("/api/user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: username, balance: totalBalance }),
+        });
+      } catch (error) {
+        console.error("Failed to sync balance", error);
       }
     }
+  };
 
-    setIsLoaded(true);
+  const syncBalance = async (): Promise<void> => {
+    try {
+      await syncUserBalance(balanceRef.current);
+    } catch (error) {
+      console.error("Failed to sync balance", error);
+    }
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      const storedBalance = await getItem<string>("flopper_balance");
+      if (storedBalance) {
+        const initial = normalizeMoney(parseFloat(storedBalance));
+        balanceRef.current = initial;
+        setBalance(initial);
+      } else {
+        balanceRef.current = 1000.0;
+        setBalance(1000.0);
+        await setItem("flopper_balance", "1000.00");
+      }
+
+      const rawStats = await (async () => {
+        const primary = await getItem<string>(LIVE_STATS_KEY);
+        if (primary) return primary;
+        for (const legacyKey of LEGACY_LIVE_STATS_KEYS) {
+          const legacy = await getItem<string>(legacyKey);
+          if (legacy) return legacy;
+        }
+        return null;
+      })();
+
+      if (rawStats) {
+        try {
+          const parsed = JSON.parse(rawStats) as LiveStatsByGame;
+          const next: Partial<LiveStatsByGame> = { all: createEmptyLiveStats(), unknown: createEmptyLiveStats() };
+
+          for (const key of Object.keys(parsed)) {
+            const maybe = parsed[key as keyof LiveStatsByGame];
+            if (isValidLiveStats(maybe)) {
+              const normalizedNet = normalizeMoney(maybe.net);
+              next[key as GameKey] = {
+                ...maybe,
+                net: normalizedNet,
+                wagered: normalizeMoney(maybe.wagered),
+                history:
+                  maybe.history.length > 0
+                    ? maybe.history.map((p) => ({ t: p.t, net: normalizeMoney(p.net) }))
+                    : normalizedNet === 0
+                      ? []
+                      : [{ t: Date.now(), net: normalizedNet }],
+              };
+            }
+          }
+
+          for (const game of GAME_OPTIONS) {
+            if (!next[game.id]) next[game.id] = createEmptyLiveStats();
+          }
+          if (!next.unknown) next.unknown = createEmptyLiveStats();
+
+          next.all = buildAllAggregate(next as LiveStatsByGame);
+          setLiveStatsByGame(next as LiveStatsByGame);
+        } catch {
+        }
+      }
+
+      setIsLoaded(true);
+      syncUserBalance(balanceRef.current);
+    };
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -231,13 +285,13 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem("flopper_balance", normalizeMoney(balance).toFixed(2));
+      setItem("flopper_balance", normalizeMoney(balance).toFixed(2));
     }
   }, [balance, isLoaded]);
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem(LIVE_STATS_KEY, JSON.stringify(liveStatsByGame));
+      setItem(LIVE_STATS_KEY, JSON.stringify(liveStatsByGame));
     }
   }, [liveStatsByGame, isLoaded]);
 
@@ -286,6 +340,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     if (typeof bet !== "number") return;
     updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
     applyNetChange(-normalizeMoney(bet));
+    // Sync DB now that the loss is finalized and balance reflects it
+    void syncUserBalance(balanceRef.current);
   };
 
   const resetLiveStats = (gameId: GameKey = currentGameId) => {
@@ -314,6 +370,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     setBalance(next);
 
     settleBetWithPayout(a);
+    void syncUserBalance(next);
   };
 
   const subtractFromBalance = (amount: number) => {
@@ -325,6 +382,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     setBalance(next);
 
     pendingBetsRef.current.push(a);
+
 
     try {
       setLastBetAt(Date.now());
@@ -348,6 +406,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     const next = normalizeMoney(balanceRef.current - a);
     balanceRef.current = next;
     setBalance(next);
+    void syncBalance();
     return true;
   };
 
@@ -370,6 +429,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         currentGameId,
         resetLiveStats,
         finalizePendingLoss,
+        syncBalance,
         lastBetAt,
       }}
     >

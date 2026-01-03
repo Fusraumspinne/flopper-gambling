@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { getItem, setItem } from "../lib/indexedDB";
 
 type SoundVolumeContextValue = {
   volume: number; 
@@ -13,18 +14,6 @@ const STORAGE_KEY = "flopper_sound_volume_v1";
 const DEFAULT_VOLUME = 1;
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-
-function readInitialVolume(): number {
-  if (typeof window === "undefined") return DEFAULT_VOLUME;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_VOLUME;
-    const n = Number(raw);
-    return Number.isFinite(n) ? clamp01(n) : DEFAULT_VOLUME;
-  } catch {
-    return DEFAULT_VOLUME;
-  }
-}
 
 function installGlobalPlayHook() {
   if (typeof window === "undefined") return;
@@ -54,23 +43,34 @@ function installGlobalPlayHook() {
 }
 
 export function SoundVolumeProvider({ children }: { children: React.ReactNode }) {
-  const [volume, setVolumeState] = useState<number>(() => readInitialVolume());
+  const [volume, setVolumeState] = useState<number>(DEFAULT_VOLUME);
+  const hydratedRef = React.useRef(false);
 
   const setVolume = (next: number) => {
     setVolumeState(clamp01(next));
   };
 
   useEffect(() => {
+    getItem<string | number>(STORAGE_KEY).then((raw) => {
+      if (raw != null) {
+        const n = Number(raw);
+        if (Number.isFinite(n)) {
+          setVolumeState(clamp01(n));
+        }
+      }
+      // mark hydrated even if no stored value — prevents initial write-over
+      hydratedRef.current = true;
+      (window as any).__flopper_sound_volume__ = clamp01(Number(raw ?? DEFAULT_VOLUME));
+    });
+  }, []);
+
+  useEffect(() => {
     installGlobalPlayHook();
   }, []);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, String(volume));
-    } catch {
-      // ignore
-    }
-
+    if (!hydratedRef.current) return;
+    setItem(STORAGE_KEY, String(volume));
     (window as any).__flopper_sound_volume__ = volume;
   }, [volume]);
 

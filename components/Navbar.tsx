@@ -46,8 +46,8 @@ export default function Navbar() {
 
   const [statsOpen, setStatsOpen] = useState(false);
 
-  const claimFree = () => {
-    const amount = claim();
+  const claimFree = async () => {
+    const amount = await claim();
     if (amount <= 0) return;
     addToBalance(amount);
   };
