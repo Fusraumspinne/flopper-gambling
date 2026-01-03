@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { getItem, setItem } from "../lib/indexedDB";
+import { getItem, setItem, clearStore } from "../lib/indexedDB";
 
 type LiveStatsPoint = {
   t: number;
@@ -218,15 +218,30 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const loadData = async () => {
+      const verified = await getItem<string>("verified");
+      if (!verified) {
+        try {
+          await clearStore();
+        } catch (err) {
+          console.error('Failed to clear store when verified missing', err);
+        }
+      }
+
       const storedBalance = await getItem<string>("flopper_balance");
+      const storedInvest = await getItem<string>("flopper_investment_v1");
       if (storedBalance) {
         const initial = normalizeMoney(parseFloat(storedBalance));
         balanceRef.current = initial;
         setBalance(initial);
-      } else {
+      } else if(!storedInvest) {
         balanceRef.current = 1000.0;
         setBalance(1000.0);
         await setItem("flopper_balance", "1000.00");
+        try {
+          await setItem("verified", "true");
+        } catch (err) {
+          console.error('Failed to set verified flag', err);
+        }
       }
 
       const rawStats = await (async () => {
