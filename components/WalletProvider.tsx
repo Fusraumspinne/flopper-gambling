@@ -229,11 +229,12 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
       const storedBalance = await getItem<string>("flopper_balance");
       const storedInvest = await getItem<string>("flopper_investment_v1");
+      const storedDailyBonus = await getItem<string>("flopper_hourly_reward_last_claim_v1");
       if (storedBalance) {
         const initial = normalizeMoney(parseFloat(storedBalance));
         balanceRef.current = initial;
         setBalance(initial);
-      } else if(!storedInvest) {
+      } else if(!storedInvest && !storedDailyBonus) {
         balanceRef.current = 1000.0;
         setBalance(1000.0);
         await setItem("flopper_balance", "1000.00");
@@ -355,7 +356,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     if (typeof bet !== "number") return;
     updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
     applyNetChange(-normalizeMoney(bet));
-    // Sync DB now that the loss is finalized and balance reflects it
     void syncUserBalance(balanceRef.current);
   };
 
