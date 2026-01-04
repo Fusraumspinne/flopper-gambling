@@ -733,17 +733,19 @@ export default function CasesPage() {
 
       const isWin = target.multiplier >= 1;
 
-      if (isWin) {
+      if (payout > 0) {
         addToBalance(payout);
+      }
+
+      if (isWin) {
         playAudio(audioRef.current.win);
       } else {
-        finalizePendingLoss();
+        if (payout === 0) finalizePendingLoss();
         playAudio(audioRef.current.limboLose);
       }
 
       setResultFx(isWin ? "win" : "lose");
 
-      // Allow faster manual re-bets: don't block "busy" state on the FX timeout.
       setIsSpinning(false);
       isSpinningRef.current = false;
 
@@ -752,7 +754,6 @@ export default function CasesPage() {
         resultTimeoutRef.current = null;
       }, 450);
 
-      // AutoBet should still show the opening/result briefly before the next round resets UI.
       const postDelayMs = Math.max(0, Math.floor(opts?.postDelayMs ?? 0));
       if (postDelayMs > 0) {
         await new Promise<void>((resolve) =>

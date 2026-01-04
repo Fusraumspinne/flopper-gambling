@@ -512,7 +512,7 @@ export default function DartsPage() {
       await sleep(220);
       if (playNonceRef.current !== myNonce) return null;
 
-      if (multiplier >= 1) {
+      if (winAmount > 0) {
         addToBalance(winAmount);
         setLastWin(winAmount);
       } else {
