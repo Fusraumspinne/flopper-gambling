@@ -71,7 +71,7 @@ export default function GiftClaimListener() {
       <div className="w-full max-w-md bg-[#0f212e] border border-[#2f4553]/60 rounded-xl p-5">
         <div className="text-white font-semibold text-lg">Gift received</div>
         <div className="mt-2 text-sm text-[#b1bad3]">
-          {formatSenderList(senders)} sent you a total of <span className="text-white font-semibold">{total.toFixed(2)}</span>.
+          {formatSenderList(senders)} sent you a total of $<span className="text-white font-semibold">{total.toFixed(2)}</span>.
         </div>
         <div className="mt-4 flex justify-end">
           <button

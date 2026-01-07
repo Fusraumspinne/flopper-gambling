@@ -9,6 +9,10 @@ function normalizeMoney(value: number): number {
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 
+function escapeRegex(str: string) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export async function POST(req: Request) {
   try {
     const { sender, recipient, amount } = await req.json();
@@ -33,32 +37,34 @@ export async function POST(req: Request) {
 
     await connectMongoDB();
 
-    const [senderUser, recipientUser] = await Promise.all([
-      User.findOne({ name: senderName }),
-      User.findOne({ name: recipientName }),
-    ]);
-
-    if (!senderUser) {
-      return NextResponse.json({ message: "Sender not found" }, { status: 404 });
-    }
+    const recipientQuery = { name: { $regex: `^${escapeRegex(recipientName)}$`, $options: "i" } };
+    const recipientUser = await User.findOne(recipientQuery);
     if (!recipientUser) {
       return NextResponse.json({ message: "Recipient not found" }, { status: 404 });
     }
 
-    // Sender's Mongo balance represents total (balance + investment) as last synced by client.
-    const senderTotal = typeof senderUser.balance === "number" ? normalizeMoney(senderUser.balance) : 0;
-    if (senderTotal - amt < 5000) {
-      return NextResponse.json({ message: "Must keep at least 5000" }, { status: 400 });
-    }
+    let senderUser = null as any;
+    if (senderName !== "unknown") {
+      const senderQuery = { name: { $regex: `^${escapeRegex(senderName)}$`, $options: "i" } };
+      senderUser = await User.findOne(senderQuery);
+      if (!senderUser) {
+        return NextResponse.json({ message: "Sender not found" }, { status: 404 });
+      }
 
-    const updated = await User.findOneAndUpdate(
-      { name: senderName, balance: { $gte: amt + 5000 } },
-      { $inc: { balance: -amt } },
-      { new: true }
-    );
+      const senderTotal = typeof senderUser.balance === "number" ? normalizeMoney(senderUser.balance) : 0;
+      if (senderTotal - amt < 5000) {
+        return NextResponse.json({ message: "Must keep at least 5000" }, { status: 400 });
+      }
 
-    if (!updated) {
-      return NextResponse.json({ message: "Not enough funds" }, { status: 400 });
+      const updated = await User.findOneAndUpdate(
+        { _id: senderUser._id, balance: { $gte: amt + 5000 } },
+        { $inc: { balance: -amt } },
+        { new: true }
+      );
+
+      if (!updated) {
+        return NextResponse.json({ message: "Not enough funds" }, { status: 400 });
+      }
     }
 
     const created = await Gift.create({ sender: senderName, recipient: recipientName, amount: amt });
