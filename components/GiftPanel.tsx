@@ -85,7 +85,7 @@ export default function GiftPanel() {
   }, [nowMs, balance]);
 
   const totalAssets = useMemo(() => normalizeMoney(balance + investmentValue), [balance, investmentValue]);
-  const showPanel = Boolean(username) && totalAssets > 5000;
+  const showPanel = totalAssets > 5000;
 
   const maxGift = useMemo(() => {
     const limitByMin = normalizeMoney(totalAssets - 5000);
@@ -95,7 +95,6 @@ export default function GiftPanel() {
   const amount = useMemo(() => parseAmount(amountRaw), [amountRaw]);
 
   const onSendGift = async () => {
-    if (!username) return;
     setError(null);
 
     const to = recipient.trim();
@@ -115,10 +114,11 @@ export default function GiftPanel() {
     }
 
     try {
+      const sender = username ?? "unknown";
       const res = await fetch("/api/gifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sender: username, recipient: to, amount }),
+        body: JSON.stringify({ sender, recipient: to, amount }),
       });
 
       if (res.status === 404) {
@@ -160,16 +160,16 @@ export default function GiftPanel() {
       </div>
 
       <div className="mt-4 bg-[#0f212e] rounded-lg p-4 border border-[#2f4553]/60">
-        <div className="text-xs text-[#557086]">You can only gift money from ur balance</div>
+        <div className="text-xs text-[#557086]">You can only gift money from your balance.</div>
         <div className="text-white font-semibold text-2xl">${balance.toFixed(2)}</div>
-        <div className="mt-1 text-xs text-[#557086]">Max gift right now: {maxGift.toFixed(2)}</div>
+        <div className="mt-1 text-xs text-[#557086]">Max gift right now: ${maxGift.toFixed(2)}</div>
       </div>
 
       <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:items-center">
         <input
           value={recipient}
           onChange={(e) => setRecipient(e.target.value)}
-          className="w-full bg-[#0f212e] border border-[#2f4553]/60 rounded-lg px-3 py-2 text-white outline-none"
+          className="flex-1 bg-[#0f212e] border border-[#2f4553]/60 rounded-lg px-3 py-2 text-white outline-none"
           placeholder="Recipient name"
           aria-label="Recipient name"
         />
@@ -177,13 +177,13 @@ export default function GiftPanel() {
           value={amountRaw}
           onChange={(e) => setAmountRaw(e.target.value)}
           inputMode="decimal"
-          className="w-full bg-[#0f212e] border border-[#2f4553]/60 rounded-lg px-3 py-2 text-white outline-none"
+          className="flex-1 bg-[#0f212e] border border-[#2f4553]/60 rounded-lg px-3 py-2 text-white outline-none"
           placeholder="Amount"
           aria-label="Amount"
         />
         <button
           onClick={onSendGift}
-          className="px-4 py-2 rounded-lg bg-[#00e701] hover:bg-[#00c701] text-black font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-none w-auto px-4 py-2 rounded-lg bg-[#00e701] hover:bg-[#00c701] text-black font-bold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={amount <= 0 || amount > maxGift || !recipient.trim()}
         >
           Send gift
