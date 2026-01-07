@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     }
 
     let senderUser = null as any;
-    if (senderName !== "unknown") {
+    if (senderName !== "Unknown") {
       const senderQuery = { name: { $regex: `^${escapeRegex(senderName)}$`, $options: "i" } };
       senderUser = await User.findOne(senderQuery);
       if (!senderUser) {
