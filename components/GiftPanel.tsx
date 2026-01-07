@@ -114,7 +114,7 @@ export default function GiftPanel() {
     }
 
     try {
-      const sender = username ?? "unknown";
+      const sender = username ?? "Unknown";
       const res = await fetch("/api/gifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
