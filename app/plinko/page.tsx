@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import { PlayArrow, Bolt } from "@mui/icons-material";
+import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type RiskLevel = "low" | "medium" | "high";
 
@@ -989,8 +990,9 @@ export default function PlinkoPage() {
   };
 
   return (
+    <>
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Modus
@@ -1302,6 +1304,7 @@ export default function PlinkoPage() {
         )}
       </div>
 
+      <div className="flex-1 flex flex-col gap-4">
       <div className="flex-1 bg-[#0f212e] p-4 sm:p-6 rounded-xl min-h-[400px] sm:min-h-[600px] flex flex-col items-stretch justify-center relative overflow-hidden">
         {resultFx && (
           <div
@@ -1345,6 +1348,10 @@ export default function PlinkoPage() {
           </div>
         </div>
       </div>
+
+      <GameRecordsPanel gameId="plinko" />
+      </div>
     </div>
+    </>
   );
 }

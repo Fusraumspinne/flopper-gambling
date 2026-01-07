@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import { PlayArrow, Refresh } from "@mui/icons-material";
+import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type GameState = "idle" | "rolling" | "won" | "lost";
 
@@ -400,8 +401,9 @@ export default function LimboPage() {
   const shownMultiplier = gameState === "rolling" ? rollingDisplayMultiplier : rolledMultiplier;
 
   return (
+    <>
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Mode</label>
                   <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
@@ -631,6 +633,7 @@ export default function LimboPage() {
         )}
       </div>
 
+      <div className="flex-1 flex flex-col gap-4">
       <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-8 relative h-[400px] sm:h-[600px] overflow-hidden">
 
         {gameState === "rolling" && (
@@ -685,6 +688,10 @@ export default function LimboPage() {
         )}
 
       </div>
+
+      <GameRecordsPanel gameId="limbo" />
+      </div>
     </div>
+    </>
   );
 }

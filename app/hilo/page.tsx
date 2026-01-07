@@ -9,6 +9,7 @@ import {
   ArrowUpward,
   ArrowDownward,
 } from "@mui/icons-material";
+import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type Suit = "hearts" | "diamonds" | "clubs" | "spades";
 type Rank =
@@ -375,8 +376,9 @@ export default function HiloPage() {
   const currentWin = betAmount * multiplier;
 
   return (
+    <>
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -478,6 +480,7 @@ export default function HiloPage() {
         )}
       </div>
 
+      <div className="flex-1 flex flex-col gap-4">
       <div className="flex-1 bg-[#0f212e] p-4 sm:p-6 rounded-xl min-h-[500px] flex flex-col items-center justify-center relative overflow-hidden gap-8">
         {resultFx === "rolling" && (
           <div className="limbo-roll-glow absolute inset-0 pointer-events-none z-0" />
@@ -576,6 +579,10 @@ export default function HiloPage() {
           )}
         </div>
       </div>
+
+      <GameRecordsPanel gameId="hilo" />
+      </div>
     </div>
+    </>
   );
 }

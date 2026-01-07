@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import { PlayArrow, Refresh, Bolt } from "@mui/icons-material";
+import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type Suit = "hearts" | "diamonds" | "clubs" | "spades";
 type Rank =
@@ -544,8 +545,9 @@ export default function BlackjackPage() {
   };
 
   return (
+    <>
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -662,6 +664,7 @@ export default function BlackjackPage() {
         )}
       </div>
 
+      <div className="flex-1 flex flex-col gap-4">
       <div className="flex-1 bg-[#0f212e] p-2 sm:p-6 rounded-xl min-h-[500px] flex flex-col justify-between relative overflow-hidden">
         {resultFx === "rolling" && <div className="limbo-roll-glow" />}
         {resultFx === "win" && <div className="limbo-win-burst" />}
@@ -768,6 +771,10 @@ export default function BlackjackPage() {
           )}
         </div>
       </div>
+
+      <GameRecordsPanel gameId="blackjack" />
+      </div>
     </div>
+    </>
   );
 }

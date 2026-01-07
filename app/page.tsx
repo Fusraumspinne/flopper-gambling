@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import InvestmentPanel from "@/components/InvestmentPanel";
 import Leaderboard from "@/components/Leaderboard";
+import GiftPanel from "@/components/GiftPanel";
 
 const games = [
   { name: "Blackjack", href: "/blackjack", tagline: "Beat the dealer", image: "/images/BlackJack.png" },
@@ -33,6 +34,7 @@ export default function Home() {
 
         <InvestmentPanel />
         <Leaderboard />
+        <GiftPanel />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
         {games.map((game) => (

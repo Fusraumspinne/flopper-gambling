@@ -108,8 +108,6 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
     const points = selectedStats.history;
     if (points.length === 0) return [] as Array<{ x: number; net: number; pos: number | null; neg: number | null }>;
 
-    // Use bet index as the X axis to avoid long flat segments when time passes between bets.
-    // Each history point represents the net after a settled round.
     const out: Array<{ x: number; net: number }> = [{ x: 1, net: points[0].net }];
 
     for (let i = 1; i < points.length; i++) {
@@ -162,7 +160,6 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
   const netClass = selectedStats.net >= 0 ? "text-[#00e701]" : "text-red-500";
 
   const onDrag = (_e: DraggableEvent, data: DraggableData) => {
-    // no-op: avoid updating controlled position during drag to prevent cursor drift
   };
 
   const onStop = (_e: DraggableEvent, data: DraggableData) => {

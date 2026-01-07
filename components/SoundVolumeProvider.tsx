@@ -35,7 +35,6 @@ function installGlobalPlayHook() {
         this.volume = clamp01(v);
       }
     } catch {
-      // ignore
     }
 
     return originalPlay.apply(this, args as any);
@@ -58,7 +57,6 @@ export function SoundVolumeProvider({ children }: { children: React.ReactNode })
           setVolumeState(clamp01(n));
         }
       }
-      // mark hydrated even if no stored value — prevents initial write-over
       hydratedRef.current = true;
       (window as any).__flopper_sound_volume__ = clamp01(Number(raw ?? DEFAULT_VOLUME));
     });

@@ -9,6 +9,7 @@ import {
   PlayArrow,
   Refresh,
 } from "@mui/icons-material";
+import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 const MULTIPLIERS: Record<number, number[]> = {
   1: [
@@ -731,8 +732,9 @@ export default function MinesPage() {
   const isBusy = gameState === "playing" || isAutoBetting;
 
   return (
+    <>
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row items-start gap-4 lg:gap-8">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Mode
@@ -1016,6 +1018,7 @@ export default function MinesPage() {
         )}
       </div>
 
+      <div className="flex-1 flex flex-col gap-4">
       <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px]">
             {resultFx === "rolling" && <div className="limbo-roll-glow" />}
             {resultFx === "win" && <div className="limbo-win-flash" />}
@@ -1163,6 +1166,10 @@ export default function MinesPage() {
           })}
         </div>
       </div>
+
+      <GameRecordsPanel gameId="mines" />
+      </div>
     </div>
+    </>
   );
 }

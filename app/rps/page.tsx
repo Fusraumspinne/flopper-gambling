@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import { PlayArrow } from "@mui/icons-material";
+import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type Choice = "rock" | "paper" | "scissors";
 type GameResult = "win" | "lose" | "draw";
@@ -302,6 +303,7 @@ export default function RPSPage() {
   };
 
   return (
+    <>
     <main className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row items-start gap-4 lg:gap-8">
       <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs self-start">
         <div className="space-y-2">
@@ -404,7 +406,8 @@ export default function RPSPage() {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-100 sm:min-h-125 overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col gap-4">
+      <div className="w-full flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-100 sm:min-h-125 overflow-hidden">
         {resultFx === "rolling" && (
           <div className="limbo-roll-glow absolute inset-0 pointer-events-none z-0" />
         )}
@@ -607,6 +610,10 @@ export default function RPSPage() {
           </div>
         </div>
       </div>
+
+      <GameRecordsPanel gameId="rps" />
+      </div>
     </main>
+    </>
   );
 }

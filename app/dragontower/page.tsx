@@ -10,6 +10,7 @@ import {
   Diamond,
   LocalFireDepartment,
 } from "@mui/icons-material";
+import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type RiskLevel = "low" | "medium" | "high" | "expert" | "master";
 
@@ -964,8 +965,9 @@ export default function DragonTowerPage() {
   };
 
   return (
+    <>
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Mode
@@ -1258,7 +1260,7 @@ export default function DragonTowerPage() {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col gap-4">
+      <div className="flex-1 min-w-0 flex flex-col gap-4">
         <div className="bg-[#0f212e] p-4 rounded-xl relative overflow-hidden">
           {resultFx === "rolling" && <div className="limbo-roll-glow" />}
           {resultFx === "win" && <div className="limbo-win-flash" />}
@@ -1397,7 +1399,10 @@ export default function DragonTowerPage() {
             </div>
           </div>
         </div>
+
+        <GameRecordsPanel gameId="dragontower" />
       </div>
     </div>
+    </>
   );
 }

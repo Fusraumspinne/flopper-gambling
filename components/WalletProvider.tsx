@@ -50,6 +50,25 @@ type GameId = (typeof GAME_OPTIONS)[number]["id"];
 type GameKey = GameId | "all" | "unknown";
 type LiveStatsByGame = Record<GameKey, LiveStatsState>;
 
+type WinMeta = {
+  game: GameKey;
+  profit: number;
+  multi: number;
+  payout: number;
+};
+
+type LossMeta = {
+  game: GameKey;
+  loss: number;
+};
+
+type GameUpdate = {
+  profit?: number;
+  payout?: number;
+  multi?: number;
+  loss?: number;
+};
+
 interface WalletContextType {
   balance: number;
   addToBalance: (amount: number) => void;
@@ -165,9 +184,127 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   const pendingBetsRef = useRef<number[]>([]);
   const betCountRef = useRef<number>(0);
+  const syncTimerRef = useRef<number | null>(null);
+  const pendingUpdatesRef = useRef<Map<GameKey, GameUpdate>>(new Map());
+  const flushInFlightRef = useRef<Promise<void> | null>(null);
   const pathname = usePathname();
   const currentGameId = useMemo(() => deriveGameId(pathname ?? "/"), [pathname]);
   const [lastBetAt, setLastBetAt] = useState<number | null>(null);
+
+  const SYNC_DEBOUNCE_MS = 5000;
+  const BETS_PER_SYNC = 20;
+
+  const mergeGameUpdate = (prev: GameUpdate | undefined, next: GameUpdate): GameUpdate => {
+    const merged: GameUpdate = { ...prev };
+
+    if (typeof next.payout === "number") {
+      merged.payout = Math.max(merged.payout ?? 0, next.payout);
+    }
+    if (typeof next.profit === "number") {
+      merged.profit = Math.max(merged.profit ?? 0, next.profit);
+    }
+    if (typeof next.multi === "number") {
+      merged.multi = Math.max(merged.multi ?? 0, next.multi);
+    }
+    if (typeof next.loss === "number") {
+      merged.loss = Math.max(merged.loss ?? 0, next.loss);
+    }
+
+    return merged;
+  };
+
+  const queueUpdate = (meta: WinMeta | LossMeta) => {
+    const game = meta.game;
+    if (!game || game === "unknown" || game === "all") return;
+
+    const update: GameUpdate =
+      "loss" in meta
+        ? { loss: normalizeMoney(meta.loss) }
+        : {
+            profit: normalizeMoney(meta.profit),
+            payout: normalizeMoney(meta.payout),
+            multi: normalizeMoney(meta.multi),
+          };
+
+    pendingUpdatesRef.current.set(game, mergeGameUpdate(pendingUpdatesRef.current.get(game), update));
+  };
+
+  const clearSyncTimer = () => {
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = null;
+    }
+  };
+
+  const flushSync = async (): Promise<void> => {
+    if (flushInFlightRef.current) return flushInFlightRef.current;
+
+    const run = (async () => {
+      clearSyncTimer();
+      const username = await getItem<string>("username");
+      if (!username) {
+        betCountRef.current = 0;
+        return;
+      }
+
+      // snapshot + clear so updates queued during flush are not lost
+      const snapshot = new Map(pendingUpdatesRef.current);
+      pendingUpdatesRef.current.clear();
+
+      try {
+        const investmentValue = await getInvestmentValue();
+        const totalBalance = normalizeMoney(balanceRef.current + investmentValue);
+
+        // Always update user balance once
+        await fetch("/api/user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: username, balance: totalBalance }),
+        });
+
+        // Then apply per-game record updates (payout/multi/loss) without re-fetching everything
+        for (const [game, upd] of snapshot.entries()) {
+          if (!upd) continue;
+          const payload: any = { name: username, balance: totalBalance, game };
+          if (typeof upd.payout === "number" && upd.payout > 0) payload.payout = upd.payout;
+          if (typeof upd.profit === "number" && upd.profit > 0) payload.profit = upd.profit;
+          if (typeof upd.multi === "number" && upd.multi > 0) payload.multi = upd.multi;
+          if (typeof upd.loss === "number" && upd.loss > 0) payload.loss = upd.loss;
+
+          // If we have nothing meaningful, skip
+          if (!payload.payout && !payload.profit && !payload.multi && !payload.loss) continue;
+
+          await fetch("/api/user", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
+
+        betCountRef.current = 0;
+      } catch (error) {
+        // Merge snapshot back so we don't lose records on temporary network failures
+        for (const [game, upd] of snapshot.entries()) {
+          pendingUpdatesRef.current.set(game, mergeGameUpdate(pendingUpdatesRef.current.get(game), upd));
+        }
+        console.error("Failed to sync balance", error);
+      }
+    })();
+
+    flushInFlightRef.current = run;
+    try {
+      await run;
+    } finally {
+      flushInFlightRef.current = null;
+    }
+  };
+
+  const scheduleSync = () => {
+    clearSyncTimer();
+    syncTimerRef.current = window.setTimeout(() => {
+      void flushSync();
+    }, SYNC_DEBOUNCE_MS);
+  };
 
   const getInvestmentValue = async (): Promise<number> => {
     try {
@@ -190,27 +327,9 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const syncUserBalance = async (currentBalance: number) => {
-    const username = await getItem<string>("username");
-    if (username) {
-      try {
-        const investmentValue = await getInvestmentValue();
-        const totalBalance = normalizeMoney(currentBalance + investmentValue);
-        
-        await fetch("/api/user", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: username, balance: totalBalance }),
-        });
-      } catch (error) {
-        console.error("Failed to sync balance", error);
-      }
-    }
-  };
-
   const syncBalance = async (): Promise<void> => {
     try {
-      await syncUserBalance(balanceRef.current);
+      await flushSync();
     } catch (error) {
       console.error("Failed to sync balance", error);
     }
@@ -290,7 +409,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       setIsLoaded(true);
-      syncUserBalance(balanceRef.current);
     };
     loadData();
   }, []);
@@ -336,19 +454,26 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
-  const settleBetWithPayout = (payout: number) => {
+  const settleBetWithPayout = (payout: number): WinMeta | null => {
     const normalizedPayout = normalizeMoney(payout);
-    if (normalizedPayout <= 0) return;
+    if (normalizedPayout <= 0) return null;
     const bet = pendingBetsRef.current.shift();
-    if (typeof bet !== "number") return;
+    if (typeof bet !== "number") return null;
 
     const roundNet = normalizeMoney(normalizedPayout - bet);
+    const multiplier = bet > 0 ? normalizeMoney(normalizedPayout / bet) : 0;
     if (roundNet > 0) {
       updateCurrentAndAll((s) => ({ ...s, wins: s.wins + 1 }));
     } else if (roundNet < 0) {
       updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
     }
     applyNetChange(roundNet);
+
+    if (roundNet > 0 && multiplier > 0) {
+      return { game: currentGameId, profit: roundNet, multi: multiplier, payout: normalizedPayout };
+    }
+
+    return null;
   };
 
   const finalizePendingLoss = () => {
@@ -356,7 +481,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     if (typeof bet !== "number") return;
     updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
     applyNetChange(-normalizeMoney(bet));
-    void syncUserBalance(balanceRef.current);
+    queueUpdate({ game: currentGameId, loss: normalizeMoney(bet) });
+    scheduleSync();
   };
 
   const resetLiveStats = (gameId: GameKey = currentGameId) => {
@@ -384,8 +510,9 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     balanceRef.current = next;
     setBalance(next);
 
-    settleBetWithPayout(a);
-    void syncUserBalance(next);
+    const winMeta = settleBetWithPayout(a);
+    if (winMeta) queueUpdate(winMeta);
+    scheduleSync();
   };
 
   const subtractFromBalance = (amount: number) => {
@@ -397,6 +524,14 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     setBalance(next);
 
     pendingBetsRef.current.push(a);
+
+    betCountRef.current += 1;
+
+    if (betCountRef.current >= BETS_PER_SYNC) {
+      void flushSync();
+    } else {
+      scheduleSync();
+    }
 
 
     try {
@@ -412,6 +547,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     const next = normalizeMoney(balanceRef.current + a);
     balanceRef.current = next;
     setBalance(next);
+    scheduleSync();
   };
 
   const debitBalance = (amount: number): boolean => {
@@ -421,7 +557,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     const next = normalizeMoney(balanceRef.current - a);
     balanceRef.current = next;
     setBalance(next);
-    void syncBalance();
+    scheduleSync();
     return true;
   };
 

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import { PlayArrow } from "@mui/icons-material";
+import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type CoinSide = "heads" | "tails";
 type GameState = "idle" | "playing" | "cashed_out" | "lost";
@@ -196,8 +197,9 @@ export default function CoinFlipPage() {
   };
 
   return (
+    <>
     <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row items-start gap-4 lg:gap-8">
-      <div className="w-full lg:w-[240px] flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs self-start">
+      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs self-start">
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Bet Amount
@@ -298,6 +300,7 @@ export default function CoinFlipPage() {
         )}
       </div>
 
+      <div className="flex-1 flex flex-col gap-4">
       <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px] overflow-hidden">
         {isFlipping && <div className="limbo-roll-glow" />}
         {!isFlipping && fx === "win" && <div key={`win-${fxKey}`} className="limbo-win-flash" />}
@@ -421,6 +424,10 @@ export default function CoinFlipPage() {
           ))}
         </div>
       </div>
+
+      <GameRecordsPanel gameId="coinflip" />
+      </div>
     </div>
+    </>
   );
 }

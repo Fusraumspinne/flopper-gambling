@@ -15,6 +15,7 @@ import {
   Flag,
   LocalFireDepartment,
 } from "@mui/icons-material";
+import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type RiskLevel = "low" | "medium" | "high" | "expert";
 type GameState = "idle" | "walking" | "crashed" | "cashed";
@@ -1354,6 +1355,7 @@ export default function ChickenPage() {
   const isBusy = gameState === "walking" || isAutoBetting;
 
   return (
+    <>
     <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8 overflow-x-hidden">
       <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
@@ -2052,6 +2054,8 @@ export default function ChickenPage() {
             </div>
           </div>
         </div>
+
+        <GameRecordsPanel gameId="chicken" />
       </div>
 
       <style jsx global>{`
@@ -2493,5 +2497,6 @@ export default function ChickenPage() {
         }
       `}</style>
     </div>
+    </>
   );
 }

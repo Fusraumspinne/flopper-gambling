@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import { PlayArrow, Refresh, SwapHoriz } from "@mui/icons-material";
+import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type GameState = "idle" | "rolling" | "won" | "lost";
 
@@ -488,6 +489,7 @@ export default function DicePage() {
   const isBusy = gameState === "rolling" || isAutoBetting;
 
   return (
+    <>
     <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
       <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
         <div className="space-y-2">
@@ -794,7 +796,8 @@ export default function DicePage() {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center self-start bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-100 sm:min-h-125 overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col gap-4">
+      <div className="flex-1 w-full flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-100 sm:min-h-125 overflow-hidden">
         {resultFx === "rolling" && (
           <div className="limbo-roll-glow absolute inset-0 pointer-events-none z-0" />
         )}
@@ -900,6 +903,10 @@ export default function DicePage() {
           </div>
         </div>
       </div>
+
+      <GameRecordsPanel gameId="dice" />
+      </div>
     </div>
+    </>
   );
 }

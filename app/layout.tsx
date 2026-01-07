@@ -4,6 +4,7 @@ import "./globals.css";
 import { WalletProvider } from "@/components/WalletProvider";
 import Shell from "@/components/Shell";
 import { SoundVolumeProvider } from "@/components/SoundVolumeProvider";
+import GiftClaimListener from "@/components/GiftClaimListener";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,7 +33,10 @@ export default function RootLayout({
       >
         <WalletProvider>
           <SoundVolumeProvider>
-            <Shell>{children}</Shell>
+            <Shell>
+              <GiftClaimListener />
+              {children}
+            </Shell>
           </SoundVolumeProvider>
         </WalletProvider>
       </body>
