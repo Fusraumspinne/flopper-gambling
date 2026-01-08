@@ -4,7 +4,7 @@ import InvestmentPanel from "@/components/InvestmentPanel";
 import Leaderboard from "@/components/Leaderboard";
 import GiftPanel from "@/components/GiftPanel";
 
-const games = [
+const games: Array<{ name: string; href: string; tagline: string; image?: string }> = [
   { name: "Blackjack", href: "/blackjack", tagline: "Beat the dealer", image: "/images/BlackJack.png" },
   { name: "Mines", href: "/mines", tagline: "Find diamonds, avoid mines", image: "/images/Mines.png" },
   { name: "Keno", href: "/keno", tagline: "Pick 10 numbers", image: "/images/Keno.png" },
@@ -15,6 +15,7 @@ const games = [
   { name: "Chicken", href: "/chicken", tagline: "Cross safely for rewards", image: "/images/Chicken.png" },
   { name: "Cases", href: "/cases", tagline: "Open and reveal rewards", image: "/images/Cases.png" },
   { name: "Plinko", href: "/plinko", tagline: "Drop and win", image: "/images/Plinko.png" },
+  { name: "Bars", href: "/bars", tagline: "Pick 1-5 tiles and sum multipliers",  image: "/images/Bars.png" },
   { name: "Spinning Wheel", href: "/spinningwheel", tagline: "Spin and hit a multiplier", image: "/images/SpinningWheel.png" },
   { name: "Darts", href: "/darts", tagline: "Aim for a high score", image: "/images/Darts.png" },
   { name: "Snakes", href: "/snakes", tagline: "Climb high, dodge snakes", image: "/images/Snakes.png" },
@@ -44,14 +45,23 @@ export default function Home() {
             className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group border border-[#2f4553]/60"
           >
             <div className="relative aspect-square bg-[#0f212e]">
-              <Image
-                src={game.image}
-                alt={`${game.name} preview`}
-                fill
-                className="object-contain transition-transform duration-500 group-hover:scale-105"
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
-                priority={game.name === "Blackjack"}
-              />
+              {game.image ? (
+                <Image
+                  src={game.image}
+                  alt={`${game.name} preview`}
+                  fill
+                  className="object-contain transition-transform duration-500 group-hover:scale-105"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+                  priority={game.name === "Blackjack"}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="text-white font-extrabold text-3xl tracking-wide">{game.name}</div>
+                    <div className="mt-2 text-xs text-[#557086]">No preview</div>
+                  </div>
+                </div>
+              )}
               <div className="absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-[#0f212e] via-[#0f212e]/80 to-transparent"></div>
               <div className="absolute inset-x-0 bottom-0 px-3 pb-3 flex items-end">
                 <span className="text-white font-semibold text-lg drop-shadow">{game.name}</span>

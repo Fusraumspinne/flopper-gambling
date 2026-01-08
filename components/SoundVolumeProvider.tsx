@@ -11,7 +11,7 @@ type SoundVolumeContextValue = {
 const SoundVolumeContext = createContext<SoundVolumeContextValue | undefined>(undefined);
 
 const STORAGE_KEY = "flopper_sound_volume_v1";
-const DEFAULT_VOLUME = 1;
+const DEFAULT_VOLUME = 0;
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 

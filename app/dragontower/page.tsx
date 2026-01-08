@@ -806,20 +806,20 @@ export default function DragonTowerPage() {
 
     if (!rowReveal) {
       return isClickable
-        ? "bg-[#2f4553] hover:bg-[#3c5566] hover:-translate-y-1 cursor-pointer shadow-[0_4px_0_0_#1a2c38] transition-all duration-200"
-        : "bg-[#2f4553] opacity-50 cursor-default transition-all duration-200";
+        ? "bg-[#2f4553] hover:bg-[#3c5566] hover:-translate-y-1 active:translate-y-0 cursor-pointer shadow-[0_4px_0_0_#1a2c38] transition-all duration-200"
+        : "bg-[#2f4553] opacity-50 cursor-default hover:-translate-y-1 active:translate-y-0 shadow-[0_4px_0_0_#1a2c38] transition-all duration-200";
     }
 
     const pickedByPlayer = rowReveal.pickedIndex === idx && rowReveal.pickedIndex !== -1;
     const isTrap = rowReveal.trapIndices?.includes(idx);
 
     if (!pickedByPlayer) {
-      return "transition-all duration-200";
+      return "hover:-translate-y-1 active:translate-y-0 shadow-[0_4px_0_0_#1a2c38] transition-all duration-200";
     }
 
     return isTrap
-      ? "animate-mines-mine transition-all duration-200"
-      : "animate-mines-gem transition-all duration-200";
+      ? "animate-mines-mine hover:-translate-y-1 active:translate-y-0 shadow-[0_4px_0_0_#1a2c38] transition-all duration-200"
+      : "animate-mines-gem hover:-translate-y-1 active:translate-y-0 shadow-[0_4px_0_0_#1a2c38] transition-all duration-200";
   };
 
   const renderCellContent = (rowLevel: number, idx: number) => {
@@ -837,8 +837,8 @@ export default function DragonTowerPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        width: "75%",
-        height: "75%",
+        width: "65%",
+        height: "65%",
       };
 
       return (
@@ -886,8 +886,8 @@ export default function DragonTowerPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        width: "75%",
-        height: "75%",
+        width: "65%",
+        height: "65%",
       };
 
       return (
@@ -926,17 +926,17 @@ export default function DragonTowerPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        width: "70%",
-        height: "70%",
+        width: "65%",
+        height: "65%",
       };
       return (
         <div style={wrapper}>
           <LocalFireDepartment
             sx={{
-              width: "75%",
-              height: "75%",
+              width: "100%",
+              height: "100%",
               color: "#ef4444",
-              filter: "brightness(0.75)",
+              filter: "none",
             }}
           />
         </div>
@@ -947,17 +947,17 @@ export default function DragonTowerPage() {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      width: "70%",
-      height: "70%",
+      width: "65%",
+      height: "65%",
     };
     return (
       <div style={wrapper}>
         <Diamond
           sx={{
-            width: "75%",
-            height: "75%",
-            color: "#0b6623",
-            filter: "brightness(1.25)",
+            width: "100%",
+            height: "100%",
+            color: "#00ff17",
+            filter: "none",
           }}
         />
       </div>
@@ -1318,24 +1318,17 @@ export default function DragonTowerPage() {
                       const canPlan = playMode === "auto" && !isUiBusy && roundState !== "active";
 
                       const planningStyle = isPlanned
-                        ? "bg-[#6b21a8] border-[#a855f7] text-white shadow-[0_4px_0_0_#4c1d95] -translate-y-0.5"
+                        ? "bg-[#6b21a8] border-[#a855f7] text-white shadow-[0_4px_0_0_#1a2c38] hover:-translate-y-1 active:translate-y-0 transition-all duration-200 -translate-y-0.5"
                         : canPlan
-                        ? "bg-[#2f4553] hover:bg-[#3c5566] hover:-translate-y-1 cursor-pointer shadow-[0_4px_0_0_#1a2c38] transition-all duration-200"
-                        : "bg-[#2f4553] opacity-50 cursor-default transition-all duration-200";
+                        ? "bg-[#2f4553] hover:bg-[#3c5566] hover:-translate-y-1 active:translate-y-0 cursor-pointer shadow-[0_4px_0_0_#1a2c38] transition-all duration-200"
+                        : "bg-[#2f4553] opacity-50 cursor-default hover:-translate-y-1 active:translate-y-0 shadow-[0_4px_0_0_#1a2c38] transition-all duration-200";
 
                       const baseSafe = "#213743";
                       const target = "#0f212e";
                       const pickedByPlayer =
                         rowReveal?.pickedIndex === idx &&
                         rowReveal?.pickedIndex !== -1;
-                      const isAutoRevealed = !!rowReveal && !pickedByPlayer;
-                      const blendedBg = rowReveal
-                        ? pickedByPlayer
-                          ? baseSafe
-                          : isAutoRevealed
-                          ? blendHexColors(baseSafe, target, 0.5)
-                          : baseSafe
-                        : undefined;
+                      const blendedBg = rowReveal ? baseSafe : undefined;
 
                       return (
                         <button
@@ -1363,6 +1356,15 @@ export default function DragonTowerPage() {
                           }
                         >
                           {renderCellContent(rowLevel, idx)}
+                          {rowReveal && pickedByPlayer && (
+                            <div
+                              className={`pointer-events-none absolute inset-0 rounded-md ${
+                                rowReveal.outcome === "trap"
+                                  ? "border-2 border-[#ef4444]"
+                                  : "border-2 border-[#00e701]"
+                              }`}
+                            />
+                          )}
                         </button>
                       );
                     })}

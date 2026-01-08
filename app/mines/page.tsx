@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import {
@@ -182,7 +188,8 @@ export default function MinesPage() {
   const playAudio = (a?: HTMLAudioElement) => {
     if (!a) return;
     const v =
-      typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
+      typeof window !== "undefined" &&
+      typeof (window as any).__flopper_sound_volume__ === "number"
         ? (window as any).__flopper_sound_volume__
         : 1;
     if (!v) return;
@@ -190,8 +197,7 @@ export default function MinesPage() {
       a.volume = v;
       a.currentTime = 0;
       void a.play();
-    } catch (e) {
-    }
+    } catch (e) {}
   };
 
   const playRevealSound = (revealed: number, totalSafe: number) => {
@@ -308,26 +314,23 @@ export default function MinesPage() {
     return picks;
   }, []);
 
-  const togglePlannedTile = useCallback(
-    (id: number) => {
-      if (gameStateRef.current === "playing") return;
-      if (isAutoBettingRef.current) return;
-      if (id < 0 || id >= 25) return;
+  const togglePlannedTile = useCallback((id: number) => {
+    if (gameStateRef.current === "playing") return;
+    if (isAutoBettingRef.current) return;
+    if (id < 0 || id >= 25) return;
 
-      setAutoPickOrder((prev) => {
-        const idx = prev.indexOf(id);
-        if (idx >= 0) {
-          const next = [...prev];
-          next.splice(idx, 1);
-          playAudio(audioRef.current.select);
-          return next;
-        }
+    setAutoPickOrder((prev) => {
+      const idx = prev.indexOf(id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next.splice(idx, 1);
         playAudio(audioRef.current.select);
-        return [...prev, id];
-      });
-    },
-    []
-  );
+        return next;
+      }
+      playAudio(audioRef.current.select);
+      return [...prev, id];
+    });
+  }, []);
 
   const currentMultiplier = useMemo(() => {
     if (revealedCount === 0) return 1.0;
@@ -403,7 +406,10 @@ export default function MinesPage() {
       setGameState("game_over");
       setGrid(newGrid.map((t) => ({ ...t, isRevealed: true })));
       setResultFx("lose");
-      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
+      resultTimeoutRef.current = window.setTimeout(
+        () => setResultFx(null),
+        900
+      );
       finalizePendingLoss();
     } else {
       const newRevealedCount = revealedCount + 1;
@@ -422,7 +428,10 @@ export default function MinesPage() {
           resultTimeoutRef.current = null;
         }
         setResultFx("win");
-        resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
+        resultTimeoutRef.current = window.setTimeout(
+          () => setResultFx(null),
+          900
+        );
         setGameState("cashed_out");
 
         setGrid(newGrid.map((t) => ({ ...t, isRevealed: true })));
@@ -462,15 +471,27 @@ export default function MinesPage() {
 
       const picks = getValidPickOrder(autoPickOrderRef.current);
       if (picks.length <= 0) {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        return null as null | {
+          betAmount: number;
+          winAmount: number;
+          didWin: boolean;
+        };
       }
 
       if (currentState === "playing") {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        return null as null | {
+          betAmount: number;
+          winAmount: number;
+          didWin: boolean;
+        };
       }
 
       if (bet <= 0 || bet > currentBalance) {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        return null as null | {
+          betAmount: number;
+          winAmount: number;
+          didWin: boolean;
+        };
       }
 
       if (resultTimeoutRef.current) {
@@ -604,8 +625,14 @@ export default function MinesPage() {
     setIsAutoBetting(true);
 
     while (isAutoBettingRef.current) {
-      const stopProfit = Math.max(0, normalizeMoney(parseNumberLoose(stopProfitInput)));
-      const stopLoss = Math.max(0, normalizeMoney(parseNumberLoose(stopLossInput)));
+      const stopProfit = Math.max(
+        0,
+        normalizeMoney(parseNumberLoose(stopProfitInput))
+      );
+      const stopLoss = Math.max(
+        0,
+        normalizeMoney(parseNumberLoose(stopLossInput))
+      );
       const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
       const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
 
@@ -619,7 +646,9 @@ export default function MinesPage() {
       const result = await playRound({ betAmount: roundBet });
       if (!result) break;
 
-      const lastNet = normalizeMoney((result.winAmount ?? 0) - result.betAmount);
+      const lastNet = normalizeMoney(
+        (result.winAmount ?? 0) - result.betAmount
+      );
       autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
 
       if (result.didWin && result.winAmount > 0) {
@@ -676,8 +705,7 @@ export default function MinesPage() {
     (mode: "manual" | "auto") => {
       try {
         stopAutoBet();
-      } catch (e) {
-      }
+      } catch (e) {}
 
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
@@ -709,8 +737,7 @@ export default function MinesPage() {
 
       try {
         stopAutoBet();
-      } catch (e) {
-      }
+      } catch (e) {}
       isAutoBettingRef.current = false;
       setIsAutoBetting(false);
       autoOriginalBetRef.current = 0;
@@ -733,293 +760,327 @@ export default function MinesPage() {
 
   return (
     <>
-    <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row items-start gap-4 lg:gap-8">
-      <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-            Mode
-          </label>
-          <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-            {(["manual", "auto"] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => !isBusy && changePlayMode(mode)}
+      <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row items-start gap-4 lg:gap-8">
+        <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+              Mode
+            </label>
+            <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+              {(["manual", "auto"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => !isBusy && changePlayMode(mode)}
+                  disabled={isBusy}
+                  className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    playMode === mode
+                      ? "bg-[#213743] text-white shadow-sm"
+                      : "text-[#b1bad3] hover:text-white"
+                  }`}
+                >
+                  {mode === "manual" ? "Manual" : "Auto"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+              Bet Amount
+            </label>
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                $
+              </div>
+              <input
+                type="number"
+                value={betInput}
+                onChange={(e) => setBetInput(e.target.value)}
+                onBlur={() => {
+                  const raw = betInput.trim();
+                  const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                  const num = Number(sanitized);
+                  setBetBoth(num);
+                }}
                 disabled={isBusy}
-                className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  playMode === mode
-                    ? "bg-[#213743] text-white shadow-sm"
-                    : "text-[#b1bad3] hover:text-white"
-                }`}
-              >
-                {mode === "manual" ? "Manual" : "Auto"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-            Bet Amount
-          </label>
-          <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
-              $
+                className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
+              />
             </div>
-            <input
-              type="number"
-              value={betInput}
-              onChange={(e) => setBetInput(e.target.value)}
-              onBlur={() => {
-                const raw = betInput.trim();
-                const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
-                const num = Number(sanitized);
-                setBetBoth(num);
-              }}
-              disabled={isBusy}
-              className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              onClick={() => {
-                const newBet = normalizeMoney(betAmount / 2);
-                setBetBoth(newBet);
-              }}
-              disabled={isBusy}
-              className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
-            >
-              ½
-            </button>
-            <button
-              onClick={() => {
-                const newBet = normalizeMoney(betAmount * 2);
-                setBetBoth(newBet);
-              }}
-              disabled={isBusy}
-              className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
-            >
-              2×
-            </button>
-            <button
-              onClick={() => {
-                const newBet = normalizeMoney(balance);
-                setBetBoth(newBet);
-              }}
-              disabled={isBusy}
-              className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
-            >
-              All In
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-            Mines
-          </label>
-          <select
-            value={mineCount}
-            onChange={(e) => setMineCount(Number(e.target.value))}
-            disabled={isBusy}
-            className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 px-4 text-white focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
-          >
-            {Array.from({ length: 24 }, (_, i) => i + 1).map((num) => (
-              <option key={num} value={num}>
-                {num}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {playMode === "manual" &&
-          (gameState === "playing" ? (
-            <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <button
-                onClick={cashOut}
-                disabled={revealedCount === 0 || isAutoBetting}
-                className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => {
+                  const newBet = normalizeMoney(betAmount / 2);
+                  setBetBoth(newBet);
+                }}
+                disabled={isBusy}
+                className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
               >
-                Cashout
+                ½
               </button>
-            </div>
-          ) : (
-            <button
-              onClick={startGame}
-              disabled={isBusy}
-              className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
-            >
-              <PlayArrow /> Bet
-            </button>
-          ))}
-
-        {playMode === "auto" && (
-          <>
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-                On Win
-              </label>
-              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-                {(["reset", "raise"] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => !isBusy && setOnWinMode(m)}
-                    disabled={isBusy}
-                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      onWinMode === m
-                        ? "bg-[#213743] text-white shadow-sm"
-                        : "text-[#b1bad3] hover:text-white"
-                    }`}
-                  >
-                    {m === "reset" ? "Reset" : "Raise"}
-                  </button>
-                ))}
-              </div>
-              {onWinMode === "raise" && (
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%</div>
-                  <input
-                    type="number"
-                    value={onWinPctInput}
-                    onChange={(e) => setOnWinPctInput(e.target.value)}
-                    onBlur={() => {
-                      const raw = onWinPctInput.trim();
-                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
-                      setOnWinPctInput(sanitized);
-                    }}
-                    disabled={isBusy}
-                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
-                    placeholder="0"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-                On Loss
-              </label>
-              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-                {(["reset", "raise"] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => !isBusy && setOnLoseMode(m)}
-                    disabled={isBusy}
-                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      onLoseMode === m
-                        ? "bg-[#213743] text-white shadow-sm"
-                        : "text-[#b1bad3] hover:text-white"
-                    }`}
-                  >
-                    {m === "reset" ? "Reset" : "Raise"}
-                  </button>
-                ))}
-              </div>
-              {onLoseMode === "raise" && (
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">%</div>
-                  <input
-                    type="number"
-                    value={onLosePctInput}
-                    onChange={(e) => setOnLosePctInput(e.target.value)}
-                    onBlur={() => {
-                      const raw = onLosePctInput.trim();
-                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
-                      setOnLosePctInput(sanitized);
-                    }}
-                    disabled={isBusy}
-                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
-                    placeholder="0"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-                Stop on Profit
-              </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
-                <input
-                  type="number"
-                  value={stopProfitInput}
-                  onChange={(e) => setStopProfitInput(e.target.value)}
-                  onBlur={() => {
-                    const raw = stopProfitInput.trim();
-                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
-                    setStopProfitInput(sanitized);
-                  }}
-                  disabled={isBusy}
-                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-                Stop on Loss
-              </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
-                <input
-                  type="number"
-                  value={stopLossInput}
-                  onChange={(e) => setStopLossInput(e.target.value)}
-                  onBlur={() => {
-                    const raw = stopLossInput.trim();
-                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
-                    setStopLossInput(sanitized);
-                  }}
-                  disabled={isBusy}
-                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
-                />
-              </div>
-            </div>
-
-            {!isAutoBetting ? (
               <button
-                onClick={startAutoBet}
-                disabled={isBusy || autoPickOrder.length === 0}
-                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                onClick={() => {
+                  const newBet = normalizeMoney(betAmount * 2);
+                  setBetBoth(newBet);
+                }}
+                disabled={isBusy}
+                className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
               >
-                <PlayArrow sx={{ fill: "currentColor" }} />
-                Autobet
+                2×
               </button>
+              <button
+                onClick={() => {
+                  const newBet = normalizeMoney(balance);
+                  setBetBoth(newBet);
+                }}
+                disabled={isBusy}
+                className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
+              >
+                All In
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+              Mines
+            </label>
+            <select
+              value={mineCount}
+              onChange={(e) => setMineCount(Number(e.target.value))}
+              disabled={isBusy}
+              className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 px-4 text-white focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
+            >
+              {Array.from({ length: 24 }, (_, i) => i + 1).map((num) => (
+                <option key={num} value={num}>
+                  {num}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {playMode === "manual" && (
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  if (gameState !== "playing") return;
+                  if (isAutoBettingRef.current) return;
+                  const unrevealed = grid
+                    .filter((t) => !t.isRevealed)
+                    .map((t) => t.id);
+                  if (unrevealed.length === 0) return;
+                  const pick =
+                    unrevealed[Math.floor(Math.random() * unrevealed.length)];
+                  revealTile(pick);
+                }}
+                disabled={
+                  gameState !== "playing" ||
+                  isAutoBettingRef.current ||
+                  grid.filter((t) => !t.isRevealed).length === 0
+                }
+                className="w-full bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-md font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                Random Pick
+              </button>
+            </div>
+          )}
+
+          {playMode === "manual" &&
+            (gameState === "playing" ? (
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={cashOut}
+                  disabled={revealedCount === 0 || isAutoBetting}
+                  className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cashout
+                </button>
+              </div>
             ) : (
               <button
-                onClick={stopAutoBet}
-                className="w-full bg-[#ef4444] hover:bg-[#dc2626] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                onClick={startGame}
+                disabled={isBusy}
+                className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                Stop
+                <PlayArrow /> Bet
               </button>
-            )}
-          </>
-        )}
+            ))}
 
-        {gameState === "playing" && playMode === "manual" && (
-          <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
-            <div className="text-[#b1bad3] text-sm">Current Win</div>
-            <div className="text-2xl font-bold text-[#00e701]">
-              ${potentialWin.toFixed(2)}
-            </div>
-            <div className="text-sm text-[#b1bad3] mt-1">
-              Next: {nextMultiplier ? `${nextMultiplier}x` : "Max"}
-            </div>
-          </div>
-        )}
+          {playMode === "auto" && (
+            <>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                  On Win
+                </label>
+                <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                  {(["reset", "raise"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => !isBusy && setOnWinMode(m)}
+                      disabled={isBusy}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        onWinMode === m
+                          ? "bg-[#213743] text-white shadow-sm"
+                          : "text-[#b1bad3] hover:text-white"
+                      }`}
+                    >
+                      {m === "reset" ? "Reset" : "Raise"}
+                    </button>
+                  ))}
+                </div>
+                {onWinMode === "raise" && (
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                      %
+                    </div>
+                    <input
+                      type="number"
+                      value={onWinPctInput}
+                      onChange={(e) => setOnWinPctInput(e.target.value)}
+                      onBlur={() => {
+                        const raw = onWinPctInput.trim();
+                        const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                        setOnWinPctInput(sanitized);
+                      }}
+                      disabled={isBusy}
+                      className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+              </div>
 
-        {lastWin > 0 && gameState !== "playing" && (
-          <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
-            <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
-            <div className="text-xl font-bold text-[#00e701]">
-              ${lastWin.toFixed(2)}
-            </div>
-          </div>
-        )}
-      </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                  On Loss
+                </label>
+                <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                  {(["reset", "raise"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => !isBusy && setOnLoseMode(m)}
+                      disabled={isBusy}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        onLoseMode === m
+                          ? "bg-[#213743] text-white shadow-sm"
+                          : "text-[#b1bad3] hover:text-white"
+                      }`}
+                    >
+                      {m === "reset" ? "Reset" : "Raise"}
+                    </button>
+                  ))}
+                </div>
+                {onLoseMode === "raise" && (
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                      %
+                    </div>
+                    <input
+                      type="number"
+                      value={onLosePctInput}
+                      onChange={(e) => setOnLosePctInput(e.target.value)}
+                      onBlur={() => {
+                        const raw = onLosePctInput.trim();
+                        const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                        setOnLosePctInput(sanitized);
+                      }}
+                      disabled={isBusy}
+                      className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+              </div>
 
-      <div className="flex-1 flex flex-col gap-4">
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px]">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                  Stop on Profit
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                    $
+                  </div>
+                  <input
+                    type="number"
+                    value={stopProfitInput}
+                    onChange={(e) => setStopProfitInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = stopProfitInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setStopProfitInput(sanitized);
+                    }}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                  Stop on Loss
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">
+                    $
+                  </div>
+                  <input
+                    type="number"
+                    value={stopLossInput}
+                    onChange={(e) => setStopLossInput(e.target.value)}
+                    onBlur={() => {
+                      const raw = stopLossInput.trim();
+                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                      setStopLossInput(sanitized);
+                    }}
+                    disabled={isBusy}
+                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+                  />
+                </div>
+              </div>
+
+              {!isAutoBetting ? (
+                <button
+                  onClick={startAutoBet}
+                  disabled={isBusy || autoPickOrder.length === 0}
+                  className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <PlayArrow sx={{ fill: "currentColor" }} />
+                  Autobet
+                </button>
+              ) : (
+                <button
+                  onClick={stopAutoBet}
+                  className="w-full bg-[#ef4444] hover:bg-[#dc2626] text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  Stop
+                </button>
+              )}
+            </>
+          )}
+
+          {gameState === "playing" && playMode === "manual" && (
+            <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
+              <div className="text-[#b1bad3] text-sm">Current Win</div>
+              <div className="text-2xl font-bold text-[#00e701]">
+                ${potentialWin.toFixed(2)}
+              </div>
+              <div className="text-sm text-[#b1bad3] mt-1">
+                Next: {nextMultiplier ? `${nextMultiplier}x` : "Max"}
+              </div>
+            </div>
+          )}
+
+          {lastWin > 0 && gameState !== "playing" && (
+            <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
+              <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
+              <div className="text-xl font-bold text-[#00e701]">
+                ${lastWin.toFixed(2)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 flex flex-col gap-4">
+          <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-8 relative min-h-[400px] sm:min-h-[500px]">
             {resultFx === "rolling" && <div className="limbo-roll-glow" />}
             {resultFx === "win" && <div className="limbo-win-flash" />}
             {resultFx === "lose" && <div className="limbo-lose-flash" />}
@@ -1034,39 +1095,43 @@ export default function MinesPage() {
               />
             )}
             <div className="grid grid-cols-5 gap-2 sm:gap-3 w-full max-w-[500px] aspect-square">
-          {grid.map((tile) => {
-            const isAutoRevealed = tile.isRevealed && !tile.revealedByPlayer;
-            const baseSafe = "#213743";
-            const target = "#0f212e";
-            const blendedBg = tile.isRevealed
-              ? isAutoRevealed
-                ? blendHexColors(baseSafe, target, 0.5)
-                : baseSafe
-              : undefined;
+              {grid.map((tile) => {
+                const isAutoRevealed =
+                  tile.isRevealed && !tile.revealedByPlayer;
+                const baseSafe = "#213743";
+                const target = "#0f212e";
+                const blendedBg = tile.isRevealed ? baseSafe : undefined;
 
-            const plannedIndex = plannedOrderById.get(tile.id) ?? null;
+                const plannedIndex = plannedOrderById.get(tile.id) ?? null;
 
-            const canPlan =
-              playMode === "auto" && gameState !== "playing" && !isAutoBetting;
-            const canReveal =
-              playMode === "manual" && gameState === "playing" && !isAutoBetting;
+                const canPlan =
+                  playMode === "auto" &&
+                  gameState !== "playing" &&
+                  !isAutoBetting;
+                const canReveal =
+                  playMode === "manual" &&
+                  gameState === "playing" &&
+                  !isAutoBetting;
 
-            const isPlannedCovered = plannedIndex != null && !tile.isRevealed;
+                const isPlannedCovered =
+                  plannedIndex != null && !tile.isRevealed;
 
-            return (
-              <button
-                key={tile.id}
-                onClick={() => {
-                  if (canReveal) {
-                    revealTile(tile.id);
-                    return;
-                  }
-                  if (canPlan) {
-                    togglePlannedTile(tile.id);
-                  }
-                }}
-                disabled={(canReveal && tile.isRevealed) || (!canReveal && !canPlan)}
-                className={`relative rounded-lg transition-all duration-200 flex items-center justify-center aspect-square
+                return (
+                  <button
+                    key={tile.id}
+                    onClick={() => {
+                      if (canReveal) {
+                        revealTile(tile.id);
+                        return;
+                      }
+                      if (canPlan) {
+                        togglePlannedTile(tile.id);
+                      }
+                    }}
+                    disabled={
+                      (canReveal && tile.isRevealed) || (!canReveal && !canPlan)
+                    }
+                    className={`relative rounded-lg transition-all duration-200 flex items-center justify-center aspect-square
                   overflow-hidden
                   ${
                     !tile.isRevealed
@@ -1080,96 +1145,109 @@ export default function MinesPage() {
                       : ""
                   }
                   ${
+                    tile.revealedByPlayer
+                      ? tile.isMine
+                        ? "border-2 border-[#ef4444]"
+                        : "border-2 border-[#00e701]"
+                      : ""
+                  }
+                  ${
                     gameState !== "playing" && !tile.isRevealed && !canPlan
                       ? "cursor-default hover:transform-none opacity-50"
                       : ""
                   }`}
-                style={blendedBg ? { backgroundColor: blendedBg } : undefined}
-              >
-                {plannedIndex != null && !tile.isRevealed && (
-                  <div className="absolute top-1 right-1 bg-[#6b21a8] border border-[#a855f7] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                    {plannedIndex}
-                  </div>
-                )}
-
-                {tile.isRevealed && tile.revealedByPlayer && !tile.isMine && (
-                  <div
-                    className="pointer-events-none absolute inset-0 flex items-center justify-center"
-                  >
-                    <div
-                      className="mines-gem-flash absolute inset-0"
-                      style={{
-                        background:
-                          "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.85) 0%, rgba(0,231,1,0.35) 38%, rgba(0,231,1,0.0) 70%)",
-                      }}
-                    />
-                    <div
-                      className="mines-gem-glow absolute inset-0 rounded-lg"
-                      style={{
-                        boxShadow: "0 0 0 0 rgba(0,231,1,0.0)",
-                        border: "2px solid rgba(0,231,1,0.35)",
-                      }}
-                    />
-                  </div>
-                )}
-
-                {tile.isRevealed && tile.revealedByPlayer && tile.isMine && (
-                  <div
-                    className="pointer-events-none absolute inset-0 mines-mine-flash"
-                    style={{
-                      background:
-                        "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.75) 0%, rgba(239,68,68,0.35) 45%, rgba(239,68,68,0.0) 70%)",
-                    }}
-                  />
-                )}
-
-                {tile.isRevealed && (
-                  <div
-                    className={
-                      tile.revealedByPlayer ? "animate-mines-icon-pop" : undefined
+                    style={
+                      blendedBg ? { backgroundColor: blendedBg } : undefined
                     }
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "35%",
-                      height: "35%",
-                    }}
                   >
-                    {tile.isMine ? (
-                      <LocalFireDepartment
-                        style={{
-                          width: tile.revealedByPlayer ? "100%" : "75%",
-                          height: tile.revealedByPlayer ? "100%" : "75%",
-                          color: "#ef4444",
-                          filter: tile.revealedByPlayer
-                            ? "drop-shadow(0 0 14px rgba(239,68,68,0.55))"
-                            : "brightness(0.75)",
-                        }}
-                      />
-                    ) : (
-                      <Diamond
-                        style={{
-                          width: tile.revealedByPlayer ? "100%" : "75%",
-                          height: tile.revealedByPlayer ? "100%" : "75%",
-                          color: tile.revealedByPlayer ? "#00ff17" : "#0b6623",
-                          filter: tile.revealedByPlayer
-                            ? "drop-shadow(0 0 16px rgba(0,231,1,0.85))"
-                            : "brightness(1.25)",
-                        }}
-                      />
+                    {plannedIndex != null && !tile.isRevealed && (
+                      <div className="absolute top-1 right-1 bg-[#6b21a8] border border-[#a855f7] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                        {plannedIndex}
+                      </div>
                     )}
-                  </div>
-                )}
-              </button>
-            );
-          })}
+
+                    {tile.isRevealed &&
+                      tile.revealedByPlayer &&
+                      !tile.isMine && (
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          <div
+                            className="mines-gem-flash absolute inset-0"
+                            style={{
+                              background:
+                                "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.85) 0%, rgba(0,231,1,0.35) 38%, rgba(0,231,1,0.0) 70%)",
+                            }}
+                          />
+                          <div
+                            className="mines-gem-glow absolute inset-0 rounded-lg"
+                            style={{
+                              boxShadow: "0 0 0 0 rgba(0,231,1,0.0)",
+                              border: "2px solid rgba(0,231,1,0.35)",
+                            }}
+                          />
+                        </div>
+                      )}
+
+                    {tile.isRevealed &&
+                      tile.revealedByPlayer &&
+                      tile.isMine && (
+                        <div
+                          className="pointer-events-none absolute inset-0 mines-mine-flash"
+                          style={{
+                            background:
+                              "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.75) 0%, rgba(239,68,68,0.35) 45%, rgba(239,68,68,0.0) 70%)",
+                          }}
+                        />
+                      )}
+
+                    {tile.isRevealed && (
+                      <div
+                        className={
+                          tile.revealedByPlayer
+                            ? "animate-mines-icon-pop"
+                            : undefined
+                        }
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: "35%",
+                          height: "35%",
+                        }}
+                      >
+                        {tile.isMine ? (
+                          <LocalFireDepartment
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              color: "#ef4444",
+                              filter: tile.revealedByPlayer
+                                ? "drop-shadow(0 0 14px rgba(239,68,68,0.55))"
+                                : "none",
+                            }}
+                          />
+                        ) : (
+                          <Diamond
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              color: "#00ff17",
+                              filter: tile.revealedByPlayer
+                                ? "drop-shadow(0 0 16px rgba(0,231,1,0.85))"
+                                : "none",
+                            }}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <GameRecordsPanel gameId="mines" />
         </div>
       </div>
-
-      <GameRecordsPanel gameId="mines" />
-      </div>
-    </div>
     </>
   );
 }

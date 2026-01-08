@@ -551,13 +551,13 @@ export default function KenoPage() {
   const getTileStyles = (status: string) => {
     switch (status) {
       case "hit":
-        return "bg-[#213743] text-black shadow-[0_4px_0_0_#1a2c38] scale-110 z-10 border border-[#ccffcc]";
+        return "bg-[#213743] text-black shadow-[0_4px_0_#1a2c38] z-10";
       case "selected":
         return "bg-[#6b21a8] text-white shadow-[0_4px_0_#4c1d95] -translate-y-1 hover:bg-[#7e22ce] active:translate-y-0 active:shadow-none";
       case "miss":
-        return "bg-[#0b1720] text-[#ef4444] scale-95 shadow-inner border border-[#ef4444]/20";
+        return "bg-[#213743] text-[#ef4444] shadow-[0_4px_0_#1a2c38]";
       case "unrevealed":
-        return "bg-[#2f4553] text-[#b1bad3] opacity-50 scale-95";
+        return "bg-[#2f4553] text-[#b1bad3] shadow-[0_4px_0_#1a2c38]";
       default:
         return "bg-[#213743] text-[#b1bad3] shadow-[0_4px_0_#1a2c38] hover:-translate-y-1 hover:bg-[#2f4553] active:translate-y-0 active:shadow-none transition-all duration-100";
     }
@@ -683,7 +683,7 @@ export default function KenoPage() {
             </button>
             <button
               onClick={clearSelection}
-              disabled={isBusy}
+              disabled={isBusy || (selectedNumbers.length === 0 && drawnNumbers.length === 0 && lastWin === 0)}
               className="flex-1 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 text-white py-2 rounded-md text-sm font-semibold flex items-center justify-center gap-2"
             >
               <Delete sx={{ fontSize: 16 }} /> Clear
@@ -909,9 +909,10 @@ export default function KenoPage() {
                 <button
                   key={num}
                   onClick={() => toggleNumber(num)}
+                  onMouseDown={(e) => e.preventDefault()}
                   disabled={isAnimating}
-                  style={{ perspective: 900 }}
-                  className={`aspect-square rounded-lg font-bold text-sm sm:text-base p-0 border-0 relative transition-all duration-200 ${getTileStyles(
+                  style={{ perspective: 900, outline: "none", WebkitTapHighlightColor: "transparent" } as React.CSSProperties}
+                  className={`aspect-square rounded-lg font-bold text-sm sm:text-base p-0 border-0 relative flex items-center justify-center overflow-hidden transition-all duration-200 shadow-[0_4px_0_#1a2c38] focus:outline-none focus-visible:outline-none focus:ring-0 focus:border-transparent ${getTileStyles(
                     status
                   )} ${isHit && isDrawn ? "animate-mines-gem" : ""}`}
                 >
@@ -927,6 +928,9 @@ export default function KenoPage() {
                     >
                       {isHit ? (
                         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          {isDrawn && (
+                            <div className="absolute inset-0 rounded-lg pointer-events-none" style={{ border: "2px solid #00e701" }} />
+                          )}
                           <div
                             className={`mines-gem-flash absolute inset-0`}
                             style={{
@@ -960,17 +964,19 @@ export default function KenoPage() {
                           >
                             <Diamond
                               style={{
-                                width: "125%",
-                                height: "125%",
+                                width: "100%",
+                                height: "100%",
                                 color: "#00ff17",
-                                filter:
-                                  "drop-shadow(0 0 16px rgba(0,231,1,0.85))",
+                                filter: "none",
                               }}
                             />
                           </div>
                         </div>
                       ) : isMiss ? (
                         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          {isDrawn && (
+                            <div className="absolute inset-0 rounded-lg pointer-events-none" style={{ border: "2px solid rgba(239,68,68,0.35)" }} />
+                          )}
                           <div
                             className="mines-mine-flash absolute inset-0 rounded-lg"
                             style={{
@@ -984,13 +990,12 @@ export default function KenoPage() {
                               isDrawn ? "animate-mines-mine" : undefined
                             }
                             style={{
-                              width: "64%",
-                              height: "64%",
+                              width: "65%",
+                              height: "65%",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              filter:
-                                "drop-shadow(0 0 14px rgba(239,68,68,0.55))",
+                              filter: "none",
                             }}
                           >
                             <div
@@ -1046,10 +1051,12 @@ export default function KenoPage() {
                           </div>
                         </div>
                       ) : isUnrevealed ? (
-                        <Diamond
-                          sx={{ color: "#557086", fontSize: 24 }}
-                          className={`${gemClasses} opacity-70`}
-                        />
+                        <div style={{ width: "65%", height: "65%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Diamond
+                            style={{ width: "100%", height: "100%", color: "#557086" }}
+                            className={gemClasses}
+                          />
+                        </div>
                       ) : (
                         <div />
                       )}
