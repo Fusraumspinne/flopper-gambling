@@ -190,7 +190,7 @@ export default function HiloPage() {
   }, [nextCard]);
 
   const probabilities = useMemo(() => {
-    if (!currentCard) return { higher: 0, lower: 0, equal: 0, lowerOrEqual: 0 };
+    if (!currentCard) return { higherOrEqual: 0, lowerOrEqual: 0 };
 
     const totalRanks = 13;
     const currentVal = currentCard.value;
@@ -199,26 +199,23 @@ export default function HiloPage() {
     const lowerCount = currentVal - 1;
     const equalCount = 1;
 
-    const probHigher = higherCount / totalRanks;
-    const probLower = lowerCount / totalRanks;
-    const probEqual = equalCount / totalRanks;
+    const probHigherOrEqual = (higherCount + equalCount) / totalRanks;
     const probLowerOrEqual = (lowerCount + equalCount) / totalRanks;
 
     return {
-      higher: probHigher,
-      lower: probLower,
-      equal: probEqual,
+      higherOrEqual: probHigherOrEqual,
       lowerOrEqual: probLowerOrEqual,
     };
   }, [currentCard]);
 
   const multipliers = useMemo(() => {
     const houseEdge = 0.99;
-    const { higher, lowerOrEqual } = probabilities;
+    const { higherOrEqual, lowerOrEqual } = probabilities;
 
     return {
-      higher: higher > 0 ? Number((houseEdge / higher).toFixed(2)) : 0,
-      lower:
+      higherOrEqual:
+        higherOrEqual > 0 ? Number((houseEdge / higherOrEqual).toFixed(2)) : 0,
+      lowerOrEqual:
         lowerOrEqual > 0 ? Number((houseEdge / lowerOrEqual).toFixed(2)) : 0,
     };
   }, [probabilities]);
@@ -247,7 +244,7 @@ export default function HiloPage() {
     setCurrentCard(generateCard());
   };
 
-  const guess = (direction: "higher" | "lower") => {
+  const guess = (direction: "higherOrEqual" | "lowerOrEqual") => {
     if (gameState !== "playing" || !currentCard) return;
 
     const newCard = generateCard();
@@ -267,11 +264,20 @@ export default function HiloPage() {
       const isEqual = newCard.value === currentCard.value;
 
       let won = false;
-      if (direction === "higher" && isHigher) won = true;
-      if (direction === "lower" && (isLower || isEqual)) won = true;
+      if (direction === "higherOrEqual" && (isHigher || isEqual)) won = true;
+      if (direction === "lowerOrEqual" && (isLower || isEqual)) won = true;
 
       if (won) {
-        setMultiplier((prev) => Number((prev * (direction === "higher" ? multipliers.higher : multipliers.lower)).toFixed(2)));
+        setMultiplier((prev) =>
+          Number(
+            (
+              prev *
+              (direction === "higherOrEqual"
+                ? multipliers.higherOrEqual
+                : multipliers.lowerOrEqual)
+            ).toFixed(2)
+          )
+        );
         setCurrentCard(newCard);
         setNextCard(null);
       } else {
@@ -526,24 +532,24 @@ export default function HiloPage() {
             <>
               <div className="grid grid-cols-2 gap-4 w-full">
                 <button
-                  onClick={() => guess("higher")}
-                  disabled={probabilities.higher === 0 || !!nextCard}
+                  onClick={() => guess("higherOrEqual")}
+                  disabled={probabilities.higherOrEqual === 0 || !!nextCard}
                   className="bg-[#2f4553] hover:bg-[#3e5666] p-4 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group"
                 >
                   <div className="flex items-center gap-2 text-[#b1bad3] group-hover:text-white">
                     <ArrowUpward />
-                    <span className="font-bold uppercase">Higher</span>
+                    <span className="font-bold uppercase">Higher / Equal</span>
                   </div>
                   <div className="text-[#00e701] font-bold text-xl">
-                    {multipliers.higher.toFixed(2)}x
+                    {multipliers.higherOrEqual.toFixed(2)}x
                   </div>
                   <div className="text-xs text-[#b1bad3]">
-                    {(probabilities.higher * 100).toFixed(2)}%
+                    {(probabilities.higherOrEqual * 100).toFixed(2)}%
                   </div>
                 </button>
 
                 <button
-                  onClick={() => guess("lower")}
+                  onClick={() => guess("lowerOrEqual")}
                   disabled={!!nextCard}
                   className="bg-[#2f4553] hover:bg-[#3e5666] p-4 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group"
                 >
@@ -552,7 +558,7 @@ export default function HiloPage() {
                     <span className="font-bold uppercase">Lower / Equal</span>
                   </div>
                   <div className="text-[#00e701] font-bold text-xl">
-                    {multipliers.lower.toFixed(2)}x
+                    {multipliers.lowerOrEqual.toFixed(2)}x
                   </div>
                   <div className="text-xs text-[#b1bad3]">
                     {(probabilities.lowerOrEqual * 100).toFixed(2)}%
