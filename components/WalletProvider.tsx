@@ -443,7 +443,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
-  const settleBetWithPayout = (payout: number): WinMeta | null => {
+  const settleBetWithPayout = (payout: number): WinMeta | LossMeta | null => {
     const normalizedPayout = normalizeMoney(payout);
     if (normalizedPayout <= 0) return null;
     const bet = pendingBetsRef.current.shift();
@@ -460,6 +460,10 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (roundNet > 0 && multiplier > 0) {
       return { game: currentGameId, profit: roundNet, multi: multiplier };
+    }
+
+    if (roundNet < 0) {
+      return { game: currentGameId, loss: normalizeMoney(-roundNet) };
     }
 
     return null;
@@ -499,8 +503,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     balanceRef.current = next;
     setBalance(next);
 
-    const winMeta = settleBetWithPayout(a);
-    if (winMeta) queueUpdate(winMeta);
+    const meta = settleBetWithPayout(a);
+    if (meta) queueUpdate(meta);
     scheduleSync();
   };
 
