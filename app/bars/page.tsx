@@ -732,7 +732,7 @@ export default function BarsPage() {
                   value={onWinPctInput}
                   onChange={(e) => setOnWinPctInput(e.target.value)}
                   disabled={isBusy}
-                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors text-right"
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
                 />
               </div>
             )}
@@ -766,7 +766,7 @@ export default function BarsPage() {
                   value={onLosePctInput}
                   onChange={(e) => setOnLosePctInput(e.target.value)}
                   disabled={isBusy}
-                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors text-right"
+                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
                 />
               </div>
             )}
