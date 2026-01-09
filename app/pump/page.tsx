@@ -119,8 +119,7 @@ const BALLOON_COLORS: Record<Difficulty, string> = {
 type GameState = "idle" | "playing" | "cashed_out" | "popped";
 
 export default function PumpPage() {
-  const { balance, addToBalance, subtractFromBalance, finalizePendingLoss } =
-    useWallet();
+  const { balance, addToBalance, subtractFromBalance, finalizePendingLoss, syncBalance } = useWallet();
 
   const { volume } = useSoundVolume();
 
@@ -579,7 +578,8 @@ export default function PumpPage() {
   const stopAutoBet = useCallback(() => {
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   const startAutoBet = useCallback(async () => {
     if (isAutoBettingRef.current) return;
@@ -646,6 +646,7 @@ export default function PumpPage() {
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
+    void syncBalance();
   }, [
     gameState,
     isPumping,
@@ -657,6 +658,7 @@ export default function PumpPage() {
     stopLossInput,
     stopProfitInput,
     stopAutoBet,
+    syncBalance,
   ]);
 
   const isDeflated = !hasPumped && gameState !== "popped";
@@ -752,7 +754,7 @@ export default function PumpPage() {
 
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-            Difficulty
+            Risk
           </label>
           <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
             {(["Low", "Medium", "High", "Expert"] as Difficulty[]).map(

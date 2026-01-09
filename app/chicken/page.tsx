@@ -344,8 +344,7 @@ function laneOffsetXPx(lane: number) {
 }
 
 export default function ChickenPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
-    useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, syncBalance } = useWallet();
 
   const { volume } = useSoundVolume();
 
@@ -840,7 +839,8 @@ export default function ChickenPage() {
   const stopAutoBet = useCallback(() => {
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   const startAutoBet = useCallback(async () => {
     if (isAutoBettingRef.current) return;
@@ -910,6 +910,7 @@ export default function ChickenPage() {
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
+    void syncBalance();
   }, [
     autoStepsInput,
     onLoseMode,
@@ -920,6 +921,7 @@ export default function ChickenPage() {
     stopAutoBet,
     stopLossInput,
     stopProfitInput,
+    syncBalance,
   ]);
 
   const changePlayMode = useCallback(

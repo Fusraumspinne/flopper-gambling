@@ -338,11 +338,7 @@ export default function CoinFlipPage() {
                   {Array.from({ length: 16 }).map((_, i) => (
                     <div
                       key={`edge-${i}`}
-                      className={
-                        isFlipping
-                          ? "absolute inset-0 rounded-full bg-gray-600"
-                          : "absolute inset-0 rounded-full bg-[#2f4553] border border-[#557086]"
-                      }
+                      className="absolute inset-0 rounded-full bg-[#2f4553] border border-[#557086]"
                       style={{
                         transform: `translateZ(${i - 7.5}px)`,
                       }}
@@ -350,33 +346,17 @@ export default function CoinFlipPage() {
                   ))}
 
                   <div
-                    className={`cf-coin-face ${faceBorder} ${
-                      isFlipping ? "bg-gray-400 border-0 shadow-none" : headsFace
-                    }`}
-                    style={{ transform: "translateZ(8px)" }}
+                    className={`cf-coin-face ${faceBorder} ${headsFace}`}
+                    style={{ transform: "rotateY(0deg) translateZ(8px)" }}
                   >
-                    <div
-                      className={
-                        isFlipping
-                          ? "hidden"
-                          : "w-[55%] h-[55%] rounded-full bg-[#2f4553]"
-                      }
-                    />
+                    <div className="w-[55%] h-[55%] rounded-full bg-[#2f4553]" />
                   </div>
 
                   <div
-                    className={`cf-coin-face ${faceBorder} ${
-                      isFlipping ? "bg-gray-400 border-0 shadow-none" : tailsFace
-                    }`}
+                    className={`cf-coin-face ${faceBorder} ${tailsFace}`}
                     style={{ transform: "rotateY(180deg) translateZ(8px)" }}
                   >
-                    <div
-                      className={
-                        isFlipping
-                          ? "hidden"
-                          : "w-[45%] h-[45%] bg-[#2f4553] transform rotate-45"
-                      }
-                    />
+                    <div className="w-[45%] h-[45%] bg-[#2f4553] transform rotate-45" />
                   </div>
                 </div>
               </div>

@@ -193,8 +193,7 @@ function sleep(ms: number) {
 }
 
 export default function SnakesPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
-    useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, syncBalance } = useWallet();
 
   const { volume } = useSoundVolume();
 
@@ -622,7 +621,8 @@ export default function SnakesPage() {
   const stopAutoBet = useCallback(() => {
     stopRequestedRef.current = true;
     setIsAutoBetting(false);
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   const playRound = useCallback(
     async (opts?: { betAmount?: number; rollsToMake?: number }) => {
@@ -757,6 +757,7 @@ export default function SnakesPage() {
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
+    void syncBalance();
   }, [
     autoRollsInput,
     onLoseMode,
@@ -767,6 +768,7 @@ export default function SnakesPage() {
     stopAutoBet,
     stopLossInput,
     stopProfitInput,
+    syncBalance,
   ]);
 
   const changePlayMode = useCallback(

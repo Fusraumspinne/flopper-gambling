@@ -23,7 +23,6 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       game,
-      highestPayout: profitDoc ? { username: profitDoc.username, payout: profitDoc.profit } : null,
       highestProfit: profitDoc ? { username: profitDoc.username, profit: profitDoc.profit } : null,
       highestMultiplier: multiDoc ? { username: multiDoc.username, multiplier: multiDoc.multiplier } : null,
       highestLoss: lossDoc ? { username: lossDoc.username, loss: lossDoc.loss } : null,

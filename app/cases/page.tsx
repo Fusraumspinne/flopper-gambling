@@ -299,8 +299,7 @@ function PlateIndicator({
 }
 
 export default function CasesPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
-    useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, syncBalance } = useWallet();
 
   const { volume } = useSoundVolume();
 
@@ -785,7 +784,8 @@ export default function CasesPage() {
   const stopAutoBet = useCallback(() => {
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   const startAutoBet = useCallback(async () => {
     if (isAutoBettingRef.current) return;
@@ -865,6 +865,7 @@ export default function CasesPage() {
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
+    void syncBalance();
   }, [
     onLoseMode,
     onLosePctInput,
@@ -874,6 +875,7 @@ export default function CasesPage() {
     stopAutoBet,
     stopLossInput,
     stopProfitInput,
+    syncBalance,
   ]);
 
   const changePlayMode = useCallback(

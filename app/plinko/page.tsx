@@ -221,8 +221,7 @@ const formatPercentTwoNonZero = (p: number) => {
 };
 
 export default function PlinkoPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
-    useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, syncBalance } = useWallet();
 
   const { volume } = useSoundVolume();
 
@@ -843,7 +842,8 @@ export default function PlinkoPage() {
   const stopAutoBet = useCallback(() => {
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   const startAutoBet = useCallback(async () => {
     if (isAutoBettingRef.current) return;
@@ -904,6 +904,7 @@ export default function PlinkoPage() {
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
+    void syncBalance();
   }, [
     onLoseMode,
     onLosePctInput,
@@ -913,6 +914,7 @@ export default function PlinkoPage() {
     stopLossInput,
     stopProfitInput,
     stopAutoBet,
+    syncBalance,
   ]);
 
   const changePlayMode = useCallback((mode: "manuel" | "auto") => {

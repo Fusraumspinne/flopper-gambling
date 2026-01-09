@@ -55,7 +55,6 @@ type WinMeta = {
   game: GameKey;
   profit: number;
   multi: number;
-  payout: number;
 };
 
 type LossMeta = {
@@ -65,7 +64,6 @@ type LossMeta = {
 
 type GameUpdate = {
   profit?: number;
-  payout?: number;
   multi?: number;
   loss?: number;
 };
@@ -198,9 +196,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const mergeGameUpdate = (prev: GameUpdate | undefined, next: GameUpdate): GameUpdate => {
     const merged: GameUpdate = { ...prev };
 
-    if (typeof next.payout === "number") {
-      merged.payout = Math.max(merged.payout ?? 0, next.payout);
-    }
     if (typeof next.profit === "number") {
       merged.profit = Math.max(merged.profit ?? 0, next.profit);
     }
@@ -223,7 +218,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         ? { loss: normalizeMoney(meta.loss) }
         : {
             profit: normalizeMoney(meta.profit),
-            payout: normalizeMoney(meta.payout),
             multi: normalizeMoney(meta.multi),
           };
 
@@ -248,7 +242,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      // snapshot + clear so updates queued during flush are not lost
       const snapshot = new Map(pendingUpdatesRef.current);
       pendingUpdatesRef.current.clear();
 
@@ -256,24 +249,20 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         const investmentValue = await getInvestmentValue();
         const totalBalance = normalizeMoney(balanceRef.current + investmentValue);
 
-        // Always update user balance once
         await fetch("/api/user", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: username, balance: totalBalance }),
         });
 
-        // Then apply per-game record updates (payout/multi/loss) without re-fetching everything
         for (const [game, upd] of snapshot.entries()) {
           if (!upd) continue;
           const payload: any = { name: username, balance: totalBalance, game };
-          if (typeof upd.payout === "number" && upd.payout > 0) payload.payout = upd.payout;
           if (typeof upd.profit === "number" && upd.profit > 0) payload.profit = upd.profit;
           if (typeof upd.multi === "number" && upd.multi > 0) payload.multi = upd.multi;
           if (typeof upd.loss === "number" && upd.loss > 0) payload.loss = upd.loss;
 
-          // If we have nothing meaningful, skip
-          if (!payload.payout && !payload.profit && !payload.multi && !payload.loss) continue;
+          if (!payload.profit && !payload.multi && !payload.loss) continue;
 
           await fetch("/api/user", {
             method: "POST",
@@ -284,7 +273,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
         betCountRef.current = 0;
       } catch (error) {
-        // Merge snapshot back so we don't lose records on temporary network failures
         for (const [game, upd] of snapshot.entries()) {
           pendingUpdatesRef.current.set(game, mergeGameUpdate(pendingUpdatesRef.current.get(game), upd));
         }
@@ -471,7 +459,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     applyNetChange(roundNet);
 
     if (roundNet > 0 && multiplier > 0) {
-      return { game: currentGameId, profit: roundNet, multi: multiplier, payout: normalizedPayout };
+      return { game: currentGameId, profit: roundNet, multi: multiplier };
     }
 
     return null;

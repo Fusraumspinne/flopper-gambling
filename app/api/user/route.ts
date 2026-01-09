@@ -38,11 +38,10 @@ export async function POST(req: Request) {
     if (typeof game === "string" && game.trim()) {
       const gameId = game.trim();
       const multiValue = typeof multi === "number" ? normalizeMoney(multi) : null;
-      const payoutValue = typeof payout === "number" ? normalizeMoney(payout) : null;
       const profitValue = typeof profit === "number" ? normalizeMoney(profit) : null;
       const lossValue = typeof loss === "number" ? normalizeMoney(loss) : null;
 
-      const scoreValue = (payoutValue !== null ? payoutValue : profitValue) ?? 0;
+      const scoreValue = profitValue ?? 0;
 
       if (gameId !== "unknown") {
         const [profitDoc, multiDoc, lossDoc] = await Promise.all([

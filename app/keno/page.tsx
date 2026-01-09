@@ -53,8 +53,7 @@ const GRID_SIZE = 40;
 const DRAW_COUNT = 10;
 
 export default function KenoPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
-    useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, syncBalance } = useWallet();
 
   const { volume } = useSoundVolume();
 
@@ -421,7 +420,8 @@ export default function KenoPage() {
   const stopAutoBet = useCallback(() => {
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   const startAutoBet = useCallback(async () => {
     if (isAutoBettingRef.current) return;
@@ -487,6 +487,7 @@ export default function KenoPage() {
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
+    void syncBalance();
   }, [
     onLoseMode,
     onLosePctInput,
@@ -496,6 +497,7 @@ export default function KenoPage() {
     stopLossInput,
     stopProfitInput,
     stopAutoBet,
+    syncBalance,
   ]);
 
   const changePlayMode = useCallback((mode: "manual" | "auto") => {

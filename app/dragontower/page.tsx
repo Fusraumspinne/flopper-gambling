@@ -70,8 +70,7 @@ export default function DragonTowerPage() {
     return `#${hex(r)}${hex(g)}${hex(b)}`;
   };
 
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
-    useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, syncBalance } = useWallet();
 
   const { volume } = useSoundVolume();
 
@@ -783,6 +782,7 @@ export default function DragonTowerPage() {
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
+    void syncBalance();
   }, [
     getPlannedPickCount,
     onLoseMode,
@@ -792,12 +792,14 @@ export default function DragonTowerPage() {
     playRound,
     stopLossInput,
     stopProfitInput,
+    syncBalance,
   ]);
 
   const stopAutoBet = useCallback(() => {
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   const getCellStyle = (rowLevel: number, idx: number) => {
     const rowReveal = revealByLevel.get(rowLevel);
@@ -1318,7 +1320,7 @@ export default function DragonTowerPage() {
                       const canPlan = playMode === "auto" && !isUiBusy && roundState !== "active";
 
                       const planningStyle = isPlanned
-                        ? "bg-[#6b21a8] border-[#a855f7] text-white shadow-[0_4px_0_0_#1a2c38] hover:-translate-y-1 active:translate-y-0 transition-all duration-200 -translate-y-0.5"
+                        ? "bg-[#6b21a8] border-[#a855f7] text-white shadow-[0_4px_0_#4c1d95] hover:-translate-y-1 active:translate-y-0 transition-all duration-200 -translate-y-0.5"
                         : canPlan
                         ? "bg-[#2f4553] hover:bg-[#3c5566] hover:-translate-y-1 active:translate-y-0 cursor-pointer shadow-[0_4px_0_0_#1a2c38] transition-all duration-200"
                         : "bg-[#2f4553] opacity-50 cursor-default hover:-translate-y-1 active:translate-y-0 shadow-[0_4px_0_0_#1a2c38] transition-all duration-200";

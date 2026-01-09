@@ -243,6 +243,8 @@ export default function BarsPage() {
   const [lastPayout, setLastPayout] = useState<number>(0);
   const [lastTotalMulti, setLastTotalMulti] = useState<number>(0);
 
+  const [recordsRefreshCounter, setRecordsRefreshCounter] = useState(0);
+
   const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(
     null
   );
@@ -396,11 +398,9 @@ export default function BarsPage() {
       setIsAnimating(true);
 
       const perPickDist = perPickDistribution(riskLevelRef.current, pickCount);
-      const gameRisk = riskLevelRef.current;
 
-      const drawnMultis: number[] = grid.map((t) =>
-        t.isSelected ? pickWeighted(perPickDist) : pickWeighted(TOTAL_MULTI_DIST[gameRisk])
-      );
+      // Reveal tiles using the same distribution we show below (risk + picks)
+      const drawnMultis: number[] = grid.map(() => pickWeighted(perPickDist));
 
       const totalSumMulti = grid.reduce(
         (acc, t, i) => acc + (t.isSelected ? drawnMultis[i] : 0),
@@ -522,6 +522,10 @@ export default function BarsPage() {
           setBetBoth(result.bet * (1 + pct / 100));
         }
       }
+
+      try {
+        setRecordsRefreshCounter((c) => c + 1);
+      } catch {}
 
       await new Promise((r) => setTimeout(r, 500));
     }
@@ -925,7 +929,7 @@ export default function BarsPage() {
                         className="flex flex-col items-center p-2 rounded-md border text-center bg-[#213743] border-[#2f4553]"
                       >
                         <span className="font-bold text-sm">
-                          {it.multi && it.multi > 0 ? `${formatMulti(it.multi)}x` : "-"}
+                          {Number.isFinite(it.multi) ? `${formatMulti(it.multi)}x` : "-"}
                         </span>
                         <span className="text-xs text-[#8399aa] mt-1 leading-tight">{probText}</span>
                       </div>
@@ -937,7 +941,7 @@ export default function BarsPage() {
           </div>
         </div>
 
-        <GameRecordsPanel gameId="bars" />
+        <GameRecordsPanel gameId="bars" refreshSignal={recordsRefreshCounter} />
       </div>
     </div>
   );

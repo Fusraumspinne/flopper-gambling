@@ -116,8 +116,7 @@ export default function MinesPage() {
     const hex = (n: number) => n.toString(16).padStart(2, "0");
     return `#${hex(r)}${hex(g)}${hex(b)}`;
   };
-  const { balance, addToBalance, subtractFromBalance, finalizePendingLoss } =
-    useWallet();
+  const { balance, addToBalance, subtractFromBalance, finalizePendingLoss, syncBalance } = useWallet();
 
   const { volume } = useSoundVolume();
 
@@ -685,6 +684,7 @@ export default function MinesPage() {
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
+    void syncBalance();
   }, [
     getValidPickOrder,
     onLoseMode,
@@ -694,12 +694,14 @@ export default function MinesPage() {
     playRound,
     stopLossInput,
     stopProfitInput,
+    syncBalance,
   ]);
 
   const stopAutoBet = useCallback(() => {
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   const changePlayMode = useCallback(
     (mode: "manual" | "auto") => {

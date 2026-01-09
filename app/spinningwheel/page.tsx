@@ -296,7 +296,7 @@ function topIndexFromRotation(rotationDeg: number, anglePer: number, len: number
 }
 
 export default function SpinningWheelPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, syncBalance } = useWallet();
 
   const { volume } = useSoundVolume();
 
@@ -637,7 +637,8 @@ export default function SpinningWheelPage() {
     setIsAutoBetting(false);
     autoOriginalBetRef.current = 0;
     autoNetRef.current = 0;
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   const startAutoBet = useCallback(async () => {
     if (isAutoBettingRef.current) return;
@@ -703,6 +704,7 @@ export default function SpinningWheelPage() {
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
+    void syncBalance();
   }, [
     onLoseMode,
     onLosePctInput,
@@ -712,6 +714,7 @@ export default function SpinningWheelPage() {
     stopLossInput,
     stopProfitInput,
     stopAutoBet,
+    syncBalance,
   ]);
 
   const changePlayMode = useCallback((mode: "manual" | "auto") => {

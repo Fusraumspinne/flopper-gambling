@@ -39,7 +39,7 @@ const parseNumberLoose = (raw: string) => {
 };
 
 export default function LimboPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, syncBalance } = useWallet();
   const { volume } = useSoundVolume();
 
   const [betAmount, setBetAmount] = useState<number>(100);
@@ -352,12 +352,14 @@ export default function LimboPage() {
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, [onWinMode, onWinPctInput, onLoseMode, onLosePctInput, playRound, stopProfitInput, stopLossInput]);
+    void syncBalance();
+  }, [onWinMode, onWinPctInput, onLoseMode, onLosePctInput, playRound, stopProfitInput, stopLossInput, syncBalance]);
 
   const stopAutoBet = useCallback(() => {
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   const changePlayMode = useCallback((mode: "manual" | "auto") => {
     try {

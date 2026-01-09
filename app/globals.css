@@ -99,7 +99,6 @@ body {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   overflow: hidden;
-  transform: translateZ(1px);
 }
 
 /* Fake thickness/rim so the coin stays visible at 90deg */
@@ -146,15 +145,10 @@ body {
 
 @keyframes cf-coin-flip-real {
   0% {
-    transform: rotateY(var(--cf-from, 0deg)) translateZ(0);
-    filter: brightness(1) saturate(1);
-  }
-  35% {
-    filter: brightness(1.06) saturate(1.02);
+    transform: rotateY(var(--cf-from, 0deg));
   }
   100% {
-    transform: rotateY(var(--cf-to, 1080deg)) translateZ(0);
-    filter: brightness(1) saturate(1);
+    transform: rotateY(var(--cf-to, 1080deg));
   }
 }
 

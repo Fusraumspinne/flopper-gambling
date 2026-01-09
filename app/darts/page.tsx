@@ -193,7 +193,7 @@ const getSegmentPattern = (risk: RiskLevel) => {
 };
 
 export default function DartsPage() {
-  const { balance, addToBalance, subtractFromBalance, finalizePendingLoss } = useWallet();
+  const { balance, addToBalance, subtractFromBalance, finalizePendingLoss, syncBalance } = useWallet();
 
   const { volume } = useSoundVolume();
 
@@ -547,7 +547,8 @@ export default function DartsPage() {
   const stopAutoBet = useCallback(() => {
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   const startAutoBet = useCallback(async () => {
     if (isAutoBettingRef.current) return;
@@ -623,6 +624,7 @@ export default function DartsPage() {
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
+    void syncBalance();
   }, [
     onLoseMode,
     onLosePctInput,
@@ -632,6 +634,7 @@ export default function DartsPage() {
     stopLossInput,
     stopProfitInput,
     stopAutoBet,
+    syncBalance,
   ]);
 
   const changePlayMode = useCallback(

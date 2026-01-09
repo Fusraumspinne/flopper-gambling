@@ -13,8 +13,7 @@ const MIN_THRESHOLD = 2;
 const MAX_THRESHOLD = 98;
 
 export default function DicePage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } =
-    useWallet();
+  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, syncBalance } = useWallet();
 
   const { volume } = useSoundVolume();
 
@@ -349,7 +348,8 @@ export default function DicePage() {
   const stopAutoBet = useCallback(() => {
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   const startAutoBet = useCallback(async () => {
     if (isAutoBettingRef.current) return;
@@ -413,6 +413,7 @@ export default function DicePage() {
 
     isAutoBettingRef.current = false;
     setIsAutoBetting(false);
+    void syncBalance();
   }, [
     onLoseMode,
     onLosePctInput,
@@ -422,6 +423,7 @@ export default function DicePage() {
     stopAutoBet,
     stopLossInput,
     stopProfitInput,
+    syncBalance,
   ]);
 
   const changePlayMode = useCallback(

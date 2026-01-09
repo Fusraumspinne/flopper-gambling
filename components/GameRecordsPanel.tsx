@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 
 type HighscoreResponse = {
   game: string;
-  highestPayout?: { username: string; payout: number } | null;
   highestProfit?: { username: string; profit: number } | null;
   highestMultiplier: { username: string; multiplier: number } | null;
   highestLoss?: { username: string; loss: number } | null;
@@ -38,7 +37,7 @@ function formatNumber(value: number | undefined | null, digits = 2): string {
   return v.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
-export default function GameRecordsPanel({ gameId }: { gameId: string }) {
+export default function GameRecordsPanel({ gameId, refreshSignal }: { gameId: string; refreshSignal?: number }) {
   const [data, setData] = useState<HighscoreResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -63,15 +62,15 @@ export default function GameRecordsPanel({ gameId }: { gameId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [gameId]);
+  }, [gameId, refreshSignal]);
 
   if (loading) {
     return <div className="text-white/50">Loading records…</div>;
   }
 
-  const payout = data?.highestPayout ?? (data?.highestProfit ? { username: data.highestProfit.username, payout: data.highestProfit.profit } : null);
-  const payoutUser = formatName(payout?.username);
-  const payoutValue = formatNumber(payout?.payout, 2);
+  const profit = data?.highestProfit ?? null;
+  const profitUser = formatName(profit?.username);
+  const profitValue = formatNumber(profit?.profit, 2);
   const multiUser = formatName(data?.highestMultiplier?.username);
   const multiValue = formatNumber(data?.highestMultiplier?.multiplier, 2);
   const lossUser = formatName(data?.highestLoss?.username);
@@ -92,10 +91,10 @@ export default function GameRecordsPanel({ gameId }: { gameId: string }) {
         </div>
 
         <div className="bg-[#0f212e] border border-[#2f4553]/60 rounded-lg p-2">
-          <div className="text-xs text-[#557086]">Highest payout</div>
+          <div className="text-xs text-[#557086]">Highest profit</div>
           <div className="mt-1 flex items-baseline justify-between gap-3">
-            <div className="text-white font-semibold truncate">{payoutUser}</div>
-            <div className="text-[#00e701] font-mono">${payoutValue}</div>
+            <div className="text-white font-semibold truncate">{profitUser}</div>
+            <div className="text-[#00e701] font-mono">${profitValue}</div>
           </div>
         </div>
 
