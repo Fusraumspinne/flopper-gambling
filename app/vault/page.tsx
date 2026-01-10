@@ -1027,7 +1027,7 @@ export default function VaultPage() {
                 ${potentialWin.toFixed(2)}
               </div>
               <div className="text-sm text-[#b1bad3] mt-1">
-                Multiplier: {currentMultiplier.toFixed(3)}x
+                Current: {currentMultiplier}x
               </div>
             </div>
           )}
