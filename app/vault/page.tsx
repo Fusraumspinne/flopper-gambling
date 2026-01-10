@@ -21,39 +21,58 @@ interface Outcome {
 }
 
 const RISK_CONFIG: Record<RiskLevel, Outcome[]> = {
-  "low": [
-    { "multiplier": 0, "chance": 2 },
-    { "multiplier": 0.9, "chance": 15 },
-    { "multiplier": 0.95, "chance": 65 },
-    { "multiplier": 1.2, "chance": 15 },
-    { "multiplier": 1.6, "chance": 2.5 },
-    { "multiplier": 2.5, "chance": 0.5 }
+  expert: [
+    { multiplier: 0.10, chance: 29.00 },
+    { multiplier: 0.30, chance: 22.00 },
+    { multiplier: 0.60, chance: 16.00 },
+    { multiplier: 0.90, chance: 12.00 },
+    { multiplier: 1.20, chance: 10.00 },
+    { multiplier: 2.00, chance: 7.00 },
+    { multiplier: 5.00, chance: 3.00 },
+    { multiplier: 15.00, chance: 1.00 },
+    { multiplier: 50.00, chance: 0.50 },
+    { multiplier: 100.00, chance: 0.50 },
   ],
-  "medium": [
-    { "multiplier": 0, "chance": 10 },
-    { "multiplier": 0.5, "chance": 10 },
-    { "multiplier": 0.9, "chance": 50 },
-    { "multiplier": 1.2, "chance": 15 },
-    { "multiplier": 1.65, "chance": 10 },
-    { "multiplier": 2.5, "chance": 5 }
+
+  high: [
+    { multiplier: 0.20, chance: 22.00 },
+    { multiplier: 0.40, chance: 17.00 },
+    { multiplier: 0.60, chance: 14.00 },
+    { multiplier: 0.80, chance: 12.00 },
+    { multiplier: 0.95, chance: 10.00 },
+    { multiplier: 1.20, chance: 9.00 },
+    { multiplier: 1.60, chance: 7.00 },
+    { multiplier: 2.50, chance: 5.00 },
+    { multiplier: 6.00, chance: 3.00 },
+    { multiplier: 12.00, chance: 1.00 },
   ],
-  "high": [
-    { "multiplier": 0, "chance": 25 },
-    { "multiplier": 0.5, "chance": 10 },
-    { "multiplier": 0.9, "chance": 43 },
-    { "multiplier": 1.55, "chance": 15 },
-    { "multiplier": 4.0, "chance": 5 },
-    { "multiplier": 6.0, "chance": 2 }
+
+  medium: [
+    { multiplier: 0.40, chance: 19.00 },
+    { multiplier: 0.60, chance: 16.00 },
+    { multiplier: 0.80, chance: 13.00 },
+    { multiplier: 0.90, chance: 12.00 },
+    { multiplier: 1.00, chance: 11.00 },
+    { multiplier: 1.20, chance: 10.00 },
+    { multiplier: 1.50, chance: 8.00 },
+    { multiplier: 2.00, chance: 6.00 },
+    { multiplier: 3.00, chance: 4.00 },
+    { multiplier: 5.00, chance: 1.00 },
   ],
-  "expert": [
-    { "multiplier": 0, "chance": 80 },
-    { "multiplier": 1.0, "chance": 12 },
-    { "multiplier": 3.5, "chance": 4 },
-    { "multiplier": 8.0, "chance": 2 },
-    { "multiplier": 20.0, "chance": 1.4 },
-    { "multiplier": 50.0, "chance": 0.6 }
-  ]
-}
+
+  low: [
+    { multiplier: 0.60, chance: 11.00 },
+    { multiplier: 0.75, chance: 11.00 },
+    { multiplier: 0.85, chance: 10.50 },
+    { multiplier: 0.90, chance: 10.50 },
+    { multiplier: 0.95, chance: 10.50 },
+    { multiplier: 1.00, chance: 10.50 },
+    { multiplier: 1.05, chance: 10.50 },
+    { multiplier: 1.10, chance: 10.50 },
+    { multiplier: 1.20, chance: 10.50 },
+    { multiplier: 1.40, chance: 4.50 },
+  ],
+};
 
 const CLICK_MULTIPLIERS = [
     1.00,
@@ -81,7 +100,7 @@ const CLICK_MULTIPLIERS = [
     1.02,
     1.02,
     1.02
-  ]
+  ];
 
 type GameState = "idle" | "playing" | "cashed_out" | "game_over";
 
@@ -104,6 +123,16 @@ export default function VaultPage() {
     return Object.is(rounded, -0) ? 0 : rounded;
   };
 
+  const getClickBoost = (revealIndex: number) => {
+    const idx = Number.isFinite(revealIndex) ? Math.max(0, Math.floor(revealIndex)) : 0;
+    return CLICK_MULTIPLIERS[idx] ?? 1.0;
+  };
+
+  const getStepMultiplier = (baseMultiplier: number, revealIndex: number) => {
+    if (!Number.isFinite(baseMultiplier) || baseMultiplier === 0) return 0;
+    return normalizeMoney(baseMultiplier * getClickBoost(revealIndex));
+  };
+
   const parseNumberLoose = (raw: string) => {
     const normalized = raw.replace(",", ".").trim();
     const n = Number(normalized);
@@ -120,6 +149,7 @@ export default function VaultPage() {
   const [revealedCount, setRevealedCount] = useState<number>(0);
   const [currentMultiplier, setCurrentMultiplier] = useState<number>(1);
   const [lastWin, setLastWin] = useState<number>(0);
+  const [lastPickIndex, setLastPickIndex] = useState<number>(0);
 
   const setBetBoth = (next: number) => {
     const v = normalizeMoney(next);
@@ -338,6 +368,7 @@ export default function VaultPage() {
     setGameState("playing");
     playAudio(audioRef.current.bet);
     setRevealedCount(0);
+    setLastPickIndex(0);
     setCurrentMultiplier(1);
     setLastWin(0);
 
@@ -353,17 +384,19 @@ export default function VaultPage() {
   const revealAllWithTease = useCallback(
     (gridLocal: Tile[], revealedByPlayerId: number | null, startRevealedCount: number) => {
       const risk = riskLevelRef.current;
-      let nextRevealedIdx = startRevealedCount;
+      const revealIndex =
+        Number.isFinite(startRevealedCount) && startRevealedCount > 0
+          ? Math.floor(startRevealedCount)
+          : 0;
       const next = gridLocal.map((t) => {
         if (t.isRevealed) return t;
         const outcome = getOutcome(risk);
-        const boost = CLICK_MULTIPLIERS[nextRevealedIdx] ?? 1.0;
-        nextRevealedIdx++;
+        const stepMultiplier = getStepMultiplier(outcome, revealIndex);
         return {
           ...t,
           isRevealed: true,
           revealedByPlayer: false,
-          multiplier: outcome === 0 ? 0 : normalizeMoney(outcome * boost),
+          multiplier: stepMultiplier,
         };
       });
       if (revealedByPlayerId != null && next[revealedByPlayerId]) {
@@ -386,16 +419,33 @@ export default function VaultPage() {
 
       const mult = opts?.multiplier ?? currentMultiplierRef.current;
       const winAmount = normalizeMoney(betAmountRef.current * mult);
+      if (winAmount <= 0) {
+        setLastWin(0);
+        setGameState("game_over");
+        setGrid((prev) => revealAllWithTease(prev, null, rCount));
+        playMinePopSound();
+        finalizePendingLoss();
+        await showFx("lose");
+        return;
+      }
+
+      const isPartialLoss = mult < 1;
+
       addToBalance(winAmount);
       setLastWin(winAmount);
       setGameState("cashed_out");
 
       setGrid((prev) => revealAllWithTease(prev, null, rCount));
 
-      playWinSound();
-      await showFx("win");
+      if (isPartialLoss) {
+        playMinePopSound();
+        await showFx("lose");
+      } else {
+        playWinSound();
+        await showFx("win");
+      }
     },
-    [addToBalance, revealAllWithTease, showFx]
+    [addToBalance, finalizePendingLoss, revealAllWithTease, showFx]
   );
 
   const cashOut = useCallback(() => {
@@ -416,20 +466,23 @@ export default function VaultPage() {
     }
     setResultFx("rolling");
 
+    const pickIndex = grid.reduce((acc, t) => acc + (t.revealedByPlayer ? 1 : 0), 0);
+    setLastPickIndex(pickIndex);
+
     const risk = riskLevelRef.current;
     const outcome = getOutcome(risk);
-    const boost = CLICK_MULTIPLIERS[revealedCount] ?? 1;
+    const stepMultiplier = getStepMultiplier(outcome, pickIndex);
 
     const newGrid = [...grid];
     newGrid[id] = {
       ...tile,
       isRevealed: true,
       revealedByPlayer: true,
-      multiplier: outcome === 0 ? 0 : normalizeMoney(outcome * boost),
+      multiplier: stepMultiplier,
     };
     setGrid(newGrid);
 
-    if (outcome === 0) {
+    if (stepMultiplier <= 0) {
       setGameState("game_over");
       playMinePopSound();
       setGrid(revealAllWithTease(newGrid, id, revealedCount));
@@ -441,7 +494,7 @@ export default function VaultPage() {
 
     const newRevealedCount = revealedCount + 1;
     setRevealedCount(newRevealedCount);
-    const nextMultiplier = normalizeMoney(currentMultiplierRef.current * outcome * boost);
+    const nextMultiplier = normalizeMoney(currentMultiplierRef.current * stepMultiplier);
     setCurrentMultiplier(nextMultiplier);
     setResultFx(null);
     playRevealSound(newRevealedCount, 25);
@@ -509,18 +562,20 @@ export default function VaultPage() {
         await sleep(120);
 
         const outcome = getOutcome(risk);
-        const boost = CLICK_MULTIPLIERS[revealedLocal] ?? 1;
+        const stepMultiplier = getStepMultiplier(outcome, revealedLocal);
+
+        setLastPickIndex(revealedLocal);
 
         gridLocal = [...gridLocal];
         gridLocal[id] = {
           ...gridLocal[id],
           isRevealed: true,
           revealedByPlayer: true,
-          multiplier: outcome === 0 ? 0 : normalizeMoney(outcome * boost),
+          multiplier: stepMultiplier,
         };
         setGrid(gridLocal);
 
-        if (outcome === 0) {
+        if (stepMultiplier <= 0) {
           setGameState("game_over");
           gridLocal = revealAllWithTease(gridLocal, id, revealedLocal);
           setGrid(gridLocal);
@@ -531,7 +586,7 @@ export default function VaultPage() {
         }
 
         revealedLocal++;
-        multiplierLocal = normalizeMoney(multiplierLocal * outcome * boost);
+        multiplierLocal = normalizeMoney(multiplierLocal * stepMultiplier);
         setRevealedCount(revealedLocal);
         setCurrentMultiplier(multiplierLocal);
         playRevealSound(revealedLocal, 25);
@@ -550,6 +605,17 @@ export default function VaultPage() {
       }
 
       const winAmount = normalizeMoney(bet * multiplierLocal);
+      if (winAmount <= 0) {
+        setLastWin(0);
+        setGameState("game_over");
+        gridLocal = revealAllWithTease(gridLocal, null, revealedLocal);
+        setGrid(gridLocal);
+        playMinePopSound();
+        finalizePendingLoss();
+        await showFx("lose");
+        return { betAmount: bet, winAmount: 0, didWin: false };
+      }
+
       addToBalance(winAmount);
       setLastWin(winAmount);
       setGameState("cashed_out");
@@ -676,6 +742,7 @@ export default function VaultPage() {
 
       setLastWin(0);
       setRevealedCount(0);
+      setLastPickIndex(0);
       setCurrentMultiplier(1);
       setGameState("idle");
       resetGrid();
@@ -1182,11 +1249,10 @@ export default function VaultPage() {
             </div>
 
             <div className="w-full pt-4">
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 w-full">
+              <div className="grid grid-cols-10 gap-2 w-full">
                 {RISK_CONFIG[riskLevel].map((outcome, idx) => {
-                  const boost = CLICK_MULTIPLIERS[revealedCount] ?? 1.0;
-                  const finalMult =
-                    outcome.multiplier === 0 ? 0 : normalizeMoney(outcome.multiplier * boost);
+                  const tableRevealIndex = gameState === "playing" ? lastPickIndex : revealedCount;
+                  const finalMult = getStepMultiplier(outcome.multiplier, tableRevealIndex);
                   return (
                     <div
                       key={idx}
