@@ -1230,7 +1230,7 @@ export default function VaultPage() {
             </div>
 
             <div className="w-full pt-4">
-              <div className="grid grid-cols-10 gap-2 w-full">
+              <div className="grid grid-cols-6 gap-2 w-full">
                 {RISK_CONFIG[riskLevel].map((outcome, idx) => {
                   const tableRevealIndex = gameState === "playing" ? lastPickIndex : revealedCount;
                   const finalMult = getStepMultiplier(outcome.multiplier, tableRevealIndex);
