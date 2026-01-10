@@ -53,6 +53,7 @@ const RISK_CONFIG: Record<RiskLevel, Outcome[]> = {
     { "multiplier": 20.0, "chance": 1.4 },
     { "multiplier": 50.0, "chance": 0.6 }
   ]
+}
 
 const CLICK_MULTIPLIERS = [
     1.00,
