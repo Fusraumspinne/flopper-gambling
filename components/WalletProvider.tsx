@@ -40,6 +40,7 @@ export const GAME_OPTIONS = [
   { id: "bars", label: "Bars" },
   { id: "spinningwheel", label: "Spinning Wheel" },
   { id: "darts", label: "Darts" },
+  { id: "vault", label: "Vault" },
   { id: "snakes", label: "Snakes" },
   { id: "coinflip", label: "Coinflip" },
   { id: "rps", label: "Rock Paper Scissors" },

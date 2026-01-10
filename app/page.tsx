@@ -20,6 +20,7 @@ const games: Array<{ name: string; href: string; tagline: string; image?: string
   { name: "Bars", href: "/bars", tagline: "Pick 1-5 tiles and sum multipliers",  image: "/images/Bars.png" },
   { name: "Spinning Wheel", href: "/spinningwheel", tagline: "Spin and hit a multiplier", image: "/images/SpinningWheel.png" },
   { name: "Darts", href: "/darts", tagline: "Aim for a high score", image: "/images/Darts.png" },
+  { name: "Vault", href: "/vault", tagline: "Crack the vault and stack multipliers", image: "/images/Vault.png" },
   { name: "Snakes", href: "/snakes", tagline: "Climb high, dodge snakes", image: "/images/Snakes.png" },
   { name: "Coin Flip", href: "/coinflip", tagline: "Build a streak multiplier", image: "/images/Coinflip.png" },
   { name: "Rock Paper Scissors", href: "/rps", tagline: "Build a streak and cash out", image: "/images/RPS.png" },

@@ -1,122 +1,100 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
-import {
-  Diamond,
-  LocalFireDepartment,
-  PlayArrow,
-  Refresh,
-} from "@mui/icons-material";
+import { PlayArrow } from "@mui/icons-material";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
 
-const MULTIPLIERS: Record<number, number[]> = {
-  1: [
-    1.03, 1.08, 1.12, 1.18, 1.24, 1.3, 1.37, 1.46, 1.55, 1.65, 1.77, 1.9, 2.06,
-    2.25, 2.47, 2.75, 3.09, 3.54, 4.12, 4.95, 6.19, 8.25, 12.37, 24.75,
-  ],
-  2: [
-    1.08, 1.17, 1.29, 1.41, 1.56, 1.74, 1.94, 2.18, 2.47, 2.83, 3.26, 3.81, 4.5,
-    5.4, 6.6, 8.25, 10.61, 14.14, 19.8, 29.7, 49.5, 99, 297,
-  ],
-  3: [
-    1.12, 1.29, 1.48, 1.71, 2, 2.35, 2.79, 3.35, 4.07, 5, 6.26, 7.96, 10.35,
-    13.8, 18.97, 27.11, 40.66, 65.06, 113.85, 227.7, 569.25, 2277,
-  ],
-  4: [
-    1.18, 1.41, 1.71, 2.09, 2.58, 3.23, 4.09, 5.26, 6.88, 9.17, 12.51, 17.52,
-    25.3, 37.95, 59.64, 99.39, 178.91, 357.81, 834.9, 2504.7, 12523.5,
-  ],
-  5: [
-    1.24, 1.56, 2, 2.58, 3.39, 4.52, 6.14, 8.5, 12.04, 17.52, 26.27, 40.87,
-    66.41, 113.85, 208.72, 417.45, 939.26, 2504.7, 8766.45, 52598.7,
-  ],
-  6: [
-    1.3, 1.74, 2.35, 3.23, 4.52, 6.46, 9.44, 14.17, 21.89, 35.03, 58.38, 102.17,
-    189.75, 379.5, 834.9, 2087.25, 6261.75, 25047, 175329,
-  ],
-  7: [
-    1.37, 1.94, 2.79, 4.09, 6.14, 9.44, 14.95, 24.47, 41.6, 73.95, 138.66,
-    277.33, 600.87, 1442.1, 3965.25, 13219.25, 59486.62, 475893,
-  ],
-  8: [
-    1.46, 2.18, 3.35, 5.26, 8.5, 14.17, 24.47, 44.05, 83.2, 166.4, 356.56,
-    831.98, 2163.45, 6489.45, 23794.65, 118973.25, 1070759.25,
-  ],
-  9: [
-    1.55, 2.47, 4.07, 6.88, 12.04, 21.89, 41.6, 83.2, 176.8, 404.1, 1010.26,
-    2828.73, 9193.39, 36773.55, 202254.52, 2022545.25,
-  ],
-  10: [
-    1.65, 2.83, 5, 9.17, 17.52, 35.03, 73.95, 166.4, 404.1, 1077.61, 3232.84,
-    11314.94, 49031.4, 294188.4, 3236072.4,
-  ],
-  11: [
-    1.77, 3.26, 6.26, 12.51, 26.27, 58.38, 138.66, 356.56, 1010.26, 3232.84,
-    12123.15, 56574.69, 367735.5, 4412826,
-  ],
-  12: [
-    1.9, 3.81, 7.96, 17.52, 40.87, 102.17, 277.33, 831.98, 2828.73, 11314.69,
-    56574.69, 396022.85, 5148297,
-  ],
-  13: [
-    2.06, 4.5, 10.35, 25.3, 66.41, 189.75, 600.87, 2163.15, 9193.39, 49031.4,
-    367735.5, 5148297,
-  ],
-  14: [
-    2.25, 5.4, 13.8, 37.95, 113.85, 379.5, 1442.1, 6489.45, 36773.55, 294188.4,
-    4412826,
-  ],
-  15: [
-    2.47, 6.6, 18.97, 59.64, 208.72, 834.9, 3965.77, 23794.52, 202254.52,
-    3236072.4,
-  ],
-  16: [
-    2.75, 8.25, 27.11, 99.39, 418.45, 2087.25, 13219.25, 118973.25, 2022545.25,
-  ],
-  17: [3.09, 10.61, 40.66, 178.91, 939.26, 6261.75, 59486.62, 1070759.25],
-  18: [3.54, 14.14, 65.06, 357.81, 2504.7, 25047, 475893],
-  19: [4.12, 19.8, 113.85, 834.9, 8766.45, 175329],
-  20: [4.95, 29.7, 227.7, 2504.7, 52598.7],
-  21: [6.19, 45.5, 569.25, 12523.5],
-  22: [8.25, 99, 2277],
-  23: [12.38, 297],
-  24: [24.75],
+type RiskLevel = "low" | "medium" | "high" | "expert";
+
+const RISK_LABELS: Record<RiskLevel, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  expert: "Expert",
 };
+
+interface Outcome {
+  multiplier: number;
+  chance: number;
+}
+
+const RISK_CONFIG: Record<RiskLevel, Outcome[]> = {
+  "low": [
+    { "multiplier": 0, "chance": 2 },
+    { "multiplier": 0.9, "chance": 15 },
+    { "multiplier": 0.95, "chance": 65 },
+    { "multiplier": 1.2, "chance": 15 },
+    { "multiplier": 1.6, "chance": 2.5 },
+    { "multiplier": 2.5, "chance": 0.5 }
+  ],
+  "medium": [
+    { "multiplier": 0, "chance": 10 },
+    { "multiplier": 0.5, "chance": 10 },
+    { "multiplier": 0.9, "chance": 50 },
+    { "multiplier": 1.2, "chance": 15 },
+    { "multiplier": 1.65, "chance": 10 },
+    { "multiplier": 2.5, "chance": 5 }
+  ],
+  "high": [
+    { "multiplier": 0, "chance": 25 },
+    { "multiplier": 0.5, "chance": 10 },
+    { "multiplier": 0.9, "chance": 43 },
+    { "multiplier": 1.55, "chance": 15 },
+    { "multiplier": 4.0, "chance": 5 },
+    { "multiplier": 6.0, "chance": 2 }
+  ],
+  "expert": [
+    { "multiplier": 0, "chance": 80 },
+    { "multiplier": 1.0, "chance": 12 },
+    { "multiplier": 3.5, "chance": 4 },
+    { "multiplier": 8.0, "chance": 2 },
+    { "multiplier": 20.0, "chance": 1.4 },
+    { "multiplier": 50.0, "chance": 0.6 }
+  ]
+}
+
+const CLICK_MULTIPLIERS = [
+    1.00,
+    1.01,
+    1.01,
+    1.01,
+    1.01,
+    1.01,
+    1.01,
+    1.01,
+    1.01,
+    1.01,
+    1.01,
+    1.01,
+    1.01,
+    1.02,
+    1.02,
+    1.02,
+    1.02,
+    1.02,
+    1.02,
+    1.02,
+    1.02,
+    1.02,
+    1.02,
+    1.02,
+    1.02
+  ]
 
 type GameState = "idle" | "playing" | "cashed_out" | "game_over";
 
 interface Tile {
   id: number;
-  isMine: boolean;
   isRevealed: boolean;
   revealedByPlayer: boolean;
+  multiplier: number | null;
 }
 
-export default function MinesPage() {
-  const blendHexColors = (hex1: string, hex2: string, weight = 0.5) => {
-    const h1 = hex1.replace("#", "");
-    const h2 = hex2.replace("#", "");
-    const r1 = parseInt(h1.substring(0, 2), 16);
-    const g1 = parseInt(h1.substring(2, 4), 16);
-    const b1 = parseInt(h1.substring(4, 6), 16);
-    const r2 = parseInt(h2.substring(0, 2), 16);
-    const g2 = parseInt(h2.substring(2, 4), 16);
-    const b2 = parseInt(h2.substring(4, 6), 16);
-    const r = Math.round(r1 * (1 - weight) + r2 * weight);
-    const g = Math.round(g1 * (1 - weight) + g2 * weight);
-    const b = Math.round(b1 * (1 - weight) + b2 * weight);
-    const hex = (n: number) => n.toString(16).padStart(2, "0");
-    return `#${hex(r)}${hex(g)}${hex(b)}`;
-  };
-  const { balance, addToBalance, subtractFromBalance, finalizePendingLoss, syncBalance } = useWallet();
+export default function VaultPage() {
+  const { balance, addToBalance, subtractFromBalance, finalizePendingLoss, syncBalance } =
+    useWallet();
 
   const { volume } = useSoundVolume();
 
@@ -132,15 +110,15 @@ export default function MinesPage() {
     return Number.isFinite(n) ? n : 0;
   };
 
-  const sleep = (ms: number) =>
-    new Promise<void>((resolve) => setTimeout(resolve, ms));
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
-  const [mineCount, setMineCount] = useState<number>(3);
+  const [riskLevel, setRiskLevel] = useState<RiskLevel>("low");
   const [gameState, setGameState] = useState<GameState>("idle");
   const [grid, setGrid] = useState<Tile[]>([]);
   const [revealedCount, setRevealedCount] = useState<number>(0);
+  const [currentMultiplier, setCurrentMultiplier] = useState<number>(1);
   const [lastWin, setLastWin] = useState<number>(0);
 
   const setBetBoth = (next: number) => {
@@ -160,19 +138,19 @@ export default function MinesPage() {
 
   const [autoPickOrder, setAutoPickOrder] = useState<number[]>([]);
 
-  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(
-    null
-  );
+  const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(null);
   const resultTimeoutRef = useRef<number | null>(null);
 
   const betAmountRef = useRef<number>(100);
   const balanceRef = useRef<number>(0);
-  const mineCountRef = useRef<number>(3);
+  const riskLevelRef = useRef<RiskLevel>("low");
   const gameStateRef = useRef<GameState>("idle");
   const isAutoBettingRef = useRef(false);
   const autoOriginalBetRef = useRef<number>(0);
   const autoNetRef = useRef<number>(0);
   const autoPickOrderRef = useRef<number[]>([]);
+  const revealedCountRef = useRef<number>(0);
+  const currentMultiplierRef = useRef<number>(1);
 
   const audioRef = useRef({
     bet: new Audio("/sounds/Bet.mp3"),
@@ -199,9 +177,9 @@ export default function MinesPage() {
     } catch (e) {}
   };
 
-  const playRevealSound = (revealed: number, totalSafe: number) => {
-    if (totalSafe <= 0) return;
-    const pct = revealed / totalSafe;
+  const playRevealSound = (revealed: number, total: number) => {
+    if (total <= 0) return;
+    const pct = revealed / total;
     if (pct <= 1 / 3) {
       playAudio(audioRef.current.reveal1);
     } else if (pct <= 2 / 3) {
@@ -212,7 +190,6 @@ export default function MinesPage() {
   };
 
   const playMinePopSound = () => playAudio(audioRef.current.minePop);
-
   const playWinSound = () => playAudio(audioRef.current.win);
 
   useEffect(() => {
@@ -245,8 +222,8 @@ export default function MinesPage() {
     balanceRef.current = balance;
   }, [balance]);
   useEffect(() => {
-    mineCountRef.current = mineCount;
-  }, [mineCount]);
+    riskLevelRef.current = riskLevel;
+  }, [riskLevel]);
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
@@ -256,6 +233,12 @@ export default function MinesPage() {
   useEffect(() => {
     autoPickOrderRef.current = autoPickOrder;
   }, [autoPickOrder]);
+  useEffect(() => {
+    revealedCountRef.current = revealedCount;
+  }, [revealedCount]);
+  useEffect(() => {
+    currentMultiplierRef.current = currentMultiplier;
+  }, [currentMultiplier]);
 
   useEffect(() => {
     resetGrid();
@@ -271,11 +254,11 @@ export default function MinesPage() {
   }, []);
 
   const resetGrid = () => {
-    const newGrid = Array.from({ length: 25 }, (_, i) => ({
+    const newGrid: Tile[] = Array.from({ length: 25 }, (_, i) => ({
       id: i,
-      isMine: false,
       isRevealed: false,
       revealedByPlayer: false,
+      multiplier: null,
     }));
     setGrid(newGrid);
     if (resultTimeoutRef.current) {
@@ -331,21 +314,16 @@ export default function MinesPage() {
     });
   }, []);
 
-  const currentMultiplier = useMemo(() => {
-    if (revealedCount === 0) return 1.0;
-    const multipliers = MULTIPLIERS[mineCount];
-    if (!multipliers) return 1.0;
-    return (
-      multipliers[revealedCount - 1] || multipliers[multipliers.length - 1]
-    );
-  }, [mineCount, revealedCount]);
-
-  const nextMultiplier = useMemo(() => {
-    const multipliers = MULTIPLIERS[mineCount];
-    if (!multipliers) return 0;
-    if (revealedCount >= multipliers.length) return 0;
-    return multipliers[revealedCount];
-  }, [mineCount, revealedCount]);
+  const getOutcome = useCallback((risk: RiskLevel): number => {
+    const outcomes = RISK_CONFIG[risk];
+    const rand = Math.random() * 100;
+    let sum = 0;
+    for (const item of outcomes) {
+      sum += item.chance;
+      if (rand < sum) return item.multiplier;
+    }
+    return outcomes[outcomes.length - 1].multiplier;
+  }, []);
 
   const potentialWin = useMemo(() => {
     return betAmount * currentMultiplier;
@@ -353,34 +331,76 @@ export default function MinesPage() {
 
   const startGame = () => {
     if (isAutoBettingRef.current) return;
-    if (balance < betAmount) {
-      return;
-    }
+    if (balance < betAmount) return;
     if (gameState === "playing") return;
 
     subtractFromBalance(betAmount);
     setGameState("playing");
     playAudio(audioRef.current.bet);
     setRevealedCount(0);
+    setCurrentMultiplier(1);
     setLastWin(0);
 
-    const newGrid = Array.from({ length: 25 }, (_, i) => ({
+    const newGrid: Tile[] = Array.from({ length: 25 }, (_, i) => ({
       id: i,
-      isMine: false,
       isRevealed: false,
       revealedByPlayer: false,
+      multiplier: null,
     }));
-
-    let minesPlaced = 0;
-    while (minesPlaced < mineCount) {
-      const idx = Math.floor(Math.random() * 25);
-      if (!newGrid[idx].isMine) {
-        newGrid[idx].isMine = true;
-        minesPlaced++;
-      }
-    }
     setGrid(newGrid);
   };
+
+  const revealAllWithTease = useCallback(
+    (gridLocal: Tile[], revealedByPlayerId: number | null, startRevealedCount: number) => {
+      const risk = riskLevelRef.current;
+      let nextRevealedIdx = startRevealedCount;
+      const next = gridLocal.map((t) => {
+        if (t.isRevealed) return t;
+        const outcome = getOutcome(risk);
+        const boost = CLICK_MULTIPLIERS[nextRevealedIdx] ?? 1.0;
+        nextRevealedIdx++;
+        return {
+          ...t,
+          isRevealed: true,
+          revealedByPlayer: false,
+          multiplier: outcome === 0 ? 0 : normalizeMoney(outcome * boost),
+        };
+      });
+      if (revealedByPlayerId != null && next[revealedByPlayerId]) {
+        next[revealedByPlayerId] = {
+          ...next[revealedByPlayerId],
+          revealedByPlayer: true,
+        };
+      }
+      return next;
+    },
+    [getOutcome]
+  );
+
+  const cashOutCore = useCallback(
+    async (opts?: { multiplier?: number; revealedCount?: number }) => {
+      if (gameStateRef.current !== "playing") return;
+      if (isAutoBettingRef.current) return;
+      const rCount = opts?.revealedCount ?? revealedCountRef.current;
+      if (rCount <= 0) return;
+
+      const mult = opts?.multiplier ?? currentMultiplierRef.current;
+      const winAmount = normalizeMoney(betAmountRef.current * mult);
+      addToBalance(winAmount);
+      setLastWin(winAmount);
+      setGameState("cashed_out");
+
+      setGrid((prev) => revealAllWithTease(prev, null, rCount));
+
+      playWinSound();
+      await showFx("win");
+    },
+    [addToBalance, revealAllWithTease, showFx]
+  );
+
+  const cashOut = useCallback(() => {
+    void cashOutCore();
+  }, [cashOutCore]);
 
   const revealTile = (id: number) => {
     if (gameState !== "playing") return;
@@ -388,7 +408,7 @@ export default function MinesPage() {
     if (isAutoBettingRef.current) return;
 
     const tile = grid[id];
-    if (tile.isRevealed) return;
+    if (tile?.isRevealed) return;
 
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);
@@ -396,101 +416,59 @@ export default function MinesPage() {
     }
     setResultFx("rolling");
 
+    const risk = riskLevelRef.current;
+    const outcome = getOutcome(risk);
+    const boost = CLICK_MULTIPLIERS[revealedCount] ?? 1;
+
     const newGrid = [...grid];
-    newGrid[id] = { ...tile, isRevealed: true, revealedByPlayer: true };
+    newGrid[id] = {
+      ...tile,
+      isRevealed: true,
+      revealedByPlayer: true,
+      multiplier: outcome === 0 ? 0 : normalizeMoney(outcome * boost),
+    };
     setGrid(newGrid);
 
-    if (tile.isMine) {
-      playMinePopSound();
+    if (outcome === 0) {
       setGameState("game_over");
-      setGrid(newGrid.map((t) => ({ ...t, isRevealed: true })));
+      playMinePopSound();
+      setGrid(revealAllWithTease(newGrid, id, revealedCount));
       setResultFx("lose");
-      resultTimeoutRef.current = window.setTimeout(
-        () => setResultFx(null),
-        900
-      );
+      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
       finalizePendingLoss();
-    } else {
-      const newRevealedCount = revealedCount + 1;
-      playRevealSound(newRevealedCount, 25 - mineCount);
-      setRevealedCount(newRevealedCount);
-
-      const totalSafeTiles = 25 - mineCount;
-      if (newRevealedCount >= totalSafeTiles) {
-        const winAmount =
-          betAmount * MULTIPLIERS[mineCount][newRevealedCount - 1];
-        addToBalance(winAmount);
-        setLastWin(winAmount);
-        playWinSound();
-        if (resultTimeoutRef.current) {
-          clearTimeout(resultTimeoutRef.current);
-          resultTimeoutRef.current = null;
-        }
-        setResultFx("win");
-        resultTimeoutRef.current = window.setTimeout(
-          () => setResultFx(null),
-          900
-        );
-        setGameState("cashed_out");
-
-        setGrid(newGrid.map((t) => ({ ...t, isRevealed: true })));
-      }
-      setResultFx(null);
+      return;
     }
-  };
 
-  const cashOut = () => {
-    if (gameState !== "playing") return;
-    if (isAutoBettingRef.current) return;
-    if (revealedCount === 0) return;
+    const newRevealedCount = revealedCount + 1;
+    setRevealedCount(newRevealedCount);
+    const nextMultiplier = normalizeMoney(currentMultiplierRef.current * outcome * boost);
+    setCurrentMultiplier(nextMultiplier);
+    setResultFx(null);
+    playRevealSound(newRevealedCount, 25);
 
-    const winAmount = potentialWin;
-    addToBalance(winAmount);
-    setLastWin(winAmount);
-    setGameState("cashed_out");
-
-    playWinSound();
-
-    if (resultTimeoutRef.current) {
-      clearTimeout(resultTimeoutRef.current);
-      resultTimeoutRef.current = null;
+    if (newRevealedCount >= 25) {
+      void cashOutCore({ multiplier: nextMultiplier, revealedCount: newRevealedCount });
     }
-    setResultFx("win");
-    resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
-
-    setGrid((prev) => prev.map((t) => ({ ...t, isRevealed: true })));
   };
 
   const playRound = useCallback(
     async (opts?: { betAmount?: number }) => {
       const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
       const currentBalance = balanceRef.current;
-      const mines = mineCountRef.current;
+      const risk = riskLevelRef.current;
       const currentState = gameStateRef.current;
 
       const picks = getValidPickOrder(autoPickOrderRef.current);
       if (picks.length <= 0) {
-        return null as null | {
-          betAmount: number;
-          winAmount: number;
-          didWin: boolean;
-        };
+        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
       }
 
       if (currentState === "playing") {
-        return null as null | {
-          betAmount: number;
-          winAmount: number;
-          didWin: boolean;
-        };
+        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
       }
 
       if (bet <= 0 || bet > currentBalance) {
-        return null as null | {
-          betAmount: number;
-          winAmount: number;
-          didWin: boolean;
-        };
+        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
       }
 
       if (resultTimeoutRef.current) {
@@ -501,6 +479,7 @@ export default function MinesPage() {
 
       setLastWin(0);
       setRevealedCount(0);
+      setCurrentMultiplier(1);
       setBetBoth(bet);
       subtractFromBalance(bet);
       playAudio(audioRef.current.bet);
@@ -508,25 +487,16 @@ export default function MinesPage() {
 
       let gridLocal: Tile[] = Array.from({ length: 25 }, (_, i) => ({
         id: i,
-        isMine: false,
         isRevealed: false,
         revealedByPlayer: false,
+        multiplier: null,
       }));
-
-      let minesPlaced = 0;
-      while (minesPlaced < mines) {
-        const idx = Math.floor(Math.random() * 25);
-        if (!gridLocal[idx].isMine) {
-          gridLocal[idx].isMine = true;
-          minesPlaced++;
-        }
-      }
 
       setGrid(gridLocal);
       await sleep(120);
 
       let revealedLocal = 0;
-      const totalSafeTiles = 25 - mines;
+      let multiplierLocal = 1;
 
       for (const id of picks) {
         if (gridLocal[id]?.isRevealed) continue;
@@ -538,18 +508,21 @@ export default function MinesPage() {
         setResultFx("rolling");
         await sleep(120);
 
-        const tile = gridLocal[id];
+        const outcome = getOutcome(risk);
+        const boost = CLICK_MULTIPLIERS[revealedLocal] ?? 1;
+
         gridLocal = [...gridLocal];
         gridLocal[id] = {
-          ...tile,
+          ...gridLocal[id],
           isRevealed: true,
           revealedByPlayer: true,
+          multiplier: outcome === 0 ? 0 : normalizeMoney(outcome * boost),
         };
         setGrid(gridLocal);
 
-        if (tile.isMine) {
+        if (outcome === 0) {
           setGameState("game_over");
-          gridLocal = gridLocal.map((t) => ({ ...t, isRevealed: true }));
+          gridLocal = revealAllWithTease(gridLocal, id, revealedLocal);
           setGrid(gridLocal);
           playMinePopSound();
           finalizePendingLoss();
@@ -558,42 +531,30 @@ export default function MinesPage() {
         }
 
         revealedLocal++;
-        playRevealSound(revealedLocal, totalSafeTiles);
+        multiplierLocal = normalizeMoney(multiplierLocal * outcome * boost);
         setRevealedCount(revealedLocal);
+        setCurrentMultiplier(multiplierLocal);
+        playRevealSound(revealedLocal, 25);
         setResultFx(null);
-
-        if (revealedLocal >= totalSafeTiles) {
-          const mult = MULTIPLIERS[mines]?.[revealedLocal - 1] ?? 1;
-          const winAmount = normalizeMoney(bet * mult);
-          addToBalance(winAmount);
-          setLastWin(winAmount);
-          setGameState("cashed_out");
-          playWinSound();
-          gridLocal = gridLocal.map((t) => ({ ...t, isRevealed: true }));
-          setGrid(gridLocal);
-          await showFx("win");
-          return { betAmount: bet, winAmount, didWin: true };
-        }
 
         await sleep(120);
       }
 
       if (revealedLocal <= 0) {
         setGameState("game_over");
-        gridLocal = gridLocal.map((t) => ({ ...t, isRevealed: true }));
+        gridLocal = revealAllWithTease(gridLocal, null, 0);
         setGrid(gridLocal);
         finalizePendingLoss();
         await showFx("lose");
         return { betAmount: bet, winAmount: 0, didWin: false };
       }
 
-      const mult = MULTIPLIERS[mines]?.[revealedLocal - 1] ?? 1;
-      const winAmount = normalizeMoney(bet * mult);
+      const winAmount = normalizeMoney(bet * multiplierLocal);
       addToBalance(winAmount);
       setLastWin(winAmount);
       setGameState("cashed_out");
       playWinSound();
-      gridLocal = gridLocal.map((t) => ({ ...t, isRevealed: true }));
+      gridLocal = revealAllWithTease(gridLocal, null, revealedLocal);
       setGrid(gridLocal);
       await showFx("win");
       return { betAmount: bet, winAmount, didWin: true };
@@ -601,7 +562,9 @@ export default function MinesPage() {
     [
       addToBalance,
       finalizePendingLoss,
+      getOutcome,
       getValidPickOrder,
+      revealAllWithTease,
       showFx,
       subtractFromBalance,
     ]
@@ -624,14 +587,8 @@ export default function MinesPage() {
     setIsAutoBetting(true);
 
     while (isAutoBettingRef.current) {
-      const stopProfit = Math.max(
-        0,
-        normalizeMoney(parseNumberLoose(stopProfitInput))
-      );
-      const stopLoss = Math.max(
-        0,
-        normalizeMoney(parseNumberLoose(stopLossInput))
-      );
+      const stopProfit = Math.max(0, normalizeMoney(parseNumberLoose(stopProfitInput)));
+      const stopLoss = Math.max(0, normalizeMoney(parseNumberLoose(stopLossInput)));
       const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
       const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
 
@@ -645,9 +602,7 @@ export default function MinesPage() {
       const result = await playRound({ betAmount: roundBet });
       if (!result) break;
 
-      const lastNet = normalizeMoney(
-        (result.winAmount ?? 0) - result.betAmount
-      );
+      const lastNet = normalizeMoney((result.winAmount ?? 0) - result.betAmount);
       autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
 
       if (result.didWin && result.winAmount > 0) {
@@ -709,7 +664,6 @@ export default function MinesPage() {
         stopAutoBet();
       } catch (e) {}
 
-      // Ensure no buttons remain focused/highlighted
       if (typeof document !== "undefined") {
         (document.activeElement as HTMLElement)?.blur();
       }
@@ -722,6 +676,7 @@ export default function MinesPage() {
 
       setLastWin(0);
       setRevealedCount(0);
+      setCurrentMultiplier(1);
       setGameState("idle");
       resetGrid();
 
@@ -729,8 +684,8 @@ export default function MinesPage() {
       betAmountRef.current = 100;
       setBetInput(String(100));
 
-      setMineCount(3);
-      mineCountRef.current = 3;
+      setRiskLevel("low");
+      riskLevelRef.current = "low";
 
       setOnWinMode("reset");
       setOnWinPctInput("0");
@@ -849,20 +804,24 @@ export default function MinesPage() {
 
           <div className="space-y-2">
             <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-              Mines
+              Risk
             </label>
-            <select
-              value={mineCount}
-              onChange={(e) => setMineCount(Number(e.target.value))}
-              disabled={isBusy}
-              className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 px-4 text-white focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
-            >
-              {Array.from({ length: 24 }, (_, i) => i + 1).map((num) => (
-                <option key={num} value={num}>
-                  {num}
-                </option>
+            <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+              {(["low", "medium", "high", "expert"] as const).map((lvl) => (
+                <button
+                  key={lvl}
+                  onClick={() => !isBusy && setRiskLevel(lvl)}
+                  disabled={isBusy}
+                  className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    riskLevel === lvl
+                      ? "bg-[#213743] text-white shadow-sm"
+                      : "text-[#b1bad3] hover:text-white"
+                  }`}
+                >
+                  {RISK_LABELS[lvl]}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           {playMode === "manual" && (
@@ -871,12 +830,9 @@ export default function MinesPage() {
                 onClick={() => {
                   if (gameState !== "playing") return;
                   if (isAutoBettingRef.current) return;
-                  const unrevealed = grid
-                    .filter((t) => !t.isRevealed)
-                    .map((t) => t.id);
+                  const unrevealed = grid.filter((t) => !t.isRevealed).map((t) => t.id);
                   if (unrevealed.length === 0) return;
-                  const pick =
-                    unrevealed[Math.floor(Math.random() * unrevealed.length)];
+                  const pick = unrevealed[Math.floor(Math.random() * unrevealed.length)];
                   revealTile(pick);
                 }}
                 disabled={
@@ -1071,7 +1027,7 @@ export default function MinesPage() {
                 ${potentialWin.toFixed(2)}
               </div>
               <div className="text-sm text-[#b1bad3] mt-1">
-                Next: {nextMultiplier ? `${nextMultiplier}x` : "Max"}
+                Multiplier: {currentMultiplier.toFixed(3)}x
               </div>
             </div>
           )}
@@ -1079,9 +1035,7 @@ export default function MinesPage() {
           {lastWin > 0 && gameState !== "playing" && (
             <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
               <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
-              <div className="text-xl font-bold text-[#00e701]">
-                ${lastWin.toFixed(2)}
-              </div>
+              <div className="text-xl font-bold text-[#00e701]">${lastWin.toFixed(2)}</div>
             </div>
           )}
         </div>
@@ -1103,25 +1057,16 @@ export default function MinesPage() {
             )}
             <div className="grid grid-cols-5 gap-2 sm:gap-3 w-full max-w-[500px] aspect-square">
               {grid.map((tile) => {
-                const isAutoRevealed =
-                  tile.isRevealed && !tile.revealedByPlayer;
+                const isBust = tile.multiplier === 0;
                 const baseSafe = "#213743";
-                const target = "#0f212e";
                 const blendedBg = tile.isRevealed ? baseSafe : undefined;
 
                 const plannedIndex = plannedOrderById.get(tile.id) ?? null;
 
-                const canPlan =
-                  playMode === "auto" &&
-                  gameState !== "playing" &&
-                  !isAutoBetting;
-                const canReveal =
-                  playMode === "manual" &&
-                  gameState === "playing" &&
-                  !isAutoBetting;
+                const canPlan = playMode === "auto" && gameState !== "playing" && !isAutoBetting;
+                const canReveal = playMode === "manual" && gameState === "playing" && !isAutoBetting;
 
-                const isPlannedCovered =
-                  plannedIndex != null && !tile.isRevealed;
+                const isPlannedCovered = plannedIndex != null && !tile.isRevealed;
 
                 return (
                   <button
@@ -1136,9 +1081,7 @@ export default function MinesPage() {
                       }
                     }}
                     onPointerDown={(e) => e.currentTarget.blur()}
-                    disabled={
-                      (canReveal && tile.isRevealed) || (!canReveal && !canPlan)
-                    }
+                    disabled={(canReveal && tile.isRevealed) || (!canReveal && !canPlan)}
                     className={`relative rounded-lg transition-[background-color,transform,box-shadow,opacity] duration-200 flex items-center justify-center aspect-square
                   focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0
                   overflow-hidden
@@ -1147,15 +1090,15 @@ export default function MinesPage() {
                       ? isPlannedCovered
                         ? "bg-[#6b21a8] text-white shadow-[0_4px_0_#4c1d95] -translate-y-1 hover:bg-[#7e22ce] active:translate-y-0 active:shadow-none border-none"
                         : "bg-[#2f4553] hover:bg-[#3c5566] hover:-translate-y-1 cursor-pointer shadow-[0_4px_0_0_#1a2c38] border-none"
-                      : tile.isMine && tile.revealedByPlayer
+                      : isBust && tile.revealedByPlayer
                       ? "animate-mines-mine"
-                      : !tile.isMine && tile.revealedByPlayer
+                      : !isBust && tile.revealedByPlayer
                       ? "animate-mines-gem"
                       : ""
                   }
                   ${
                     tile.revealedByPlayer
-                      ? tile.isMine
+                      ? isBust
                         ? "border-2 border-[#ef4444]"
                         : "border-2 border-[#00e701]"
                       : "border-none"
@@ -1165,9 +1108,7 @@ export default function MinesPage() {
                       ? "cursor-default hover:transform-none opacity-50"
                       : ""
                   }`}
-                    style={
-                      blendedBg ? { backgroundColor: blendedBg } : undefined
-                    }
+                    style={blendedBg ? { backgroundColor: blendedBg } : undefined}
                   >
                     {plannedIndex != null && !tile.isRevealed && (
                       <div className="absolute top-1 right-1 bg-[#6b21a8] border border-[#a855f7] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
@@ -1175,86 +1116,96 @@ export default function MinesPage() {
                       </div>
                     )}
 
-                    {tile.isRevealed &&
-                      tile.revealedByPlayer &&
-                      !tile.isMine && (
-                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                          <div
-                            className="mines-gem-flash absolute inset-0"
-                            style={{
-                              background:
-                                "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.85) 0%, rgba(0,231,1,0.35) 38%, rgba(0,231,1,0.0) 70%)",
-                            }}
-                          />
-                          <div
-                            className="mines-gem-glow absolute inset-0 rounded-lg"
-                            style={{
-                              boxShadow: "0 0 0 0 rgba(0,231,1,0.0)",
-                              border: "2px solid rgba(0,231,1,0.35)",
-                            }}
-                          />
-                        </div>
-                      )}
-
-                    {tile.isRevealed &&
-                      tile.revealedByPlayer &&
-                      tile.isMine && (
+                    {tile.isRevealed && tile.revealedByPlayer && !isBust && (
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                         <div
-                          className="pointer-events-none absolute inset-0 mines-mine-flash"
+                          className="mines-gem-flash absolute inset-0"
                           style={{
                             background:
-                              "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.75) 0%, rgba(239,68,68,0.35) 45%, rgba(239,68,68,0.0) 70%)",
+                              "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.85) 0%, rgba(0,231,1,0.35) 38%, rgba(0,231,1,0.0) 70%)",
                           }}
                         />
-                      )}
+                        <div
+                          className="mines-gem-glow absolute inset-0 rounded-lg"
+                          style={{
+                            boxShadow: "0 0 0 0 rgba(0,231,1,0.0)",
+                            border: "2px solid rgba(0,231,1,0.35)",
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {tile.isRevealed && tile.revealedByPlayer && isBust && (
+                      <div
+                        className="pointer-events-none absolute inset-0 mines-mine-flash"
+                        style={{
+                          background:
+                            "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.75) 0%, rgba(239,68,68,0.35) 45%, rgba(239,68,68,0.0) 70%)",
+                        }}
+                      />
+                    )}
 
                     {tile.isRevealed && (
                       <div
-                        className={
-                          tile.revealedByPlayer
-                            ? "animate-mines-icon-pop"
-                            : undefined
-                        }
+                        className={tile.revealedByPlayer ? "animate-mines-icon-pop" : undefined}
                         style={{
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          width: "35%",
-                          height: "35%",
+                          width: "100%",
+                          height: "100%",
                         }}
                       >
-                        {tile.isMine ? (
-                          <LocalFireDepartment
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              color: "#ef4444",
-                              filter: tile.revealedByPlayer
-                                ? "drop-shadow(0 0 14px rgba(239,68,68,0.55))"
-                                : "none",
-                            }}
-                          />
-                        ) : (
-                          <Diamond
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              color: "#00ff17",
-                              filter: tile.revealedByPlayer
-                                ? "drop-shadow(0 0 16px rgba(0,231,1,0.85))"
-                                : "none",
-                            }}
-                          />
-                        )}
+                        <div
+                          className={`text-sm sm:text-base font-extrabold tracking-tight ${
+                            isBust
+                              ? "text-[#b1bad3]"
+                              : (tile.multiplier ?? 0) < 1
+                              ? "text-[#b1bad3]"
+                              : "text-[#00e701]"
+                          }`}
+                          style={{
+                            textShadow: isBust
+                              ? "none"
+                              : (tile.multiplier ?? 0) >= 1
+                              ? "0 0 14px rgba(0,231,1,0.25)"
+                              : "none",
+                          }}
+                        >
+                          {isBust ? "0x" : `${tile.multiplier}x`}
+                        </div>
                       </div>
                     )}
                   </button>
                 );
               })}
             </div>
+
+            <div className="w-full pt-4">
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 w-full">
+                {RISK_CONFIG[riskLevel].map((outcome, idx) => {
+                  const boost = CLICK_MULTIPLIERS[revealedCount] ?? 1.0;
+                  const finalMult =
+                    outcome.multiplier === 0 ? 0 : normalizeMoney(outcome.multiplier * boost);
+                  return (
+                    <div
+                      key={idx}
+                      className="flex flex-col items-center p-2 rounded-md border border-[#2f4553] text-center bg-[#213743]"
+                    >
+                      <span className="font-bold text-[11px] sm:text-xs text-white">
+                        {finalMult > 0 ? `${finalMult}x` : "0x"}
+                      </span>
+                      <span className="text-[9px] text-[#8399aa] mt-0.5 leading-tight font-medium">
+                        {outcome.chance}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          <GameRecordsPanel gameId="mines" />
+          <GameRecordsPanel gameId="vault" />
         </div>
       </div>
     </>
