@@ -21,58 +21,38 @@ interface Outcome {
 }
 
 const RISK_CONFIG: Record<RiskLevel, Outcome[]> = {
-  expert: [
-    { multiplier: 0.10, chance: 29.00 },
-    { multiplier: 0.30, chance: 22.00 },
-    { multiplier: 0.60, chance: 16.00 },
-    { multiplier: 0.90, chance: 12.00 },
-    { multiplier: 1.20, chance: 10.00 },
-    { multiplier: 2.00, chance: 7.00 },
-    { multiplier: 5.00, chance: 3.00 },
-    { multiplier: 15.00, chance: 1.00 },
-    { multiplier: 50.00, chance: 0.50 },
-    { multiplier: 100.00, chance: 0.50 },
+  "low": [
+    { "multiplier": 0, "chance": 2 },
+    { "multiplier": 0.9, "chance": 15 },
+    { "multiplier": 0.95, "chance": 65 },
+    { "multiplier": 1.2, "chance": 15 },
+    { "multiplier": 1.6, "chance": 2.5 },
+    { "multiplier": 2.5, "chance": 0.5 }
   ],
-
-  high: [
-    { multiplier: 0.20, chance: 22.00 },
-    { multiplier: 0.40, chance: 17.00 },
-    { multiplier: 0.60, chance: 14.00 },
-    { multiplier: 0.80, chance: 12.00 },
-    { multiplier: 0.95, chance: 10.00 },
-    { multiplier: 1.20, chance: 9.00 },
-    { multiplier: 1.60, chance: 7.00 },
-    { multiplier: 2.50, chance: 5.00 },
-    { multiplier: 6.00, chance: 3.00 },
-    { multiplier: 12.00, chance: 1.00 },
+  "medium": [
+    { "multiplier": 0, "chance": 10 },
+    { "multiplier": 0.5, "chance": 10 },
+    { "multiplier": 0.9, "chance": 50 },
+    { "multiplier": 1.2, "chance": 15 },
+    { "multiplier": 1.65, "chance": 10 },
+    { "multiplier": 2.5, "chance": 5 }
   ],
-
-  medium: [
-    { multiplier: 0.40, chance: 19.00 },
-    { multiplier: 0.60, chance: 16.00 },
-    { multiplier: 0.80, chance: 13.00 },
-    { multiplier: 0.90, chance: 12.00 },
-    { multiplier: 1.00, chance: 11.00 },
-    { multiplier: 1.20, chance: 10.00 },
-    { multiplier: 1.50, chance: 8.00 },
-    { multiplier: 2.00, chance: 6.00 },
-    { multiplier: 3.00, chance: 4.00 },
-    { multiplier: 5.00, chance: 1.00 },
+  "high": [
+    { "multiplier": 0, "chance": 25 },
+    { "multiplier": 0.5, "chance": 10 },
+    { "multiplier": 0.9, "chance": 43 },
+    { "multiplier": 1.55, "chance": 15 },
+    { "multiplier": 4.0, "chance": 5 },
+    { "multiplier": 6.0, "chance": 2 }
   ],
-
-  low: [
-    { multiplier: 0.60, chance: 11.00 },
-    { multiplier: 0.75, chance: 11.00 },
-    { multiplier: 0.85, chance: 10.50 },
-    { multiplier: 0.90, chance: 10.50 },
-    { multiplier: 0.95, chance: 10.50 },
-    { multiplier: 1.00, chance: 10.50 },
-    { multiplier: 1.05, chance: 10.50 },
-    { multiplier: 1.10, chance: 10.50 },
-    { multiplier: 1.20, chance: 10.50 },
-    { multiplier: 1.40, chance: 4.50 },
-  ],
-};
+  "expert": [
+    { "multiplier": 0, "chance": 80 },
+    { "multiplier": 1.0, "chance": 12 },
+    { "multiplier": 3.5, "chance": 4 },
+    { "multiplier": 8.0, "chance": 2 },
+    { "multiplier": 20.0, "chance": 1.4 },
+    { "multiplier": 50.0, "chance": 0.6 }
+  ]
 
 const CLICK_MULTIPLIERS = [
     1.00,
