@@ -328,8 +328,8 @@ function TarotCard({
           </div>
           
           <div className="absolute inset-0 opacity-15 pointer-events-none mix-blend-overlay bg-[url('https://www.transparenttextures.com/patterns/paper-fibers.png')]" />
-          <div className="absolute inset-3 border border-current opacity-10 rounded-lg pointer-events-none" />
-                  <div className="absolute inset-3 border border-white/20 opacity-10 rounded-lg pointer-events-none" />
+          <div className="absolute inset-3 border border-white opacity-10 rounded-lg pointer-events-none" />
+          <div className="absolute inset-3 border border-white/20 opacity-10 rounded-lg pointer-events-none" />
         </div>
       </div>
     </div>

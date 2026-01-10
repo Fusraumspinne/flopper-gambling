@@ -87,8 +87,6 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-const LIVE_STATS_KEY = "flopper_livestats_by_game_v3";
-const LEGACY_LIVE_STATS_KEYS = ["flopper_livestats_by_game_v2"];
 const GAME_ID_SET = new Set<string>(GAME_OPTIONS.map((g) => g.id));
 
 function createEmptyLiveStats(): LiveStatsState {
@@ -107,68 +105,6 @@ function deriveGameId(pathname: string): GameKey {
   const firstSegment = pathname.split("/").filter(Boolean)[0];
   if (firstSegment && GAME_ID_SET.has(firstSegment)) return firstSegment as GameKey;
   return "unknown";
-}
-
-function isValidLiveStats(value: any): value is LiveStatsState {
-  if (
-    !value ||
-    typeof value.startedAt !== "number" ||
-    typeof value.net !== "number" ||
-    typeof value.wagered !== "number" ||
-    typeof value.wins !== "number" ||
-    typeof value.losses !== "number" ||
-    !Array.isArray(value.history)
-  ) {
-    return false;
-  }
-
-  return value.history.every((p: any) => p && typeof p.t === "number" && typeof p.net === "number");
-}
-
-function buildAllAggregate(map: LiveStatsByGame): LiveStatsState {
-  let startedAt = Date.now();
-  let wagered = 0;
-  let wins = 0;
-  let losses = 0;
-  const events: Array<{ t: number; delta: number }> = [];
-
-  for (const [key, stats] of Object.entries(map)) {
-    if (key === "all") continue;
-    if (!isValidLiveStats(stats)) continue;
-
-    startedAt = Math.min(startedAt, stats.startedAt);
-    wagered = normalizeMoney(wagered + stats.wagered);
-    wins += stats.wins;
-    losses += stats.losses;
-
-    if (stats.history.length > 0) {
-      events.push({ t: stats.history[0].t, delta: stats.history[0].net });
-    }
-
-    for (let i = 1; i < stats.history.length; i++) {
-      const prev = stats.history[i - 1];
-      const curr = stats.history[i];
-      events.push({ t: curr.t, delta: curr.net - prev.net });
-    }
-  }
-
-  events.sort((a, b) => a.t - b.t);
-
-  let net = 0;
-  const history: LiveStatsPoint[] = [];
-  for (const ev of events) {
-    net = normalizeMoney(net + ev.delta);
-    history.push({ t: ev.t, net });
-  }
-
-  return {
-    startedAt,
-    net: normalizeMoney(net),
-    wagered: normalizeMoney(wagered),
-    wins,
-    losses,
-    history,
-  };
 }
 
 export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
@@ -328,18 +264,22 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const loadData = async () => {
-      const verified = await getItem<string>("verified");
-      if (!verified) {
-        try {
-          await clearStore();
-        } catch (err) {
-          console.error('Failed to clear store when verified missing', err);
-        }
-      }
-
       const storedBalance = await getItem<string>("flopper_balance");
       const storedInvest = await getItem<string>("flopper_investment_v1");
       const storedDailyBonus = await getItem<string>("flopper_hourly_reward_last_claim_v1");
+
+      // Older versions used a "verified" flag and cleared the entire store when it was missing.
+      // That caused random resets (including playtime) when the flag got lost.
+      const verified = await getItem<string>("verified");
+      const hasAnyState = Boolean(storedBalance || storedInvest || storedDailyBonus);
+      if (!verified && hasAnyState) {
+        try {
+          await setItem("verified", "true");
+        } catch (err) {
+          console.error("Failed to set verified flag", err);
+        }
+      }
+
       if (storedBalance) {
         const initial = normalizeMoney(parseFloat(storedBalance));
         balanceRef.current = initial;
@@ -352,50 +292,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
           await setItem("verified", "true");
         } catch (err) {
           console.error('Failed to set verified flag', err);
-        }
-      }
-
-      const rawStats = await (async () => {
-        const primary = await getItem<string>(LIVE_STATS_KEY);
-        if (primary) return primary;
-        for (const legacyKey of LEGACY_LIVE_STATS_KEYS) {
-          const legacy = await getItem<string>(legacyKey);
-          if (legacy) return legacy;
-        }
-        return null;
-      })();
-
-      if (rawStats) {
-        try {
-          const parsed = JSON.parse(rawStats) as LiveStatsByGame;
-          const next: Partial<LiveStatsByGame> = { all: createEmptyLiveStats(), unknown: createEmptyLiveStats() };
-
-          for (const key of Object.keys(parsed)) {
-            const maybe = parsed[key as keyof LiveStatsByGame];
-            if (isValidLiveStats(maybe)) {
-              const normalizedNet = normalizeMoney(maybe.net);
-              next[key as GameKey] = {
-                ...maybe,
-                net: normalizedNet,
-                wagered: normalizeMoney(maybe.wagered),
-                history:
-                  maybe.history.length > 0
-                    ? maybe.history.map((p) => ({ t: p.t, net: normalizeMoney(p.net) }))
-                    : normalizedNet === 0
-                      ? []
-                      : [{ t: Date.now(), net: normalizedNet }],
-              };
-            }
-          }
-
-          for (const game of GAME_OPTIONS) {
-            if (!next[game.id]) next[game.id] = createEmptyLiveStats();
-          }
-          if (!next.unknown) next.unknown = createEmptyLiveStats();
-
-          next.all = buildAllAggregate(next as LiveStatsByGame);
-          setLiveStatsByGame(next as LiveStatsByGame);
-        } catch {
         }
       }
 
@@ -413,12 +309,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       setItem("flopper_balance", normalizeMoney(balance).toFixed(2));
     }
   }, [balance, isLoaded]);
-
-  useEffect(() => {
-    if (isLoaded) {
-      setItem(LIVE_STATS_KEY, JSON.stringify(liveStatsByGame));
-    }
-  }, [liveStatsByGame, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -553,6 +443,12 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     balanceRef.current = next;
     setBalance(next);
     scheduleSync();
+
+    // Treat debits as activity as well (some games use debitBalance instead of subtractFromBalance).
+    try {
+      setLastBetAt(Date.now());
+    } catch {}
+
     return true;
   };
 

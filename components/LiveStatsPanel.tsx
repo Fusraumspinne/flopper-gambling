@@ -14,7 +14,6 @@ import {
 import PlayTimeTracker from "./PlayTimeTracker";
 import { Close, RestartAlt, QueryStats } from "@mui/icons-material";
 import { DROPDOWN_GAME_OPTIONS, useWallet } from "./WalletProvider";
-import { getItem, setItem } from "../lib/indexedDB";
 
 type LiveStatsPanelProps = {
   open: boolean;
@@ -22,21 +21,6 @@ type LiveStatsPanelProps = {
 };
 
 type StoredPos = { x: number; y: number };
-
-const POS_KEY = "flopper_livestats_panel_pos_v1";
-const SELECTED_GAME_KEY = "flopper_livestats_panel_selected_game_v1";
-
-function safeParsePos(raw: string | null): StoredPos | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Partial<StoredPos>;
-    if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return null;
-    if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return null;
-    return { x: parsed.x, y: parsed.y };
-  } catch {
-    return null;
-  }
-}
 
 function formatMoney(n: number) {
   const sign = n < 0 ? "-" : "";
@@ -67,39 +51,23 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
   const emptyStatsRef = useRef(createEmptyStats());
 
   useEffect(() => {
+    const x = Math.max(24, Math.floor(window.innerWidth * 0.22));
+    const y = 80;
+    setPos({ x, y });
     setMounted(true);
-    getItem<string>(POS_KEY).then((raw) => {
-      const stored = safeParsePos(raw);
-      if (stored) {
-        setPos(stored);
-      } else {
-        const x = Math.max(24, Math.floor(window.innerWidth * 0.22));
-        const y = 80;
-        setPos({ x, y });
-      }
-    });
   }, []);
 
   useEffect(() => {
-    getItem<string>(SELECTED_GAME_KEY).then((stored) => {
-      const validIds = new Set<string>(DROPDOWN_GAME_OPTIONS.map((g) => g.id));
-      if (stored && validIds.has(stored)) {
-        setSelectedGameId(stored as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]);
-        return;
-      }
-
-      if (validIds.has(currentGameId)) {
-        setSelectedGameId(currentGameId as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]);
-        return;
-      }
-
-      setSelectedGameId("all");
-    });
+    const validIds = new Set<string>(DROPDOWN_GAME_OPTIONS.map((g) => g.id));
+    if (validIds.has(currentGameId)) {
+      setSelectedGameId(currentGameId as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]);
+      return;
+    }
+    setSelectedGameId("all");
   }, [currentGameId]);
 
   const handleGameChange = (value: (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]) => {
     setSelectedGameId(value);
-    setItem(SELECTED_GAME_KEY, value);
   };
 
   const selectedStats = liveStatsByGame[selectedGameId] ?? liveStatsByGame.all ?? emptyStatsRef.current;
@@ -159,13 +127,9 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
 
   const netClass = selectedStats.net >= 0 ? "text-[#00e701]" : "text-red-500";
 
-  const onDrag = (_e: DraggableEvent, data: DraggableData) => {
-  };
-
   const onStop = (_e: DraggableEvent, data: DraggableData) => {
     const nextPos = { x: data.x, y: data.y };
     setPos(nextPos);
-    setItem(POS_KEY, JSON.stringify(nextPos));
   };
 
   if (!open || !mounted) return null;
@@ -181,7 +145,7 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
       >
         <section
           ref={nodeRef as React.RefObject<HTMLElement>}
-          className="pointer-events-auto rounded-lg border border-[#2f4553] bg-[#0f212e] shadow-lg w-48 xl:w-80"
+          className="pointer-events-auto rounded-lg border border-[#2f4553] bg-[#0f212e] shadow-lg w-60 xl:w-80"
         >
           <header className="livestats-handle cursor-move flex items-center justify-between gap-3 rounded-t-lg border-b border-[#213743] bg-[#1a2c38] px-2 py-1 xl:py-2">
             <div className="flex items-center gap-2 text-white font-bold text-sm xl:text-base">

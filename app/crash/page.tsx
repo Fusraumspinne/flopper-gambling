@@ -961,7 +961,7 @@ export default function CrashPage() {
       </div>
 
       <div className="flex-1 flex flex-col gap-4">
-        <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-6 relative h-105 sm:h-155 overflow-hidden">
+        <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-6 relative min-h-[240px] w-full overflow-hidden sm:aspect-[1000/520]">
           {gameState === "running" && <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 50% 55%, rgba(47,69,83,0.22) 0%, rgba(15,33,46,0.0) 68%)", opacity: 0.9 }} />}
           
           {outcomeEffect === "loss" && <div className="limbo-lose-flash" />}
@@ -991,7 +991,6 @@ export default function CrashPage() {
               key={resultAnimNonce}
               viewBox={`0 0 ${chart.VB_W} ${chart.VB_H}`}
               className="w-full h-full"
-              preserveAspectRatio="none"
             >
               {chart.yTicks
                 .filter((v) => v >= chart.yMin - 1e-9)
@@ -1005,7 +1004,7 @@ export default function CrashPage() {
 
                   return (
                     <g key={`y-${idx}`} opacity={1}>
-                      <text x={chart.padL - 10} y={y + 4} textAnchor="end" fontSize={12} fill="rgba(177,186,211,0.7)" fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace">
+                      <text x={chart.padL - 10} y={y + 4} textAnchor="end" fontSize={Math.max(10, Math.round(chart.plotW * 0.02))} fill="rgba(177,186,211,0.7)" fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace">
                         {label}x
                       </text>
                     </g>
@@ -1019,7 +1018,7 @@ export default function CrashPage() {
 
                   return (
                     <g key={`x-${idx}`} opacity={1}>
-                      <text x={x} y={chart.VB_H - chart.padB + 26} textAnchor="middle" fontSize={12} fill="rgba(177,186,211,0.7)" fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace">
+                      <text x={x} y={chart.VB_H - chart.padB + 26} textAnchor="middle" fontSize={Math.max(10, Math.round(chart.plotW * 0.02))} fill="rgba(177,186,211,0.7)" fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace">
                         {idx === 0 ? "0s" : formatSeconds(v)}
                       </text>
                     </g>
@@ -1036,14 +1035,14 @@ export default function CrashPage() {
                     d={chart.d}
                     fill="none"
                     stroke={gameState === "crashed" ? "#ef4444" : "#00e701"}
-                    strokeWidth={4}
+                    strokeWidth={Math.max(2, Math.round(chart.plotW * 0.006))}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     style={{ filter: gameState === "crashed" ? "drop-shadow(0 0 10px rgba(239,68,68,0.25))" : "drop-shadow(0 0 12px rgba(0,231,1,0.25))" }}
                   />
 
-                  <circle cx={chart.currentX} cy={chart.currentY} r={7} fill={gameState === "crashed" ? "#ef4444" : "#00e701"} />
-                  <circle cx={chart.currentX} cy={chart.currentY} r={12} fill={gameState === "crashed" ? "rgba(239,68,68,0.18)" : "rgba(0,231,1,0.18)"} />
+                  <circle cx={chart.currentX} cy={chart.currentY} r={Math.max(4, Math.round(chart.plotW * 0.012))} fill={gameState === "crashed" ? "#ef4444" : "#00e701"} />
+                  <circle cx={chart.currentX} cy={chart.currentY} r={Math.max(8, Math.round(chart.plotW * 0.024))} fill={gameState === "crashed" ? "rgba(239,68,68,0.18)" : "rgba(0,231,1,0.18)"} />
                 </>
               )}
             </svg>
@@ -1051,7 +1050,7 @@ export default function CrashPage() {
             {gameState !== "idle" && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div
-                  className={`text-[3.4rem] sm:text-[5rem] md:text-[6rem] lg:text-[7rem] font-black font-mono leading-none transition-all duration-300 ${
+                  className={`text-[clamp(1.8rem,6.5vw,5.5rem)] font-black font-mono leading-none transition-all duration-300 ${
                     gameState === "running"
                       ? "text-white"
                       : gameState === "cashed"

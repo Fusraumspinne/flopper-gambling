@@ -5,7 +5,10 @@ import { useWallet } from "./WalletProvider";
 import { getItem, setItem } from "../lib/indexedDB";
 
 const PLAYTIME_KEY = "flopper_playtime_v1";
-const INACTIVITY_MS = 10000;
+// Count only while the user is actively playing.
+// IMPORTANT: This should not reward "just leaving the tab open".
+const INACTIVITY_MS = 10_000;
+const PERSIST_EVERY_MS = 10_000;
 
 function formatMs(ms: number) {
   const total = Math.floor(ms / 1000);
@@ -26,7 +29,21 @@ export default function PlayTimeTracker() {
   const runningRef = useRef(false);
   const intervalRef = useRef<number | null>(null);
   const pauseTimeoutRef = useRef<number | null>(null);
-  const lastTickRef = useRef<number | null>(null);
+  const lastTickPerfRef = useRef<number | null>(null);
+  const persistTimerRef = useRef<number | null>(null);
+  const hasInteractedRef = useRef(false);
+  const lastBetAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    lastBetAtRef.current = lastBetAt;
+  }, [lastBetAt]);
+
+  const isPageVisible = () => typeof document !== "undefined" && document.visibilityState === "visible";
+
+  const persistNow = () => {
+    if (!hydratedRef.current) return;
+    void setItem(PLAYTIME_KEY, totalMsRef.current);
+  };
 
   useEffect(() => {
     getItem<string | number>(PLAYTIME_KEY).then((raw) => {
@@ -42,24 +59,42 @@ export default function PlayTimeTracker() {
     });
   }, []);
 
-  const startRunning = (now: number) => {
+  const canCountNow = () => {
+    // Only start/resume after *real interaction* OR after a bet happened.
+    return hasInteractedRef.current || lastBetAtRef.current != null;
+  };
+
+  const startRunning = () => {
     if (runningRef.current) return;
+    if (!isPageVisible()) return;
+    if (!canCountNow()) return;
     runningRef.current = true;
-    lastTickRef.current = now;
+    lastTickPerfRef.current = performance.now();
     intervalRef.current = window.setInterval(() => {
-      const t = Date.now();
-      if (lastTickRef.current) {
-        const delta = t - lastTickRef.current;
-        setTotalMs((prev) => {
-          const next = prev + delta;
-          totalMsRef.current = next;
-          return next;
-        });
+      const nowPerf = performance.now();
+      const prevPerf = lastTickPerfRef.current;
+
+      if (typeof prevPerf === "number") {
+        // Clamp to avoid negative deltas and absurd jumps.
+        const rawDelta = nowPerf - prevPerf;
+        const delta = Math.min(Math.max(0, rawDelta), 10_000);
+        if (delta > 0) {
+          setTotalMs((prev) => {
+            const next = prev + delta;
+            totalMsRef.current = next;
+            return next;
+          });
+        }
       }
-      lastTickRef.current = t;
-      // persist every tick to reduce lost time on reload
-      if (hydratedRef.current) setItem(PLAYTIME_KEY, String(totalMsRef.current));
+
+      lastTickPerfRef.current = nowPerf;
     }, 1000);
+
+    if (!persistTimerRef.current) {
+      persistTimerRef.current = window.setInterval(() => {
+        persistNow();
+      }, PERSIST_EVERY_MS);
+    }
   };
 
   const pauseRunning = () => {
@@ -67,39 +102,80 @@ export default function PlayTimeTracker() {
     runningRef.current = false;
     if (intervalRef.current) window.clearInterval(intervalRef.current);
     intervalRef.current = null;
-    lastTickRef.current = null;
-    // persist using ref to avoid stale state closure
-    if (hydratedRef.current) setItem(PLAYTIME_KEY, String(totalMsRef.current));
+    lastTickPerfRef.current = null;
+    if (persistTimerRef.current) window.clearInterval(persistTimerRef.current);
+    persistTimerRef.current = null;
+    persistNow();
   };
 
-  useEffect(() => {
-    // When lastBetAt updates, start or refresh the pause timer
-    if (lastBetAt == null) return;
-
-    const now = Date.now();
-    startRunning(now);
-
-    // always pause after INACTIVITY_MS from now (refresh on each bet)
+  const refreshInactivityTimer = () => {
     if (pauseTimeoutRef.current) {
       window.clearTimeout(pauseTimeoutRef.current);
       pauseTimeoutRef.current = null;
     }
 
+    // If the tab is hidden, do not keep counting.
+    if (!isPageVisible()) {
+      pauseRunning();
+      return;
+    }
+
+    if (!canCountNow()) {
+      pauseRunning();
+      return;
+    }
+
+    startRunning();
+
     pauseTimeoutRef.current = window.setTimeout(() => {
       pauseRunning();
     }, INACTIVITY_MS);
+  };
+
+  useEffect(() => {
+    if (lastBetAt == null) return;
+    // A bet is definitely "activity".
+    refreshInactivityTimer();
+  }, [lastBetAt]);
+
+  useEffect(() => {
+    const onActivity = () => {
+      hasInteractedRef.current = true;
+      refreshInactivityTimer();
+    };
+    const onVisibility = () => {
+      if (isPageVisible()) {
+        // Do NOT start counting just because the tab became visible.
+        // Only resume if we already have real interaction or a bet.
+        if (canCountNow()) refreshInactivityTimer();
+      } else {
+        pauseRunning();
+      }
+    };
+
+    // Start counting once the user interacts (avoids counting idle tab time).
+    window.addEventListener("pointerdown", onActivity, { passive: true });
+    window.addEventListener("keydown", onActivity);
+    window.addEventListener("wheel", onActivity, { passive: true });
+    window.addEventListener("touchstart", onActivity, { passive: true });
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      // no-op here; other effects handle cleanup
+      window.removeEventListener("pointerdown", onActivity);
+      window.removeEventListener("keydown", onActivity);
+      window.removeEventListener("wheel", onActivity);
+      window.removeEventListener("touchstart", onActivity);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastBetAt]);
+  }, []);
 
   useEffect(() => {
     return () => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
       if (pauseTimeoutRef.current) window.clearTimeout(pauseTimeoutRef.current);
-      if (hydratedRef.current) setItem(PLAYTIME_KEY, String(totalMsRef.current));
+      if (persistTimerRef.current) window.clearInterval(persistTimerRef.current);
+      persistNow();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
