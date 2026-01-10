@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare } from "@mui/icons-material";
+import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff } from "@mui/icons-material";
 import { useWallet } from "./WalletProvider";
 import LiveStatsPanel from "./LiveStatsPanel";
 import { useSidebar } from "./Shell";
@@ -27,6 +27,7 @@ const games: Game[] = [
   { name: "Tarot", icon: <Flare className="w-5 h-5" />, href: "/tarot" },
   { name: "Chicken", icon: <CatchingPokemon className="w-5 h-5" />, href: "/chicken" },
   { name: "Cases", icon: <CardGiftcard className="w-5 h-5" />, href: "/cases" },
+  { name: "Crash", icon: <FlightTakeoff className="w-5 h-5" />, href: "/crash" },
   { name: "Plinko", icon: <ScatterPlot className="w-5 h-5" />, href: "/plinko" },
   { name: "Bars", icon: <LocalBar className="w-5 h-5" />, href: "/bars" },
   { name: "Spinning Wheel", icon: <Cached className="w-5 h-5" />, href: "/spinningwheel" },

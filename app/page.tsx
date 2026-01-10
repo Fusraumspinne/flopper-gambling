@@ -15,6 +15,7 @@ const games: Array<{ name: string; href: string; tagline: string; image?: string
   { name: "Tarot", href: "/tarot", tagline: "Draw 3 multipliers and multiply them", image: "/images/Tarot.png" },
   { name: "Chicken", href: "/chicken", tagline: "Cross safely for rewards", image: "/images/Chicken.png" },
   { name: "Cases", href: "/cases", tagline: "Open and reveal rewards", image: "/images/Cases.png" },
+  { name: "Crash", href: "/crash", tagline: "Ride the curve and cash out", image: "/images/Crash.png" },
   { name: "Plinko", href: "/plinko", tagline: "Drop and win", image: "/images/Plinko.png" },
   { name: "Bars", href: "/bars", tagline: "Pick 1-5 tiles and sum multipliers",  image: "/images/Bars.png" },
   { name: "Spinning Wheel", href: "/spinningwheel", tagline: "Spin and hit a multiplier", image: "/images/SpinningWheel.png" },
