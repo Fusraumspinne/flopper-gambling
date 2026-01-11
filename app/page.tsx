@@ -12,6 +12,7 @@ const games: Array<{ name: string; href: string; tagline: string; image?: string
   { name: "Pump", href: "/pump", tagline: "Pump and cash out", image: "/images/Pump.png" },
   { name: "Limbo", href: "/limbo", tagline: "Hit your target multiplier", image: "/images/Limbo.png" },
   { name: "Dice", href: "/dice", tagline: "Roll and set your chance", image: "/images/Dice.png" },
+  { name: "Roulette", href: "/roulette", tagline: "Spin the wheel, hit your bets", image: "/images/Roulette.png" },
   { name: "Tarot", href: "/tarot", tagline: "Draw 3 multipliers and multiply them", image: "/images/Tarot.png" },
   { name: "Chicken", href: "/chicken", tagline: "Cross safely for rewards", image: "/images/Chicken.png" },
   { name: "Cases", href: "/cases", tagline: "Open and reveal rewards", image: "/images/Cases.png" },

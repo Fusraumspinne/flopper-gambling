@@ -32,6 +32,7 @@ export const GAME_OPTIONS = [
   { id: "pump", label: "Pump" },
   { id: "limbo", label: "Limbo" },
   { id: "dice", label: "Dice" },
+  { id: "roulette", label: "Roulette" },
   { id: "tarot", label: "Tarot" },
   { id: "chicken", label: "Chicken" },
   { id: "cases", label: "Cases" },

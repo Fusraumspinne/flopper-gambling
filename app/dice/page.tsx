@@ -632,7 +632,7 @@ export default function DicePage() {
             ) : (
               <PlayArrow />
             )}
-            {gameState === "rolling" ? "Rolling..." : "Bet"}
+            {gameState === "rolling" ? "Playing..." : "Bet"}
           </button>
         )}
 
