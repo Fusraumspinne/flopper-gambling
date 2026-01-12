@@ -63,6 +63,7 @@ export default function RoulettePage() {
   const [isSpinning, setIsSpinning] = useState(false);
   const [lastResult, setLastResult] = useState<number | null>(null);
   const [lastPayout, setLastPayout] = useState(0);
+  const [lastWonDisplay, setLastWonDisplay] = useState(0);
 
   const totalBet = bets.reduce((acc, b) => acc + b.amount, 0);
 
@@ -295,6 +296,7 @@ export default function RoulettePage() {
     isSpinningRef.current = true;
     setLastResult(null);
     setLastPayout(0);
+    setLastWonDisplay(0);
 
     const resultIndex = Math.floor(Math.random() * 37);
     const resultNumber = WHEEL_NUMBERS[resultIndex];
@@ -348,6 +350,7 @@ export default function RoulettePage() {
       setLastResult(resultNumber);
 
       let totalWin = 0;
+      let totalLost = 0;
       betsSnapshot.forEach((bet) => {
         let won = false;
         let multiplier = 0;
@@ -421,12 +424,15 @@ export default function RoulettePage() {
 
         if (won) {
           totalWin += bet.amount * multiplier;
+        } else {
+          totalLost += bet.amount;
         }
       });
 
       const payout = normalizeMoney(totalWin);
       const netProfit = normalizeMoney(payout - totalBetNow);
       setLastPayout(payout);
+      setLastWonDisplay(normalizeMoney(payout - totalLost));
 
       if (payout > 0) {
         addToBalance(payout);
@@ -597,10 +603,10 @@ export default function RoulettePage() {
           {isSpinning ? "Playing..." : "Bet"}
         </button>
 
-        {lastPayout > 0 && !isSpinning && (
+        {lastWonDisplay > 0 && !isSpinning && (
           <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
             <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
-            <div className="text-xl font-bold text-[#00e701]">${lastPayout.toFixed(2)}</div>
+            <div className="text-xl font-bold text-[#00e701]">${lastWonDisplay.toFixed(2)}</div>
           </div>
         )}
       </div>

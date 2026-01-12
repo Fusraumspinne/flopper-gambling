@@ -41,7 +41,7 @@ function createEmptyStats() {
 }
 
 export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
-  const { liveStatsByGame, currentGameId, resetLiveStats } = useWallet();
+  const { liveStatsByGame, resetLiveStats } = useWallet();
   const [mounted, setMounted] = useState(false);
 
   const nodeRef = useRef<HTMLElement | null>(null);
@@ -49,6 +49,8 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
   const [pos, setPos] = useState<StoredPos>({ x: 360, y: 80 });
   const [selectedGameId, setSelectedGameId] = useState<(typeof DROPDOWN_GAME_OPTIONS)[number]["id"]>("all");
   const emptyStatsRef = useRef(createEmptyStats());
+
+  const prevOpenRef = useRef<boolean>(open);
 
   useEffect(() => {
     const x = Math.max(24, Math.floor(window.innerWidth * 0.22));
@@ -58,13 +60,14 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
   }, []);
 
   useEffect(() => {
-    const validIds = new Set<string>(DROPDOWN_GAME_OPTIONS.map((g) => g.id));
-    if (validIds.has(currentGameId)) {
-      setSelectedGameId(currentGameId as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]);
-      return;
-    }
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (!open || wasOpen) return;
+
+    // When opening the panel, always default to All Games.
+    // Do NOT auto-switch when navigating to a different game route.
     setSelectedGameId("all");
-  }, [currentGameId]);
+  }, [open]);
 
   const handleGameChange = (value: (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]) => {
     setSelectedGameId(value);
