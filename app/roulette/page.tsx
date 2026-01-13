@@ -544,7 +544,7 @@ export default function RoulettePage() {
               type="number"
               value={betAmount || ""}
               onChange={(e) =>
-                setBetAmount(Math.max(1, parseInt(e.target.value) || 0))
+                setBetAmount(parseInt(e.target.value) || 0)
               }
               disabled={isSpinning}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
