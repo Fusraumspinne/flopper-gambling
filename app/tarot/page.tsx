@@ -775,7 +775,11 @@ export default function TarotPage() {
             <input
               type="number"
               value={betInput}
-              onChange={(e) => setBetInput(e.target.value)}
+              onChange={(e) => {
+                let v = e.target.value;
+                if (parseFloat(v) < 0) v = "0";
+                setBetInput(v);
+              }}
               onBlur={() => {
                 const raw = betInput.trim();
                 const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
@@ -847,7 +851,7 @@ export default function TarotPage() {
         {playMode === "manual" ? (
           <button
             onClick={() => onBetManual()}
-            disabled={!canSpin}
+            disabled={!canSpin || betAmount <= 0}
             className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             {isSpinning ? (
@@ -994,7 +998,7 @@ export default function TarotPage() {
             {!isAutoActive ? (
               <button
                 onClick={startAutoBet}
-                disabled={!canSpin}
+                disabled={!canSpin || betAmount <= 0}
                 className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 <PlayArrow sx={{ fill: "currentColor" }} />

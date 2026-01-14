@@ -740,8 +740,19 @@ export default function CrashPage() {
             <input
               type="number"
               value={betInput}
-              onChange={(e) => setBetInput(e.target.value)}
-              onBlur={handleBetInputBlur}
+              onChange={(e) => {
+                let v = e.target.value;
+                if (parseFloat(v) < 0) v = "0";
+                setBetInput(v);
+              }}
+              onBlur={() => {
+                const raw = betInput.trim();
+                const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                const num = Number(sanitized);
+                const v = normalizeMoney(Number.isFinite(num) ? Math.max(0, num) : 0);
+                setBetAmount(v);
+                setBetInput(String(v));
+              }}
               disabled={isLocked}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
             />

@@ -610,12 +610,16 @@ export default function BarsPage() {
         <input
           type="number"
           value={betInput}
-          onChange={(e) => setBetInput(e.target.value)}
+          onChange={(e) => {
+            let v = e.target.value;
+            if (parseFloat(v) < 0) v = "0";
+            setBetInput(v);
+          }}
           onBlur={() => {
             const raw = betInput.trim();
             const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
             const num = Number(sanitized);
-            setBetBoth(num);
+            setBetBoth(Math.max(0, num));
           }}
           disabled={isBusy}
           className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
@@ -692,7 +696,7 @@ export default function BarsPage() {
       {playMode === "manual" ? (
         <button
           onClick={revealAndSettle}
-          disabled={isBusy || picksCount === 0 || picksCount > MAX_PICKS}
+          disabled={isBusy || picksCount === 0 || picksCount > MAX_PICKS || betAmount <= 0}
           className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
         >
           {isAnimating ? (
@@ -807,7 +811,7 @@ export default function BarsPage() {
           {!isAutoBetting ? (
             <button
               onClick={startAutoBet}
-              disabled={isAnimating || picksCount === 0}
+              disabled={isAnimating || picksCount === 0 || betAmount <= 0}
               className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 mt-2"
             >
               <PlayArrow sx={{ fill: "currentColor" }} /> Autobet

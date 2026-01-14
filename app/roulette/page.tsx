@@ -542,10 +542,12 @@ export default function RoulettePage() {
             </div>
             <input
               type="number"
-              value={betAmount || ""}
-              onChange={(e) =>
-                setBetAmount(parseInt(e.target.value) || 0)
-              }
+              value={betAmount}
+              onChange={(e) => {
+                let v = parseInt(e.target.value);
+                if (isNaN(v) || v < 0) v = 0;
+                setBetAmount(v);
+              }}
               disabled={isSpinning}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
             />

@@ -113,7 +113,9 @@ export default function RPSPage() {
   const nextPayout = betAmount * nextMultiplier;
 
   const handleBetInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setBetInput(e.target.value);
+    let v = e.target.value;
+    if (parseFloat(v) < 0) v = "0";
+    setBetInput(v);
   };
 
   const handleBetInputBlur = () => {
@@ -362,6 +364,7 @@ export default function RPSPage() {
             <div className="mt-2">
               <button
                 onClick={placeBet}
+                disabled={betAmount <= 0}
                 className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 <PlayArrow />

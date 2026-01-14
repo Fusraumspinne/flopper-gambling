@@ -767,7 +767,11 @@ export default function DartsPage() {
             <input
               type="number"
               value={betInput}
-              onChange={(e) => setBetInput(e.target.value)}
+              onChange={(e) => {
+                let v = e.target.value;
+                if (parseFloat(v) < 0) v = "0";
+                setBetInput(v);
+              }}
               onBlur={() => {
                 const raw = betInput.trim();
                 const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";

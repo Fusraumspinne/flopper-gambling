@@ -1036,14 +1036,16 @@ export default function PlinkoPage() {
             <input
               type="number"
               value={betInput}
-              onChange={(e) => setBetInput(e.target.value)}
+              onChange={(e) => {
+                let v = e.target.value;
+                if (parseFloat(v) < 0) v = "0";
+                setBetInput(v);
+              }}
               onBlur={() => {
-                const v = normalizeMoney(parseNumberLoose(betInput));
-                if (!Number.isFinite(v) || v <= 0) {
-                  setBetBoth(1);
-                } else {
-                  setBetBoth(v);
-                }
+                const raw = betInput.trim();
+                const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                const num = Number(sanitized);
+                setBetBoth(num);
               }}
               disabled={isBusy}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"

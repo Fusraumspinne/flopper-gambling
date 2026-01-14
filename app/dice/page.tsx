@@ -527,7 +527,11 @@ export default function DicePage() {
             <input
               type="number"
               value={betInput}
-              onChange={(e) => setBetInput(e.target.value)}
+              onChange={(e) => {
+                let v = e.target.value;
+                if (parseFloat(v) < 0) v = "0";
+                setBetInput(v);
+              }}
               onBlur={handleBetInputBlur}
               disabled={isBusy}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
@@ -624,7 +628,7 @@ export default function DicePage() {
         {playMode === "manual" && (
           <button
             onClick={rollDice}
-            disabled={isBusy}
+            disabled={isBusy || betAmount <= 0}
             className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {gameState === "rolling" ? (
@@ -771,7 +775,7 @@ export default function DicePage() {
             {!isAutoBetting ? (
               <button
                 onClick={startAutoBet}
-                disabled={gameState === "rolling"}
+                disabled={gameState === "rolling" || betAmount <= 0}
                 className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 <PlayArrow sx={{ fill: "currentColor" }} />

@@ -856,7 +856,11 @@ export default function SnakesPage() {
             <input
               type="number"
               value={betInput}
-              onChange={(e) => setBetInput(e.target.value)}
+              onChange={(e) => {
+                let v = e.target.value;
+                if (parseFloat(v) < 0) v = "0";
+                setBetInput(v);
+              }}
               onBlur={() => {
                 const raw = betInput.trim();
                 const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
@@ -948,7 +952,7 @@ export default function SnakesPage() {
             <div className="flex gap-2">
               <button
                 onClick={rollDice}
-                disabled={!canRoll}
+                disabled={!canRoll || betAmount <= 0}
                 className="flex-1 bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 <PlayArrow sx={{ fontSize: 22 }} /> Bet

@@ -95,19 +95,25 @@ export default function CoinFlipPage() {
   const nextPayout = betAmount * nextMultiplier;
 
   const handleBetInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setBetInput(e.target.value);
+    let v = e.target.value;
+    if (parseFloat(v) < 0) v = "0";
+    setBetInput(v);
   };
 
   const handleBetInputBlur = () => {
     const raw = betInput.trim();
-    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
-    const num = Number(sanitized);
+    let sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+    let num = Number(sanitized);
+    if (num < 0) {
+      num = 0;
+      sanitized = "0";
+    }
     setBetAmount(num);
     setBetInput(sanitized);
   };
 
   const placeBet = () => {
-    if (balance < betAmount) return;
+    if (betAmount <= 0 || balance < betAmount) return;
     subtractFromBalance(betAmount);
     playAudio(audioRef.current.bet);
     setGameState("playing");
@@ -256,6 +262,7 @@ export default function CoinFlipPage() {
             <div className="mt-2">
               <button
                 onClick={placeBet}
+                disabled={betAmount <= 0}
                 className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 cf-press"
               >
                 <PlayArrow />
