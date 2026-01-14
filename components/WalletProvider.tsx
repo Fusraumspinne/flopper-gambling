@@ -131,7 +131,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const currentGameId = useMemo(() => deriveGameId(pathname ?? "/"), [pathname]);
   const [lastBetAt, setLastBetAt] = useState<number | null>(null);
 
-  const SYNC_DEBOUNCE_MS = 5000;
+  const SYNC_DEBOUNCE_MS = 2500;
   const BETS_PER_SYNC = 20;
 
   const mergeGameUpdate = (prev: GameUpdate | undefined, next: GameUpdate): GameUpdate => {
