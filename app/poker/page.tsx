@@ -948,6 +948,7 @@ export default function PokerPage() {
     if (stage !== "setup" && stage !== "finished") return;
     if (numBots < 2 || numBots > 5) return;
     if (betAmount <= 0) return;
+    if (balance <= 0 || betAmount > balance) return;
 
     ensureAudio();
     playAudio(audioRef.current.bet);
@@ -1090,6 +1091,63 @@ export default function PokerPage() {
     }
   };
 
+  const advanceStage = (
+    currentBots: BotState[],
+    pFolded: boolean,
+    pAllIn: boolean,
+    pTotal: number
+  ) => {
+    const bigBlind = Math.max(1, Math.floor(betAmount));
+    const nextStreetBots = resetStreet(currentBots);
+
+    let nextStage: Stage = "flop";
+    let reveal = 3;
+
+    if (stage === "preflop") {
+      nextStage = "flop";
+      reveal = 3;
+      const delays = [0, 150, 300];
+      delays.forEach((d) =>
+        setTimeout(() => playAudio(audioRef.current.flip, true), d)
+      );
+    } else if (stage === "flop") {
+      nextStage = "turn";
+      reveal = 4;
+      setTimeout(() => playAudio(audioRef.current.flip, true), 450);
+    } else if (stage === "turn") {
+      nextStage = "river";
+      reveal = 5;
+      setTimeout(() => playAudio(audioRef.current.flip, true), 600);
+    } else if (stage === "river") {
+      setStage("showdown");
+      resolveShowdown(currentBots, pFolded, pTotal);
+      return;
+    }
+
+    setBoardRevealCount(reveal);
+    setStage(nextStage);
+    setBots(nextStreetBots);
+    setPlayerRoundContribution(0);
+    setPlayerHasActed(false);
+    setCurrentBet(0);
+    setMinRaise(bigBlind);
+    setLastAggressor(-1);
+
+    const pc = getPlayerCountForHand(nextStreetBots);
+    const postFlopStart = (dealerPos + 1) % pc;
+
+    const startPostFlopActor = isActor(
+      postFlopStart,
+      nextStreetBots,
+      pFolded,
+      pAllIn
+    )
+      ? postFlopStart
+      : nextActorIndex(postFlopStart, nextStreetBots, pFolded, pAllIn);
+
+    setActivePlayerIndex(startPostFlopActor === -1 ? 0 : startPostFlopActor);
+  };
+
   const applyActionAndAdvance = (
     actorIdx: number,
     nextBots: BotState[],
@@ -1149,68 +1207,7 @@ export default function PokerPage() {
       );
       setActivePlayerIndex(nextIdx === -1 ? 0 : nextIdx);
     } else {
-      const bigBlind = Math.max(1, Math.floor(betAmount));
-
-      const pc = getPlayerCountForHand(currentNextBots);
-      const postFlopStart = (dealerPos + 1) % pc;
-
-      const nextStreetBots = resetStreet(currentNextBots);
-
-      const startPostFlopActor = isActor(
-        postFlopStart,
-        nextStreetBots,
-        nextP.folded,
-        nextP.allIn
-      )
-        ? postFlopStart
-        : nextActorIndex(postFlopStart, nextStreetBots, nextP.folded, nextP.allIn);
-
-      if (stage === "preflop") {
-        const delays = [0, 150, 300];
-        delays.forEach((d) =>
-          setTimeout(() => playAudio(audioRef.current.flip, true), d)
-        );
-        setBoardRevealCount(3);
-        setStage("flop");
-        setBots(nextStreetBots);
-        setPlayerRoundContribution(0);
-        setPlayerHasActed(false);
-        setCurrentBet(0);
-        setMinRaise(bigBlind);
-        setLastAggressor(-1);
-        setActivePlayerIndex(
-          startPostFlopActor === -1 ? 0 : startPostFlopActor
-        );
-      } else if (stage === "flop") {
-        setTimeout(() => playAudio(audioRef.current.flip, true), 450);
-        setBoardRevealCount(4);
-        setStage("turn");
-        setBots(nextStreetBots);
-        setPlayerRoundContribution(0);
-        setPlayerHasActed(false);
-        setCurrentBet(0);
-        setMinRaise(bigBlind);
-        setLastAggressor(-1);
-        setActivePlayerIndex(
-          startPostFlopActor === -1 ? 0 : startPostFlopActor
-        );
-      } else if (stage === "turn") {
-        setTimeout(() => playAudio(audioRef.current.flip, true), 600);
-        setBoardRevealCount(5);
-        setStage("river");
-        setBots(nextStreetBots);
-        setPlayerRoundContribution(0);
-        setPlayerHasActed(false);
-        setCurrentBet(0);
-        setMinRaise(bigBlind);
-        setLastAggressor(-1);
-        setActivePlayerIndex(
-          startPostFlopActor === -1 ? 0 : startPostFlopActor
-        );
-      } else if (stage === "river") {
-        setStage("showdown");
-        resolveShowdown(currentNextBots, nextP.folded, nextP.total);
-      }
+      advanceStage(currentNextBots, nextP.folded, nextP.allIn, nextP.total);
     }
 
     if (actionLabel) {
@@ -1604,6 +1601,18 @@ export default function PokerPage() {
     if (activePlayerIndex === 0) setCustomRaiseAmount(0);
   }, [activePlayerIndex, currentBet, stage]);
 
+  useEffect(() => {
+    if (!isBettingStage(stage)) return;
+
+    const timer = setTimeout(() => {
+      const activeCount = countActors(bots, playerFolded, playerAllIn);
+      if (activeCount < 2) {
+        advanceStage(bots, playerFolded, playerAllIn, playerContribution);
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [stage, bots, playerFolded, playerAllIn, playerContribution]);
+
   type SeatUi = {
     seatIndex: number;
     id: string;
@@ -1907,7 +1916,7 @@ export default function PokerPage() {
           {stage === "setup" || stage === "finished" ? (
             <button
               onClick={startHand}
-              disabled={betAmount <= 0}
+              disabled={betAmount <= 0 || balance <= 0 || betAmount > balance}
               className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <PlayArrow /> Bet
