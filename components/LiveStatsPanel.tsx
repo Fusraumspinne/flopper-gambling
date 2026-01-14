@@ -148,7 +148,7 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
       >
         <section
           ref={nodeRef as React.RefObject<HTMLElement>}
-          className="pointer-events-auto rounded-lg border border-[#2f4553] bg-[#0f212e] shadow-lg w-60 xl:w-80"
+          className="pointer-events-auto rounded-lg border border-[#2f4553] bg-[#0f212e] shadow-lg w-65 xl:w-80"
         >
           <header className="livestats-handle cursor-move flex items-center justify-between gap-3 rounded-t-lg border-b border-[#213743] bg-[#1a2c38] px-2 py-1 xl:py-2">
             <div className="flex items-center gap-2 text-white font-bold text-sm xl:text-base">

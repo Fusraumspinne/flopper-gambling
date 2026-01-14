@@ -57,7 +57,7 @@ export default function GameRecordsPanel({ gameId, refreshSignal }: { gameId: st
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             return (await res.json()) as HighscoreResponse;
           },
-          60_000
+          0
         );
         if (!cancelled) setData(json);
       } catch (e) {

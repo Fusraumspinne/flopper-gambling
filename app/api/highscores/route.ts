@@ -4,6 +4,8 @@ import HighestProfit from "@/models/highestProfit";
 import HighestMultiplier from "@/models/highestMultiplier";
 import HighestLoss from "@/models/highestLoss";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
@@ -28,7 +30,7 @@ export async function GET(req: Request) {
       highestLoss: lossDoc ? { username: lossDoc.username, loss: lossDoc.loss } : null,
     });
 
-    res.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+    res.headers.set("Cache-Control", "no-store, max-age=0");
     return res;
   } catch (error) {
     console.error("Error fetching highscores:", error);

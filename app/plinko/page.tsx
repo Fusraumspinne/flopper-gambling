@@ -1114,7 +1114,7 @@ export default function PlinkoPage() {
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
             Rows: {rows}
           </label>
-          <div className="bg-[#0f212e] rounded-md border border-[#2f4553] p-3">
+          <div className="bg-[#0f212e] rounded-md border border-[#2f4553] p-2">
             <input
               type="range"
               min={8}
@@ -1299,7 +1299,7 @@ export default function PlinkoPage() {
         )}
 
         {lastWin > 0 && (
-          <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center animate-pulse">
+          <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
             <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
             <div className="text-2xl font-bold text-[#00e701]">
               ${lastWin.toFixed(2)}

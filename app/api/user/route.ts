@@ -54,49 +54,55 @@ export async function POST(req: Request) {
 
       const scoreValue = profitValue ?? 0;
 
-      const [profitDoc, multiDoc, lossDoc] = await Promise.all([
-        HighestProfit.findOne({ game: gameRaw }),
-        HighestMultiplier.findOne({ game: gameRaw }),
-        HighestLoss.findOne({ game: gameRaw }),
-      ]);
-
       const ops: Promise<any>[] = [];
 
-      if (scoreValue > 0 && (!profitDoc || scoreValue > (typeof profitDoc.profit === "number" ? profitDoc.profit : 0))) {
+      // Atomic Update Logic
+      // We attempt to update ONLY IF the new value is greater than the existing value ($lt check in filter).
+      // We use upsert: true.
+      // If the document exists AND the score is higher -> Update happens.
+      // If the document exists AND the score is lower/equal -> Filter fails. Upsert tries to insert. Fails with E11000 (Duplicate Key). We catch and ignore.
+      // If the document does not exist -> Filter fails (technically). Upsert inserts. Success.
+
+      if (scoreValue > 0) {
         ops.push(
           HighestProfit.findOneAndUpdate(
-            { game: gameRaw },
+            { game: gameRaw, profit: { $lt: scoreValue } },
             { game: gameRaw, username: name, profit: scoreValue },
             { upsert: true, new: true }
-          )
+          ).catch((err: any) => {
+             if (err.code !== 11000) {
+                 console.error("HighestProfit update error:", err);
+             }
+             // Ignore duplicate key error (means existing record is higher/equal)
+          })
         );
       }
 
-      if (
-        multiValue !== null &&
-        multiValue > 0 &&
-        (!multiDoc || multiValue > (typeof multiDoc.multiplier === "number" ? multiDoc.multiplier : 0))
-      ) {
+      if (multiValue !== null && multiValue > 0) {
         ops.push(
           HighestMultiplier.findOneAndUpdate(
-            { game: gameRaw },
+            { game: gameRaw, multiplier: { $lt: multiValue } },
             { game: gameRaw, username: name, multiplier: multiValue },
             { upsert: true, new: true }
-          )
+          ).catch((err: any) => {
+             if (err.code !== 11000) {
+                console.error("HighestMultiplier update error:", err);
+             }
+          })
         );
       }
 
-      if (
-        lossValue !== null &&
-        lossValue > 0 &&
-        (!lossDoc || lossValue > (typeof lossDoc.loss === "number" ? lossDoc.loss : 0))
-      ) {
+      if (lossValue !== null && lossValue > 0) {
         ops.push(
           HighestLoss.findOneAndUpdate(
-            { game: gameRaw },
+            { game: gameRaw, loss: { $lt: lossValue } },
             { game: gameRaw, username: name, loss: lossValue },
             { upsert: true, new: true }
-          )
+          ).catch((err: any) => {
+             if (err.code !== 11000) {
+                console.error("HighestLoss update error:", err);
+             }
+          })
         );
       }
 

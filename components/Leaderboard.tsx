@@ -34,7 +34,7 @@ export default function Leaderboard() {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           return (await res.json()) as LeaderboardUser[];
         },
-        15_000
+        0
       );
 
       setUsers(Array.isArray(data) ? data : []);

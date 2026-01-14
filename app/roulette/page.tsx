@@ -646,21 +646,11 @@ export default function RoulettePage() {
           {isSpinning ? "Playing..." : "Bet"}
         </button>
 
-        {lastWonDisplay !== 0 && !isSpinning && (
-          <div
-            className={`p-4 bg-[#213743] rounded-md text-center border ${
-              lastWonDisplay > 0 ? "border-[#00e701]" : "border-[#ef4444]"
-            }`}
-          >
-            <div className="text-xs text-[#b1bad3] uppercase">
-              {lastWonDisplay > 0 ? "You Won" : "You Lost"}
-            </div>
-            <div
-              className={`text-xl font-bold ${
-                lastWonDisplay > 0 ? "text-[#00e701]" : "text-[#ef4444]"
-              }`}
-            >
-              ${Math.abs(lastWonDisplay).toFixed(2)}
+        {lastWonDisplay > 0 && !isSpinning && (
+           <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
+            <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
+            <div className="text-2xl font-bold text-[#00e701]">
+              ${lastWonDisplay.toFixed(2)}
             </div>
           </div>
         )}

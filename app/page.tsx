@@ -5,6 +5,7 @@ import GiftPanel from "@/components/GiftPanel";
 
 const games: Array<{ name: string; href: string; tagline: string; image?: string }> = [
   { name: "Blackjack", href: "/blackjack", tagline: "Beat the dealer", image: "/images/BlackJack.png" },
+  { name: "Poker", href: "/poker", tagline: "Read your enemies", image: "/images/Poker.png" },
   { name: "Mines", href: "/mines", tagline: "Find diamonds, avoid mines", image: "/images/Mines.png" },
   { name: "Keno", href: "/keno", tagline: "Pick 10 numbers", image: "/images/Keno.png" },
   { name: "Dragon Tower", href: "/dragontower", tagline: "Climb without hitting traps", image: "/images/DragonTower.png" },
