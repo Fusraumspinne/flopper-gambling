@@ -100,7 +100,8 @@ export default function DicePage() {
     } catch (e) {}
   };
 
-  useEffect(() => {
+  const ensureAudio = () => {
+    if (audioRef.current.bet) return;
     audioRef.current = {
       bet: new Audio("/sounds/Bet.mp3"),
       win: new Audio("/sounds/Win.mp3"),
@@ -108,12 +109,13 @@ export default function DicePage() {
       diceRolling: new Audio("/sounds/DiceRolling.mp3"),
       diceSelected: new Audio("/sounds/DiceSelected.mp3"),
     };
-  }, []);
+  };
 
   useEffect(() => {
     if (volume <= 0) return;
     const prime = async () => {
       try {
+        ensureAudio();
         const items = Object.values(audioRef.current);
         for (const a of items) {
           if (!a) continue;

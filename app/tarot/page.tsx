@@ -346,14 +346,24 @@ export default function TarotPage() {
   } = useWallet();
   const { volume } = useSoundVolume();
 
-  const audioRef = useRef({
-    bet: new Audio("/sounds/Bet.mp3"),
-    flip: new Audio("/sounds/FlipCards.mp3"),
-    lose: new Audio("/sounds/LimboLose.mp3"),
-    win: new Audio("/sounds/Win.mp3"),
-  });
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    flip: HTMLAudioElement | null;
+    lose: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+  }>({ bet: null, flip: null, lose: null, win: null });
 
-  const playAudio = (a?: HTMLAudioElement) => {
+  const ensureAudio = () => {
+    if (audioRef.current.bet) return;
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      flip: new Audio("/sounds/FlipCards.mp3"),
+      lose: new Audio("/sounds/LimboLose.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+    };
+  };
+
+  const playAudio = (a?: HTMLAudioElement | null) => {
     if (!a) return;
     const v =
       typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
@@ -372,7 +382,8 @@ export default function TarotPage() {
     if (volume <= 0) return;
     const prime = async () => {
       try {
-        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        ensureAudio();
+        const items = Object.values(audioRef.current).filter(Boolean) as HTMLAudioElement[];
         for (const a of items) {
           try {
             a.muted = true;

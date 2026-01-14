@@ -29,7 +29,9 @@ export async function POST(req: Request) {
 
     await Gift.deleteMany({ recipient: recipientName });
 
-    return NextResponse.json({ total, senders });
+    const res = NextResponse.json({ total, senders });
+    res.headers.set("Cache-Control", "private, no-store");
+    return res;
   } catch (error) {
     console.error("Error claiming gifts:", error);
     return NextResponse.json({ message: "Error claiming gifts" }, { status: 500 });

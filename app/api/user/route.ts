@@ -13,7 +13,8 @@ function normalizeMoney(value: number): number {
 
 export async function POST(req: Request) {
   try {
-    const { name, balance, createOnly, game, profit, multi, payout, loss } = await req.json();
+    const body = await req.json();
+    const { name, balance, createOnly } = body ?? {};
     if (typeof name !== "string") {
       return NextResponse.json({ message: "Invalid name" }, { status: 400 });
     }
@@ -29,74 +30,82 @@ export async function POST(req: Request) {
       return NextResponse.json(created, { status: 201 });
     }
 
+    const nextBalance = typeof balance === "number" ? normalizeMoney(balance) : undefined;
     const user = await User.findOneAndUpdate(
       { name },
-      { balance },
+      typeof nextBalance === "number" ? { balance: nextBalance } : {},
       { new: true, upsert: true }
     );
 
-    if (typeof game === "string" && game.trim()) {
-      const gameId = game.trim();
-      const multiValue = typeof multi === "number" ? normalizeMoney(multi) : null;
-      const profitValue = typeof profit === "number" ? normalizeMoney(profit) : null;
-      const lossValue = typeof loss === "number" ? normalizeMoney(loss) : null;
+    const updates: Array<{ game: unknown; profit?: unknown; multi?: unknown; loss?: unknown }> =
+      Array.isArray(body?.updates)
+        ? body.updates
+        : typeof body?.game === "string" && body.game.trim()
+          ? [{ game: body.game, profit: body.profit, multi: body.multi, loss: body.loss }]
+          : [];
+
+    for (const rawUpd of updates) {
+      const gameRaw = typeof rawUpd?.game === "string" ? rawUpd.game.trim() : "";
+      if (!gameRaw || gameRaw === "unknown") continue;
+
+      const multiValue = typeof rawUpd?.multi === "number" ? normalizeMoney(rawUpd.multi) : null;
+      const profitValue = typeof rawUpd?.profit === "number" ? normalizeMoney(rawUpd.profit) : null;
+      const lossValue = typeof rawUpd?.loss === "number" ? normalizeMoney(rawUpd.loss) : null;
 
       const scoreValue = profitValue ?? 0;
 
-      if (gameId !== "unknown") {
-        const [profitDoc, multiDoc, lossDoc] = await Promise.all([
-          HighestProfit.findOne({ game: gameId }),
-          HighestMultiplier.findOne({ game: gameId }),
-          HighestLoss.findOne({ game: gameId }),
-        ]);
+      const [profitDoc, multiDoc, lossDoc] = await Promise.all([
+        HighestProfit.findOne({ game: gameRaw }),
+        HighestMultiplier.findOne({ game: gameRaw }),
+        HighestLoss.findOne({ game: gameRaw }),
+      ]);
 
-        const ops: Promise<any>[] = [];
+      const ops: Promise<any>[] = [];
 
-        if (scoreValue > 0 && (!profitDoc || scoreValue > (typeof profitDoc.profit === "number" ? profitDoc.profit : 0))) {
-          ops.push(
-            HighestProfit.findOneAndUpdate(
-              { game: gameId },
-              { game: gameId, username: name, profit: scoreValue },
-              { upsert: true, new: true }
-            )
-          );
-        }
-
-        if (
-          multiValue !== null &&
-          multiValue > 0 &&
-          (!multiDoc || multiValue > (typeof multiDoc.multiplier === "number" ? multiDoc.multiplier : 0))
-        ) {
-          ops.push(
-            HighestMultiplier.findOneAndUpdate(
-              { game: gameId },
-              { game: gameId, username: name, multiplier: multiValue },
-              { upsert: true, new: true }
-            )
-          );
-        }
-
-        if (
-          lossValue !== null &&
-          lossValue > 0 &&
-          (!lossDoc || lossValue > (typeof lossDoc.loss === "number" ? lossDoc.loss : 0))
-        ) {
-          ops.push(
-            HighestLoss.findOneAndUpdate(
-              { game: gameId },
-              { game: gameId, username: name, loss: lossValue },
-              { upsert: true, new: true }
-            )
-          );
-        }
-
-        if (ops.length) {
-          await Promise.all(ops);
-        }
+      if (scoreValue > 0 && (!profitDoc || scoreValue > (typeof profitDoc.profit === "number" ? profitDoc.profit : 0))) {
+        ops.push(
+          HighestProfit.findOneAndUpdate(
+            { game: gameRaw },
+            { game: gameRaw, username: name, profit: scoreValue },
+            { upsert: true, new: true }
+          )
+        );
       }
+
+      if (
+        multiValue !== null &&
+        multiValue > 0 &&
+        (!multiDoc || multiValue > (typeof multiDoc.multiplier === "number" ? multiDoc.multiplier : 0))
+      ) {
+        ops.push(
+          HighestMultiplier.findOneAndUpdate(
+            { game: gameRaw },
+            { game: gameRaw, username: name, multiplier: multiValue },
+            { upsert: true, new: true }
+          )
+        );
+      }
+
+      if (
+        lossValue !== null &&
+        lossValue > 0 &&
+        (!lossDoc || lossValue > (typeof lossDoc.loss === "number" ? lossDoc.loss : 0))
+      ) {
+        ops.push(
+          HighestLoss.findOneAndUpdate(
+            { game: gameRaw },
+            { game: gameRaw, username: name, loss: lossValue },
+            { upsert: true, new: true }
+          )
+        );
+      }
+
+      if (ops.length) await Promise.all(ops);
     }
 
-    return NextResponse.json(user);
+    const res = NextResponse.json(user);
+    res.headers.set("Cache-Control", "private, no-store");
+    return res;
   } catch (error) {
     console.error("Error updating user:", error);
     return NextResponse.json({ message: "Error updating user" }, { status: 500 });
@@ -136,7 +145,9 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json(updated);
+    const res = NextResponse.json(updated);
+    res.headers.set("Cache-Control", "private, no-store");
+    return res;
   } catch (error: any) {
     if (error?.code === 11000) {
       return NextResponse.json({ message: "Name already exists" }, { status: 409 });
@@ -155,7 +166,9 @@ export async function DELETE(req: Request) {
 
     await connectMongoDB();
     const deleted = await User.findOneAndDelete({ name: name.trim() });
-    return NextResponse.json({ deleted: Boolean(deleted) });
+    const res = NextResponse.json({ deleted: Boolean(deleted) });
+    res.headers.set("Cache-Control", "private, no-store");
+    return res;
   } catch (error) {
     console.error("Error deleting user:", error);
     return NextResponse.json({ message: "Error deleting user" }, { status: 500 });

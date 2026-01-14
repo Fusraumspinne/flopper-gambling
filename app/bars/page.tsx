@@ -171,13 +171,24 @@ export default function BarsPage() {
     useWallet();
   const { volume } = useSoundVolume();
 
-  const audioRef = useRef({
-    bet: new Audio("/sounds/Bet.mp3"),
-    select: new Audio("/sounds/Select.mp3"),
-    reveal: new Audio("/sounds/KenoReveal.mp3"),
-    win: new Audio("/sounds/Win.mp3"),
-    lose: new Audio("/sounds/LimboLose.mp3"),
-  });
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    select: HTMLAudioElement | null;
+    reveal: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    lose: HTMLAudioElement | null;
+  }>({ bet: null, select: null, reveal: null, win: null, lose: null });
+
+  const ensureAudio = () => {
+    if (audioRef.current.bet) return;
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      select: new Audio("/sounds/Select.mp3"),
+      reveal: new Audio("/sounds/KenoReveal.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      lose: new Audio("/sounds/LimboLose.mp3"),
+    };
+  };
 
   const playAudio = (a: HTMLAudioElement | null) => {
     if (!a || !volume) return;
@@ -190,8 +201,9 @@ export default function BarsPage() {
 
   useEffect(() => {
     if (volume <= 0) return;
-    const items = Object.values(audioRef.current);
     const prime = async () => {
+      ensureAudio();
+      const items = Object.values(audioRef.current).filter(Boolean) as HTMLAudioElement[];
       for (const a of items) {
         if (!a) continue;
         try {

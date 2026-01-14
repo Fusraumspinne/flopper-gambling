@@ -188,15 +188,26 @@ export default function PumpPage() {
   const autoOriginalBetRef = useRef<number>(0);
   const autoNetRef = useRef<number>(0);
 
-  const audioRef = useRef({
-    bet: new Audio("/sounds/Bet.mp3"),
-    spawn: new Audio("/sounds/BallonSpawn.mp3"),
-    pump: new Audio("/sounds/Pump.mp3"),
-    pop: new Audio("/sounds/BallonPop.mp3"),
-    win: new Audio("/sounds/Win.mp3"),
-  });
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    spawn: HTMLAudioElement | null;
+    pump: HTMLAudioElement | null;
+    pop: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+  }>({ bet: null, spawn: null, pump: null, pop: null, win: null });
 
-  const playAudio = (a?: HTMLAudioElement) => {
+  const ensureAudio = () => {
+    if (audioRef.current.bet) return;
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      spawn: new Audio("/sounds/BallonSpawn.mp3"),
+      pump: new Audio("/sounds/Pump.mp3"),
+      pop: new Audio("/sounds/BallonPop.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+    };
+  };
+
+  const playAudio = (a?: HTMLAudioElement | null) => {
     if (!a) return;
     const v =
       typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
@@ -215,7 +226,8 @@ export default function PumpPage() {
     if (volume <= 0) return;
     const prime = async () => {
       try {
-        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        ensureAudio();
+        const items = Object.values(audioRef.current).filter(Boolean) as HTMLAudioElement[];
         for (const a of items) {
           try {
             a.muted = true;

@@ -21,12 +21,15 @@ export async function GET(req: Request) {
       HighestLoss.findOne({ game }).lean(),
     ]);
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       game,
       highestProfit: profitDoc ? { username: profitDoc.username, profit: profitDoc.profit } : null,
       highestMultiplier: multiDoc ? { username: multiDoc.username, multiplier: multiDoc.multiplier } : null,
       highestLoss: lossDoc ? { username: lossDoc.username, loss: lossDoc.loss } : null,
     });
+
+    res.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+    return res;
   } catch (error) {
     console.error("Error fetching highscores:", error);
     return NextResponse.json({ message: "Error fetching highscores" }, { status: 500 });

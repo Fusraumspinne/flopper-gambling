@@ -163,17 +163,30 @@ export default function VaultPage() {
   const revealedCountRef = useRef<number>(0);
   const currentMultiplierRef = useRef<number>(1);
 
-  const audioRef = useRef({
-    bet: new Audio("/sounds/Bet.mp3"),
-    minePop: new Audio("/sounds/MinePop.mp3"),
-    reveal1: new Audio("/sounds/MineReveal1.mp3"),
-    reveal2: new Audio("/sounds/MineReveal2.mp3"),
-    reveal3: new Audio("/sounds/MineReveal3.mp3"),
-    select: new Audio("/sounds/Select.mp3"),
-    win: new Audio("/sounds/Win.mp3"),
-  });
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    minePop: HTMLAudioElement | null;
+    reveal1: HTMLAudioElement | null;
+    reveal2: HTMLAudioElement | null;
+    reveal3: HTMLAudioElement | null;
+    select: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+  }>({ bet: null, minePop: null, reveal1: null, reveal2: null, reveal3: null, select: null, win: null });
 
-  const playAudio = (a?: HTMLAudioElement) => {
+  const ensureAudio = () => {
+    if (audioRef.current.bet) return;
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      minePop: new Audio("/sounds/MinePop.mp3"),
+      reveal1: new Audio("/sounds/MineReveal1.mp3"),
+      reveal2: new Audio("/sounds/MineReveal2.mp3"),
+      reveal3: new Audio("/sounds/MineReveal3.mp3"),
+      select: new Audio("/sounds/Select.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+    };
+  };
+
+  const playAudio = (a?: HTMLAudioElement | null) => {
     if (!a) return;
     const v =
       typeof window !== "undefined" &&
@@ -207,7 +220,8 @@ export default function VaultPage() {
     if (volume <= 0) return;
     const prime = async () => {
       try {
-        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        ensureAudio();
+        const items = Object.values(audioRef.current).filter(Boolean) as HTMLAudioElement[];
         for (const a of items) {
           try {
             a.muted = true;

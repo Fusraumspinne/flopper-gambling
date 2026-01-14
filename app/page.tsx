@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import InvestmentPanel from "@/components/InvestmentPanel";
 import Leaderboard from "@/components/Leaderboard";
@@ -46,17 +45,17 @@ export default function Home() {
           <Link
             key={game.href}
             href={game.href}
+            prefetch={false}
             className="bg-[#213743] rounded-xl overflow-hidden hover:-translate-y-1 transition-transform duration-300 cursor-pointer group border border-[#2f4553]/60"
           >
             <div className="relative aspect-square bg-[#0f212e]">
               {game.image ? (
-                <Image
+                <img
                   src={game.image}
                   alt={`${game.name} preview`}
-                  fill
-                  className="object-contain transition-transform duration-500 group-hover:scale-105"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
-                  priority={game.name === "Blackjack"}
+                  className="absolute inset-0 w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                  loading={game.name === "Blackjack" ? "eager" : "lazy"}
+                  decoding="async"
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">

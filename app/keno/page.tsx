@@ -123,16 +123,28 @@ export default function KenoPage() {
   );
   const resultTimeoutRef = React.useRef<number | null>(null);
 
-  const audioRef = React.useRef({
-    bet: new Audio("/sounds/Bet.mp3"),
-    select: new Audio("/sounds/Select.mp3"),
-    reveal: new Audio("/sounds/KenoReveal.mp3"),
-    match: new Audio("/sounds/KenoMatch.mp3"),
-    win: new Audio("/sounds/Win.mp3"),
-    limboLose: new Audio("/sounds/LimboLose.mp3"),
-  });
+  const audioRef = React.useRef<{
+    bet: HTMLAudioElement | null;
+    select: HTMLAudioElement | null;
+    reveal: HTMLAudioElement | null;
+    match: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    limboLose: HTMLAudioElement | null;
+  }>({ bet: null, select: null, reveal: null, match: null, win: null, limboLose: null });
 
-  const playAudio = (a?: HTMLAudioElement) => {
+  const ensureAudio = () => {
+    if (audioRef.current.bet) return;
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      select: new Audio("/sounds/Select.mp3"),
+      reveal: new Audio("/sounds/KenoReveal.mp3"),
+      match: new Audio("/sounds/KenoMatch.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      limboLose: new Audio("/sounds/LimboLose.mp3"),
+    };
+  };
+
+  const playAudio = (a: HTMLAudioElement | null | undefined) => {
     if (!a) return;
     const v =
       typeof window !== "undefined" && typeof (window as any).__flopper_sound_volume__ === "number"
@@ -151,7 +163,8 @@ export default function KenoPage() {
     if (volume <= 0) return;
     const prime = async () => {
       try {
-        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        ensureAudio();
+        const items = Object.values(audioRef.current).filter(Boolean) as HTMLAudioElement[];
         for (const a of items) {
           try {
             a.muted = true;

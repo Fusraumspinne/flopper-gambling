@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getItem, removeItem, setItem } from "@/lib/indexedDB";
 import { useWallet } from "./WalletProvider";
+import { fetchJsonCached, invalidateFetchCache } from "@/lib/fetchCache";
 
 type LeaderboardUser = {
   _id: string;
@@ -21,14 +22,23 @@ export default function Leaderboard() {
   const [page, setPage] = useState<number>(1);
   const PAGE_SIZE = 5;
 
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboard = async (opts?: { force?: boolean }) => {
     try {
-      const res = await fetch("/api/leaderboard");
-      if (res.ok) {
-        const data = await res.json();
-        setUsers(data);
-        setPage(1);
-      }
+      const force = Boolean(opts?.force);
+      if (force) invalidateFetchCache("leaderboard");
+
+      const data = await fetchJsonCached<LeaderboardUser[]>(
+        "leaderboard",
+        async () => {
+          const res = await fetch("/api/leaderboard");
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return (await res.json()) as LeaderboardUser[];
+        },
+        15_000
+      );
+
+      setUsers(Array.isArray(data) ? data : []);
+      setPage(1);
     } catch (error) {
       console.error("Failed to fetch leaderboard", error);
     }
@@ -78,7 +88,7 @@ export default function Leaderboard() {
       await setItem("username", inputName.trim());
       setUsername(inputName.trim());
       await syncBalance();
-      await fetchLeaderboard();
+      await fetchLeaderboard({ force: true });
     } catch (error) {
       console.error("Failed to register", error);
       setErrorMsg("Registration failed. Check the console.");
@@ -115,7 +125,7 @@ export default function Leaderboard() {
       await setItem("username", nextName);
       setUsername(nextName);
       await syncBalance();
-      await fetchLeaderboard();
+      await fetchLeaderboard({ force: true });
     } catch (error) {
       console.error("Failed to change username", error);
       setErrorMsg("Could not change username. Check the console.");
@@ -140,7 +150,7 @@ export default function Leaderboard() {
       await removeItem("username");
       setUsername(null);
       setInputName("");
-      await fetchLeaderboard();
+      await fetchLeaderboard({ force: true });
     } catch (error) {
       console.error("Failed to remove user", error);
       setErrorMsg("Could not remove user. Check the console.");

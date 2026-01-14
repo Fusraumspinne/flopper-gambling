@@ -126,11 +126,12 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const syncTimerRef = useRef<number | null>(null);
   const pendingUpdatesRef = useRef<Map<GameKey, GameUpdate>>(new Map());
   const flushInFlightRef = useRef<Promise<void> | null>(null);
+  const visibilityFlushQueuedRef = useRef(false);
   const pathname = usePathname();
   const currentGameId = useMemo(() => deriveGameId(pathname ?? "/"), [pathname]);
   const [lastBetAt, setLastBetAt] = useState<number | null>(null);
 
-  const SYNC_DEBOUNCE_MS = 2500;
+  const SYNC_DEBOUNCE_MS = 5000;
   const BETS_PER_SYNC = 20;
 
   const mergeGameUpdate = (prev: GameUpdate | undefined, next: GameUpdate): GameUpdate => {
@@ -171,7 +172,23 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible" && visibilityFlushQueuedRef.current) {
+        visibilityFlushQueuedRef.current = false;
+        void flushSync();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
   const flushSync = async (): Promise<void> => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+      visibilityFlushQueuedRef.current = true;
+      return;
+    }
     if (flushInFlightRef.current) return flushInFlightRef.current;
 
     const run = (async () => {
@@ -189,27 +206,23 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         const investmentValue = await getInvestmentValue();
         const totalBalance = normalizeMoney(balanceRef.current + investmentValue);
 
+        const updates = Array.from(snapshot.entries())
+          .map(([game, upd]) => {
+            if (!upd) return null;
+            const payload: any = { game };
+            if (typeof upd.profit === "number" && upd.profit > 0) payload.profit = upd.profit;
+            if (typeof upd.multi === "number" && upd.multi > 0) payload.multi = upd.multi;
+            if (typeof upd.loss === "number" && upd.loss > 0) payload.loss = upd.loss;
+            if (!payload.profit && !payload.multi && !payload.loss) return null;
+            return payload;
+          })
+          .filter(Boolean);
+
         await fetch("/api/user", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: username, balance: totalBalance }),
+          body: JSON.stringify({ name: username, balance: totalBalance, updates }),
         });
-
-        for (const [game, upd] of snapshot.entries()) {
-          if (!upd) continue;
-          const payload: any = { name: username, balance: totalBalance, game };
-          if (typeof upd.profit === "number" && upd.profit > 0) payload.profit = upd.profit;
-          if (typeof upd.multi === "number" && upd.multi > 0) payload.multi = upd.multi;
-          if (typeof upd.loss === "number" && upd.loss > 0) payload.loss = upd.loss;
-
-          if (!payload.profit && !payload.multi && !payload.loss) continue;
-
-          await fetch("/api/user", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-        }
 
         betCountRef.current = 0;
       } catch (error) {
@@ -229,6 +242,10 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const scheduleSync = () => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+      visibilityFlushQueuedRef.current = true;
+      return;
+    }
     clearSyncTimer();
     syncTimerRef.current = window.setTimeout(() => {
       void flushSync();

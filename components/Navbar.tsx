@@ -150,6 +150,7 @@ export default function Navbar() {
           <Link
             key={index}
             href={game.href}
+              prefetch={false}
             title={game.name}
             className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} ${collapsed ? "px-2 py-3" : "px-4 py-3"} rounded-md transition-colors ${
               pathname === game.href

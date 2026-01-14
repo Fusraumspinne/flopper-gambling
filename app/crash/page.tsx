@@ -203,14 +203,15 @@ export default function CrashPage() {
     tick: HTMLAudioElement | null;
   }>({ bet: null, win: null, crash: null, tick: null });
 
-  useEffect(() => {
+  const ensureAudio = () => {
+    if (audioRef.current.bet) return;
     audioRef.current = {
       bet: new Audio("/sounds/Bet.mp3"),
       win: new Audio("/sounds/Win.mp3"),
       crash: new Audio("/sounds/LimboLose.mp3"),
       tick: new Audio("/sounds/Tick.mp3"),
     };
-  }, []);
+  };
 
   const playAudio = (a: HTMLAudioElement | null) => {
     if (!a) return;
@@ -232,6 +233,7 @@ export default function CrashPage() {
 
     const prime = async () => {
       try {
+        ensureAudio();
         const items = Object.values(audioRef.current);
         for (const a of items) {
           if (!a) continue;

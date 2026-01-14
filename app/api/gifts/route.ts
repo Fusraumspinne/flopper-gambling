@@ -68,7 +68,9 @@ export async function POST(req: Request) {
     }
 
     const created = await Gift.create({ sender: senderName, recipient: recipientName, amount: amt });
-    return NextResponse.json({ gift: created }, { status: 201 });
+    const res = NextResponse.json({ gift: created }, { status: 201 });
+    res.headers.set("Cache-Control", "no-store");
+    return res;
   } catch (error) {
     console.error("Error creating gift:", error);
     return NextResponse.json({ message: "Error creating gift" }, { status: 500 });
@@ -85,7 +87,9 @@ export async function GET(req: Request) {
 
     await connectMongoDB();
     const gifts = await Gift.find({ recipient }).sort({ createdAt: 1 });
-    return NextResponse.json(gifts);
+    const res = NextResponse.json(gifts);
+    res.headers.set("Cache-Control", "private, no-store");
+    return res;
   } catch (error) {
     console.error("Error fetching gifts:", error);
     return NextResponse.json({ message: "Error fetching gifts" }, { status: 500 });

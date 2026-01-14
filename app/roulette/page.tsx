@@ -59,6 +59,7 @@ export default function RoulettePage() {
   const { volume } = useSoundVolume();
 
   const [betAmount, setBetAmount] = useState<number>(100);
+  const [betInput, setBetInput] = useState<string>("100");
   const [bets, setBets] = useState<Bet[]>([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [lastResult, setLastResult] = useState<number | null>(null);
@@ -97,16 +98,27 @@ export default function RoulettePage() {
   const ballFadeStartedRef = useRef(false);
   const [isBallMounted, setIsBallMounted] = useState(false);
 
-  const audioRef = useRef({
-    bet: new Audio("/sounds/Bet.mp3"),
-    win: new Audio("/sounds/Win.mp3"),
-    rouletteSpin: new Audio("/sounds/RouletteSpin.mp3"),
-    rouletteDrop: new Audio("/sounds/RouletteDrop.mp3"),
-    lose: new Audio("/sounds/MinePop.mp3"),
-  });
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    rouletteSpin: HTMLAudioElement | null;
+    rouletteDrop: HTMLAudioElement | null;
+    lose: HTMLAudioElement | null;
+  }>({ bet: null, win: null, rouletteSpin: null, rouletteDrop: null, lose: null });
+
+  const ensureAudio = () => {
+    if (audioRef.current.bet) return;
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      rouletteSpin: new Audio("/sounds/RouletteSpin.mp3"),
+      rouletteDrop: new Audio("/sounds/RouletteDrop.mp3"),
+      lose: new Audio("/sounds/MinePop.mp3"),
+    };
+  };
 
   const playAudio = useCallback(
-    (a?: HTMLAudioElement) => {
+    (a?: HTMLAudioElement | null) => {
       if (!a) return;
       if (volume <= 0) return;
       try {
@@ -122,7 +134,8 @@ export default function RoulettePage() {
     if (volume <= 0) return;
     const prime = async () => {
       try {
-        const items = Object.values(audioRef.current) as HTMLAudioElement[];
+        ensureAudio();
+        const items = Object.values(audioRef.current).filter(Boolean) as HTMLAudioElement[];
         for (const a of items) {
           try {
             a.muted = true;
@@ -246,6 +259,7 @@ export default function RoulettePage() {
 
   const placeBet = (type: BetType, value: string | number) => {
     if (isSpinning) return;
+    if (betAmount <= 0) return;
 
     playAudio(audioRef.current.bet);
 
@@ -432,7 +446,7 @@ export default function RoulettePage() {
       const payout = normalizeMoney(totalWin);
       const netProfit = normalizeMoney(payout - totalBetNow);
       setLastPayout(payout);
-      setLastWonDisplay(normalizeMoney(payout - totalLost));
+      setLastWonDisplay(netProfit);
 
       if (payout > 0) {
         addToBalance(payout);
@@ -542,11 +556,28 @@ export default function RoulettePage() {
             </div>
             <input
               type="number"
-              value={betAmount}
+              value={betInput}
               onChange={(e) => {
-                let v = parseInt(e.target.value);
-                if (isNaN(v) || v < 0) v = 0;
-                setBetAmount(v);
+                let v = e.target.value;
+                if (v === "") {
+                  setBetInput("");
+                  return;
+                }
+                if (parseFloat(v) < 0) v = "0";
+                setBetInput(v);
+              }}
+              onBlur={() => {
+                const raw = betInput.trim();
+                if (!raw) {
+                  setBetAmount(0);
+                  setBetInput("0");
+                  return;
+                }
+                const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                const num = Number(sanitized);
+                const next = normalizeMoney(!Number.isFinite(num) || num < 0 ? 0 : num);
+                setBetAmount(next);
+                setBetInput(String(next));
               }}
               disabled={isSpinning}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
@@ -554,23 +585,33 @@ export default function RoulettePage() {
           </div>
           <div className="grid grid-cols-3 gap-2 mt-2">
             <button
-              onClick={() =>
-                setBetAmount(Math.max(1, Math.floor(betAmount / 2)))
-              }
+              onClick={() => {
+                const next = normalizeMoney(betAmount / 2);
+                setBetAmount(next);
+                setBetInput(String(next));
+              }}
               disabled={isSpinning}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               ½
             </button>
             <button
-              onClick={() => setBetAmount(Math.min(balance, betAmount * 2))}
+              onClick={() => {
+                const next = normalizeMoney(Math.min(balance, betAmount * 2));
+                setBetAmount(next);
+                setBetInput(String(next));
+              }}
               disabled={isSpinning}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
               2×
             </button>
             <button
-              onClick={() => setBetAmount(Math.max(1, balance))}
+              onClick={() => {
+                const next = normalizeMoney(balance);
+                setBetAmount(next);
+                setBetInput(String(next));
+              }}
               disabled={isSpinning}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
             >
@@ -605,10 +646,22 @@ export default function RoulettePage() {
           {isSpinning ? "Playing..." : "Bet"}
         </button>
 
-        {lastWonDisplay > 0 && !isSpinning && (
-          <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
-            <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
-            <div className="text-xl font-bold text-[#00e701]">${lastWonDisplay.toFixed(2)}</div>
+        {lastWonDisplay !== 0 && !isSpinning && (
+          <div
+            className={`p-4 bg-[#213743] rounded-md text-center border ${
+              lastWonDisplay > 0 ? "border-[#00e701]" : "border-[#ef4444]"
+            }`}
+          >
+            <div className="text-xs text-[#b1bad3] uppercase">
+              {lastWonDisplay > 0 ? "You Won" : "You Lost"}
+            </div>
+            <div
+              className={`text-xl font-bold ${
+                lastWonDisplay > 0 ? "text-[#00e701]" : "text-[#ef4444]"
+              }`}
+            >
+              ${Math.abs(lastWonDisplay).toFixed(2)}
+            </div>
           </div>
         )}
       </div>

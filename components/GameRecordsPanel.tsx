@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchJsonCached } from "@/lib/fetchCache";
 
 type HighscoreResponse = {
   game: string;
@@ -45,11 +46,19 @@ export default function GameRecordsPanel({ gameId, refreshSignal }: { gameId: st
     let cancelled = false;
     setLoading(true);
 
+    const cacheKey = `highscores:${gameId}:${typeof refreshSignal === "number" ? refreshSignal : ""}`;
+
     (async () => {
       try {
-        const res = await fetch(`/api/highscores?game=${encodeURIComponent(gameId)}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = (await res.json()) as HighscoreResponse;
+        const json = await fetchJsonCached<HighscoreResponse>(
+          cacheKey,
+          async () => {
+            const res = await fetch(`/api/highscores?game=${encodeURIComponent(gameId)}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return (await res.json()) as HighscoreResponse;
+          },
+          60_000
+        );
         if (!cancelled) setData(json);
       } catch (e) {
         console.error("Failed to fetch highscores", e);
