@@ -308,19 +308,37 @@ const scoreFive = (cards: Card[]): HandScore => {
   if (byCountDesc[0]?.c === 2 && byCountDesc[1]?.c === 2) {
     const pair1 = Math.max(byCountDesc[0].v, byCountDesc[1].v);
     const pair2 = Math.min(byCountDesc[0].v, byCountDesc[1].v);
-    const kicker = byCountDesc.find((x) => x.c === 1)?.v || 0;
+    const kicker =
+      values
+        .filter((v) => v !== pair1 && v !== pair2)
+        .sort((a, b) => b - a)[0] || 0;
     return { cat: "Two Pair", catRank: 3, kickers: [pair1, pair2, kicker] };
   }
   if (byCountDesc[0]?.c === 2) {
     const pair = byCountDesc[0].v;
-    const kickers = byCountDesc
-      .filter((x) => x.v !== pair)
-      .map((x) => x.v)
+    const kickers = values
+      .filter((v) => v !== pair)
       .sort((a, b) => b - a);
     return { cat: "Pair", catRank: 2, kickers: [pair, ...kickers.slice(0, 3)] };
   }
   return { cat: "High Card", catRank: 1, kickers: values.slice(0, 5) };
 };
+
+const scoreStrengthValue = (score: HandScore) => {
+  const base = 15;
+  const kickers = [...score.kickers, 0, 0, 0, 0, 0].slice(0, 5);
+  return (
+    score.catRank * base ** 5 +
+    kickers[0] * base ** 4 +
+    kickers[1] * base ** 3 +
+    kickers[2] * base ** 2 +
+    kickers[3] * base +
+    kickers[4]
+  );
+};
+
+const compareScores = (a: HandScore, b: HandScore) =>
+  scoreStrengthValue(a) - scoreStrengthValue(b);
 
 const evaluateSeven = (hole: Card[], board: Card[]) => {
   const cards = [...hole, ...board];
@@ -337,23 +355,8 @@ const evaluateSeven = (hole: Card[], board: Card[]) => {
               cards[d],
               cards[e],
             ]);
-            if (!best) {
+            if (!best || compareScores(score, best) > 0) {
               best = score;
-            } else if (score.catRank > best.catRank) {
-              best = score;
-            } else if (score.catRank === best.catRank) {
-              const len = Math.max(score.kickers.length, best.kickers.length);
-              let better = false;
-              for (let i = 0; i < len; i++) {
-                const left = score.kickers[i] ?? 0;
-                const right = best.kickers[i] ?? 0;
-                if (left > right) {
-                  better = true;
-                  break;
-                }
-                if (left < right) break;
-              }
-              if (better) best = score;
             }
           }
         }
@@ -1069,16 +1072,6 @@ export default function PokerPage() {
       return s;
     };
 
-    const compare = (a: HandScore, b: HandScore) => {
-      if (a.catRank !== b.catRank) return a.catRank - b.catRank;
-      const len = Math.max(a.kickers.length, b.kickers.length);
-      for (let i = 0; i < len; i++) {
-        const av = a.kickers[i] ?? 0;
-        const bv = b.kickers[i] ?? 0;
-        if (av !== bv) return av - bv;
-      }
-      return 0;
-    };
 
     for (const lvl of levels) {
       const inPot = contribs.filter((c) => c.amount >= lvl).length;
@@ -1098,7 +1091,7 @@ export default function PokerPage() {
 
       for (const idx of eligible.slice(1)) {
         const s = getScore(idx);
-        const cmp = compare(s, bestScore);
+        const cmp = compareScores(s, bestScore);
         if (cmp > 0) {
           bestScore = s;
           bestIdxs = [idx];
@@ -1107,16 +1100,20 @@ export default function PokerPage() {
         }
       }
 
-      const share = potTier / bestIdxs.length;
+      const share = Math.floor(potTier / bestIdxs.length);
+      let remainder = potTier - share * bestIdxs.length;
       for (const w of bestIdxs) {
+        const bonus = remainder > 0 ? 1 : 0;
+        if (remainder > 0) remainder -= 1;
+        const payout = share + bonus;
         moneyWinners.add(w);
-        if (w === 0) playerPayout += share;
+        if (w === 0) playerPayout += payout;
         else {
           const bi = w - 1;
           if (nextBots[bi])
             nextBots[bi] = {
               ...nextBots[bi],
-              stack: nextBots[bi].stack + share,
+              stack: nextBots[bi].stack + payout,
             };
         }
       }

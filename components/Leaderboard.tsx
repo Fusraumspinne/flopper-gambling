@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getItem, removeItem, setItem } from "@/lib/indexedDB";
 import { useWallet, VERIFIED_VERSION } from "./WalletProvider";
 import { fetchJsonCached, invalidateFetchCache } from "@/lib/fetchCache";
+import { io, Socket } from "socket.io-client";
 
 type LeaderboardUser = {
   _id: string;
@@ -18,9 +19,14 @@ export default function Leaderboard() {
   const [editName, setEditName] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const { syncBalance } = useWallet();
   const [page, setPage] = useState<number>(1);
   const PAGE_SIZE = 5;
+  const socketRef = useRef<Socket | null>(null);
+  const roomName = "leaderboard";
+  const socketUrl =
+    process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3000";
 
   const fetchLeaderboard = async (opts?: { force?: boolean }) => {
     try {
@@ -62,6 +68,34 @@ export default function Leaderboard() {
   useEffect(() => {
     setEditName(username ?? "");
   }, [username]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!socketRef.current) {
+      socketRef.current = io(socketUrl, {
+        transports: ["websocket"],
+      });
+
+      socketRef.current.on("room-users", (list: string[]) => {
+        setOnlineUsers(Array.isArray(list) ? list : []);
+      });
+    }
+
+    socketRef.current.emit("join-room", { room: roomName, username: null });
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [roomName, socketUrl]);
+
+  useEffect(() => {
+    if (!socketRef.current) return;
+    socketRef.current.emit("join-room", { room: roomName, username });
+  }, [roomName, username]);
 
   const handleRegister = async () => {
     if (!inputName.trim()) return;
@@ -252,7 +286,16 @@ export default function Leaderboard() {
                 >
                   {absoluteIndex + 1}
                 </span>
-                <span className="text-white font-medium">{user.name}</span>
+                <span className="text-white font-medium flex items-center gap-2">
+                  <span
+                    className={`inline-block w-2.5 h-2.5 rounded-full ${
+                      onlineUsers.includes(user.name)
+                        ? "bg-[#00e701] shadow-[0_0_6px_rgba(0,231,1,0.8)] animate-pulse"
+                        : "bg-[#2f4553]"
+                    }`}
+                  />
+                  {user.name}
+                </span>
               </div>
               <span className="text-[#00e701] font-mono">
                 $
