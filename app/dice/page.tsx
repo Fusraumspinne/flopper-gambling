@@ -71,6 +71,7 @@ export default function DicePage() {
   const gameStateRef = useRef<GameState>(gameState);
   const isAutoBettingRef = useRef<boolean>(false);
   const autoOriginalBetRef = useRef<number>(0);
+  const gameLoopRef = useRef<number | null>(null);
 
   const audioRef = useRef<{
     bet: HTMLAudioElement | null;
@@ -265,6 +266,11 @@ export default function DicePage() {
       const rawMult = winChance <= 0 ? 0 : (100 - HOUSE_EDGE) / winChance;
       const roundMultiplier = Math.max(1.01, rawMult);
       const fullWinAmount = normalizeMoney(bet * roundMultiplier);
+
+      if (gameLoopRef.current) {
+        clearTimeout(gameLoopRef.current);
+        gameLoopRef.current = null;
+      }
 
       subtractFromBalance(bet);
       playAudio(audioRef.current.bet);

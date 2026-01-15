@@ -258,7 +258,7 @@ export default function RoulettePage() {
   }, []);
 
   const placeBet = (type: BetType, value: string | number) => {
-    if (isSpinning) return;
+    if (isSpinningRef.current || isSpinning) return;
     if (betAmount <= 0) return;
 
     playAudio(audioRef.current.bet);
@@ -276,17 +276,20 @@ export default function RoulettePage() {
   };
 
   const clearBets = () => {
-    if (isSpinning) return;
+    if (isSpinningRef.current || isSpinning) return;
     setBets([]);
   };
 
   const spin = async () => {
     const totalBetNow = bets.reduce((acc, b) => acc + b.amount, 0);
-    if (isSpinning || totalBetNow <= 0) return;
+    if (isSpinningRef.current || isSpinning || totalBetNow <= 0) return;
     if (totalBetNow > balance) {
       alert("Insufficient balance!");
       return;
     }
+    
+    setIsSpinning(true);
+    isSpinningRef.current = true;
 
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);
@@ -306,8 +309,6 @@ export default function RoulettePage() {
 
     const betsSnapshot = bets.slice();
     subtractFromBalance(totalBetNow);
-    setIsSpinning(true);
-    isSpinningRef.current = true;
     setLastResult(null);
     setLastPayout(0);
     setLastWonDisplay(0);

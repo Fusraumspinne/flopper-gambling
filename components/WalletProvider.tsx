@@ -52,6 +52,8 @@ export const GAME_OPTIONS = [
 const ALL_OPTION = { id: "all", label: "All Games" } as const;
 export const DROPDOWN_GAME_OPTIONS = [ALL_OPTION, ...GAME_OPTIONS];
 
+export const VERIFIED_VERSION = "verified_v1";
+
 type GameId = (typeof GAME_OPTIONS)[number]["id"];
 type GameKey = GameId | "all" | "unknown";
 type LiveStatsByGame = Record<GameKey, LiveStatsState>;
@@ -284,34 +286,32 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const loadData = async () => {
-      const storedBalance = await getItem<string>("flopper_balance");
-      const storedInvest = await getItem<string>("flopper_investment_v1");
-      const storedDailyBonus = await getItem<string>("flopper_hourly_reward_last_claim_v1");
+      const isVerified = await getItem<string>(VERIFIED_VERSION);
 
-      // Older versions used a "verified" flag and cleared the entire store when it was missing.
-      // That caused random resets (including playtime) when the flag got lost.
-      const verified = await getItem<string>("verified");
-      const hasAnyState = Boolean(storedBalance || storedInvest || storedDailyBonus);
-      if (!verified && hasAnyState) {
-        try {
-          await setItem("verified", "true");
-        } catch (err) {
-          console.error("Failed to set verified flag", err);
+      if (!isVerified) {
+        const username = await getItem<string>("username");
+        await clearStore();
+        if (username) {
+          await setItem("username", username);
         }
-      }
 
-      if (storedBalance) {
-        const initial = normalizeMoney(parseFloat(storedBalance));
-        balanceRef.current = initial;
-        setBalance(initial);
-      } else if(!storedInvest && !storedDailyBonus) {
         balanceRef.current = 1000.0;
         setBalance(1000.0);
         await setItem("flopper_balance", "1000.00");
-        try {
-          await setItem("verified", "true");
-        } catch (err) {
-          console.error('Failed to set verified flag', err);
+        await setItem(VERIFIED_VERSION, "true");
+      } else {
+        const storedBalance = await getItem<string>("flopper_balance");
+        const storedInvest = await getItem<string>("flopper_investment_v1");
+        const storedDailyBonus = await getItem<string>("flopper_hourly_reward_last_claim_v1");
+
+        if (storedBalance) {
+          const initial = normalizeMoney(parseFloat(storedBalance));
+          balanceRef.current = initial;
+          setBalance(initial);
+        } else if (!storedInvest && !storedDailyBonus) {
+          balanceRef.current = 1000.0;
+          setBalance(1000.0);
+          await setItem("flopper_balance", "1000.00");
         }
       }
 

@@ -192,6 +192,7 @@ export default function Leaderboard() {
               Join
             </button>
           </div>
+          <div className="mt-1 text-xs text-[#557086]">Only join the leaderboard with your main account, please don&apos;t spam accounts you won&apos;t use in the future, you can still use the website normally without appearing on the leaderboard</div>
         </div>
       )}
 

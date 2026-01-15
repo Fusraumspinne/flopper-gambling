@@ -155,12 +155,12 @@ export default function GiftPanel() {
       <div>
         <h2 className="text-white font-semibold text-xl">Gifts</h2>
         <p className="text-sm text-[#b1bad3]">
-          You can gift money to leaderboard players. You must keep <span className="text-white font-semibold">5000</span> total.
+          You can gift money to leaderboard players. You must keep <span className="text-white font-semibold">5000</span> total
         </p>
       </div>
 
       <div className="mt-4 bg-[#0f212e] rounded-lg p-4 border border-[#2f4553]/60">
-        <div className="text-xs text-[#557086]">You can only gift money from your balance.</div>
+        <div className="text-xs text-[#557086]">You can only gift money from your balance</div>
         <div className="text-white font-semibold text-2xl">${balance.toFixed(2)}</div>
         <div className="mt-1 text-xs text-[#557086]">Max gift right now: ${maxGift.toFixed(2)}</div>
       </div>

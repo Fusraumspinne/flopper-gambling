@@ -403,6 +403,9 @@ export default function PumpPage() {
     if (gameState !== "playing") return;
     if (!nextStep) return;
     if (isAutoBettingRef.current) return;
+    if (isPumping) return;
+    setIsPumping(true);
+
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);
       resultTimeoutRef.current = null;
@@ -411,12 +414,10 @@ export default function PumpPage() {
 
     setHasPumped(true);
 
-    setIsPumping(false);
     const pressTimer = window.setTimeout(() => {
-      setIsPumping(true);
       playAudio(audioRef.current.pump);
 
-      const safeLimit = plannedSafeSteps ?? (currentData.length - 1);
+      const safeLimit = plannedSafeSteps ?? 0;
       const nextIndex = currentStepIndex + 1;
       const willHaveNoMorePumps = nextIndex >= currentData.length - 1;
       const nextPayout = betAmount * currentData[nextIndex].multiplier;

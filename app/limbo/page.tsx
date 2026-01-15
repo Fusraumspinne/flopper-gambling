@@ -88,6 +88,7 @@ export default function LimboPage() {
   const autoOriginalBetRef = useRef<number>(0);
   const autoNetRef = useRef<number>(0);
   const resultTimeoutRef = useRef<number | null>(null);
+  const gameLoopRef = useRef<number | null>(null);
 
   const audioRef = useRef<{
     bet: HTMLAudioElement | null;
@@ -226,9 +227,15 @@ export default function LimboPage() {
         };
       }
 
+      
+      if (gameLoopRef.current !== null) {
+        clearTimeout(gameLoopRef.current);
+        gameLoopRef.current = null;
+      }
+
       subtractFromBalance(bet);
       playAudio(audioRef.current.bet);
-      setTimeout(() => playAudio(audioRef.current.tick), 150);
+      gameLoopRef.current = window.setTimeout(() => playAudio(audioRef.current.tick), 150);
       setLastWin(0);
       isRollingRef.current = true;
       setGameState("rolling");
@@ -302,6 +309,11 @@ export default function LimboPage() {
           resolve();
         }, 900);
       });
+
+      if (gameLoopRef.current !== null) {
+          clearTimeout(gameLoopRef.current);
+          gameLoopRef.current = null;
+      }
 
       isRollingRef.current = false;
       return { betAmount: bet, winAmount, multiplier: result };

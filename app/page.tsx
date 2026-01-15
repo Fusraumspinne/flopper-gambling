@@ -32,9 +32,9 @@ export default function Home() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-4xl sm:text-5xl font-extrabold bg-linear-to-r from-indigo-400 via-pink-400 to-yellow-300 bg-clip-text text-transparent mb-2">Flopper Casino — Play Your Way</h1>
-        <p className="text-[#b1bad3] text-lg">Welcome to Flopper — pick a game, chase the thrill, and cash out the moment luck smiles.</p>
-        <p className="text-sm text-[#557086] mt-2">Live jackpots • Daily challenges • Play responsibly</p>
+        <h1 className="text-4xl sm:text-5xl font-extrabold bg-linear-to-r from-indigo-400 via-pink-400 to-yellow-300 bg-clip-text text-transparent mb-2">Flopper Gambling — Play Your Way</h1>
+        <p className="text-[#b1bad3] text-lg">Welcome to Flopper — pick a game, chase the thrill, and cash out the moment luck smiles</p>
+        <p className="text-sm text-[#557086] mt-2">Big wins • Climb the leaderboard • Play responsibly • Website only for private use</p>
       </div>
 
         <InvestmentPanel />

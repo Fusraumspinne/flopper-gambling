@@ -99,6 +99,7 @@ export default function KenoPage() {
   const isAnimatingRef = React.useRef(false);
   const roundLockRef = React.useRef(false);
   const isAutoBettingRef = React.useRef(false);
+  const isProcessingRef = React.useRef(false);
   const autoOriginalBetRef = React.useRef<number>(0);
   const autoNetRef = React.useRef<number>(0);
 
@@ -201,6 +202,14 @@ export default function KenoPage() {
 
   const toggleNumber = (num: number) => {
     if (isAnimating || isAutoBetting) return;
+    if (isProcessingRef.current) return;
+    
+    // Optimistic lock
+    if (selectedNumbers.length >= 10 && !selectedNumbers.includes(num)) return;
+    
+    isProcessingRef.current = true;
+    setTimeout(() => { isProcessingRef.current = false; }, 50);
+
     if (drawnNumbers.length > 0) {
       setDrawnNumbers([]);
     }

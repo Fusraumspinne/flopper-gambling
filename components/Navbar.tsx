@@ -64,14 +64,16 @@ export default function Navbar() {
       style={{ width: sidebarWidth }}
     >
       <div className={`${collapsed ? "p-3" : "p-6"} flex items-center gap-3 text-white justify-between`}>
-        <div className="bg-[#00e701] p-2 rounded-lg text-black">
-          <SportsEsports sx={{ fontSize: 24 }} />
-        </div>
-        {!collapsed && <span className="text-xl font-bold tracking-wide">FLOPPER</span>}
+        <Link href="/" className="flex items-center gap-3 text-white mr-auto">
+          <div className="bg-[#00e701] p-2 rounded-lg text-black">
+            <SportsEsports sx={{ fontSize: 24 }} />
+          </div>
+          {!collapsed && <span className="text-xl font-bold tracking-wide">FLOPPER</span>}
+        </Link>
 
         <button
           onClick={toggleCollapsed}
-          className="ml-auto rounded-md px-2 py-1 text-[#b1bad3] hover:bg-[#213743] hover:text-white"
+          className="ml-2 rounded-md px-2 py-1 text-[#b1bad3] hover:bg-[#213743] hover:text-white"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand" : "Collapse"}
         >
@@ -130,21 +132,8 @@ export default function Navbar() {
       )}
 
       <nav className={`flex-1 overflow-y-auto ${collapsed ? "py-2 px-2" : "py-4 px-3"} space-y-1`}>
-        <Link
-          href="/"
-          title="Home"
-          className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} ${collapsed ? "px-2 py-3" : "px-4 py-3"} rounded-md transition-colors ${
-            pathname === "/"
-              ? "bg-[#213743] text-white"
-              : "hover:bg-[#1a2c38] hover:text-white"
-          }`}
-        >
-          <Home sx={{ fontSize: 20 }} />
-          {!collapsed && <span>Home</span>}
-        </Link>
-
         {games.length > 0 && (
-          <div className={`${collapsed ? "hidden" : "mt-6 mb-2 px-4"} text-xs font-bold uppercase tracking-wider text-[#557086]`}>Games</div>
+          <div className={`${collapsed ? "hidden" : "mb-2 px-4"} text-xs font-bold uppercase tracking-wider text-[#557086]`}>Games</div>
         )}
         
         {games.map((game, index) => (

@@ -170,6 +170,7 @@ export default function MinesPage() {
   const mineCountRef = useRef<number>(3);
   const gameStateRef = useRef<GameState>("idle");
   const isAutoBettingRef = useRef(false);
+  const isProcessingRef = useRef(false);
   const autoOriginalBetRef = useRef<number>(0);
   const autoNetRef = useRef<number>(0);
   const autoPickOrderRef = useRef<number[]>([]);
@@ -400,9 +401,15 @@ export default function MinesPage() {
     if (gameState !== "playing") return;
     if (playMode !== "manual") return;
     if (isAutoBettingRef.current) return;
+    if (isProcessingRef.current) return;
 
     const tile = grid[id];
     if (tile.isRevealed) return;
+
+    isProcessingRef.current = true;
+    setTimeout(() => {
+      isProcessingRef.current = false;
+    }, 50);
 
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);
@@ -456,7 +463,13 @@ export default function MinesPage() {
   const cashOut = () => {
     if (gameState !== "playing") return;
     if (isAutoBettingRef.current) return;
+    if (isProcessingRef.current) return;
     if (revealedCount === 0) return;
+
+    isProcessingRef.current = true;
+    setTimeout(() => {
+      isProcessingRef.current = false;
+    }, 50);
 
     const winAmount = potentialWin;
     addToBalance(winAmount);
