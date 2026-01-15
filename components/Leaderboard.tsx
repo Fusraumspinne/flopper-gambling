@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getItem, removeItem, setItem } from "@/lib/indexedDB";
-import { useWallet } from "./WalletProvider";
+import { useWallet, VERIFIED_VERSION } from "./WalletProvider";
 import { fetchJsonCached, invalidateFetchCache } from "@/lib/fetchCache";
 
 type LeaderboardUser = {
@@ -46,8 +46,9 @@ export default function Leaderboard() {
 
   useEffect(() => {
     const init = async () => {
+      const isVerified = await getItem<string>(VERIFIED_VERSION);
       const storedName = await getItem<string>("username");
-      if (storedName) {
+      if (storedName && isVerified === "true") {
         setUsername(storedName);
         setEditName(storedName);
         syncBalance().catch(console.error);

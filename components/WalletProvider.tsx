@@ -52,7 +52,7 @@ export const GAME_OPTIONS = [
 const ALL_OPTION = { id: "all", label: "All Games" } as const;
 export const DROPDOWN_GAME_OPTIONS = [ALL_OPTION, ...GAME_OPTIONS];
 
-export const VERIFIED_VERSION = "verified_v1";
+export const VERIFIED_VERSION = "verified_v2";
 
 type GameId = (typeof GAME_OPTIONS)[number]["id"];
 type GameKey = GameId | "all" | "unknown";
@@ -290,10 +290,20 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (!isVerified) {
         const username = await getItem<string>("username");
-        await clearStore();
+        
         if (username) {
-          await setItem("username", username);
+          try {
+            await fetch("/api/user", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: username }),
+            });
+          } catch (error) {
+            console.error("Failed to remove user during version reset", error);
+          }
         }
+
+        await clearStore();
 
         balanceRef.current = 1000.0;
         setBalance(1000.0);
