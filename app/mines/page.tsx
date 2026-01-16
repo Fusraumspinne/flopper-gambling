@@ -13,7 +13,6 @@ import {
   Diamond,
   LocalFireDepartment,
   PlayArrow,
-  Refresh,
 } from "@mui/icons-material";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
 

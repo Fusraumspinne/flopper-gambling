@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
-import { ExitToApp, PlayArrow, Refresh } from "@mui/icons-material";
+import { ExitToApp, PlayArrow } from "@mui/icons-material";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type GameState = "idle" | "running" | "cashed" | "crashed";

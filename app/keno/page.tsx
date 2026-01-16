@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
-import { PlayArrow, Refresh, Delete, Bolt, Diamond } from "@mui/icons-material";
+import { PlayArrow, Delete, Bolt, Diamond } from "@mui/icons-material";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type RiskLevel = "low" | "medium" | "high";
@@ -393,14 +393,12 @@ export default function KenoPage() {
             resultTimeoutRef.current = null;
           }
           setResultFx("win");
-          isAnimatingRef.current = false;
-          setIsAnimating(false);
           await new Promise<void>((resolve) => {
             resultTimeoutRef.current = window.setTimeout(() => {
               setResultFx(null);
               resultTimeoutRef.current = null;
               resolve();
-            });
+            }, 900);
           });
         } else {
           finalizePendingLoss();
@@ -410,14 +408,12 @@ export default function KenoPage() {
           }
           setResultFx("lose");
           playAudio(audioRef.current.limboLose);
-          isAnimatingRef.current = false;
-          setIsAnimating(false);
           await new Promise<void>((resolve) => {
             resultTimeoutRef.current = window.setTimeout(() => {
               setResultFx(null);
               resultTimeoutRef.current = null;
               resolve();
-            });
+            }, 900);
           });
         }
 
@@ -725,12 +721,10 @@ export default function KenoPage() {
             disabled={isBusy || selectedNumbers.length === 0 || betAmount <= 0}
             className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
           >
-            {isAnimating ? (
-              <Refresh className="animate-spin" />
-            ) : (
+            {!isAnimating && (
               <PlayArrow sx={{ fill: "currentColor" }} />
             )}
-            {isAnimating ? "Playing..." : "Bet"}
+            {isAnimating ? "Playing" : "Bet"}
           </button>
         )}
 
@@ -899,6 +893,16 @@ export default function KenoPage() {
             {resultFx === "rolling" && <div className="limbo-roll-glow" />}
             {resultFx === "win" && <div className="limbo-win-flash" />}
             {resultFx === "lose" && <div className="limbo-lose-flash" />}
+            {resultFx === "rolling" && (
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    "radial-gradient(circle at 50% 55%, rgba(47,69,83,0.18) 0%, rgba(15,33,46,0.0) 68%)",
+                  opacity: 0.9,
+                }}
+              />
+            )}
 
             <div className="relative z-10">
               <div className="grid grid-cols-5 sm:grid-cols-8 gap-2 sm:gap-3 max-w-[600px] mx-auto">
@@ -1095,16 +1099,6 @@ export default function KenoPage() {
             })}
           </div>
         </div>
-        {resultFx === "rolling" && (
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(circle at 50% 55%, rgba(47,69,83,0.22) 0%, rgba(15,33,46,0.0) 68%)",
-              opacity: 0.85,
-            }}
-          />
-        )}
         <div className="p-4 pb-0 rounded-xl">
           {selectedNumbers.length > 0 && (
             (() => {

@@ -10,10 +10,7 @@ import React, {
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import {
-  Casino,
-  Flag,
   PlayArrow,
-  Refresh,
   LocalFireDepartment,
 } from "@mui/icons-material";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
@@ -938,7 +935,7 @@ export default function SnakesPage() {
                 disabled={!canRoll}
                 className="flex-1 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
               >
-                {isAnimating ? <Refresh className="animate-spin" /> : "Roll"}
+                Roll
               </button>
               <button
                 onClick={manualCashout}

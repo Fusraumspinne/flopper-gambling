@@ -9,7 +9,7 @@ import React, {
 } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
-import { PlayArrow, Refresh } from "@mui/icons-material";
+import { PlayArrow } from "@mui/icons-material";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type GameState = "idle" | "rolling" | "won" | "lost";
@@ -458,8 +458,31 @@ export default function LimboPage() {
 
   return (
     <>
+      <style>{`
+        .stage-wrapper {
+          transition: transform 0.2s ease-out;
+          transform-origin: center center;
+          width: 100%;
+          max-width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+        }
+        .multiplier-text {
+          white-space: nowrap;
+          display: inline-block;
+          line-height: 1;
+        }
+        @media (max-width: 1024px) { .stage-wrapper { transform: translate(-50%, -50%) scale(0.8); } }
+        @media (max-width: 768px) { .stage-wrapper { transform: translate(-50%, -50%) scale(0.65); } }
+        @media (max-width: 640px) { .stage-wrapper { transform: translate(-50%, -50%) scale(0.5); } }
+        @media (max-width: 500px) { .stage-wrapper { transform: translate(-50%, -50%) scale(0.35); } }
+        @media (max-width: 400px) { .stage-wrapper { transform: translate(-50%, -50%) scale(0.25); } }
+      `}</style>
       <div className="p-2 sm:p-4 lg:p-6 max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-        <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+        <div className="w-full lg:w-60 lg:shrink-0 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
           <div className="space-y-2">
             <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
               Mode
@@ -575,8 +598,8 @@ export default function LimboPage() {
               disabled={isBusy || betAmount <= 0}
               className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLocked ? <Refresh className="animate-spin" /> : <PlayArrow />}
-              {isLocked ? "Rolling..." : "Bet"}
+              {!isLocked && <PlayArrow sx={{ fill: "currentColor" }} />}
+              {isLocked ? "Playing" : "Bet"}
             </button>
           )}
 
@@ -742,7 +765,7 @@ export default function LimboPage() {
           )}
         </div>
 
-        <div className="flex-1 flex flex-col gap-4">
+        <div className="flex-1 min-w-0 flex flex-col gap-4">
           <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-8 relative h-[400px] sm:h-[600px] overflow-hidden">
             {gameState === "rolling" && (
               <>
@@ -753,10 +776,10 @@ export default function LimboPage() {
             {gameState === "won" && <div className="limbo-win-flash" />}
             {gameState === "lost" && <div className="limbo-lose-flash" />}
 
-            <div className="relative z-10 flex flex-col items-center">
+            <div className="mt-5 stage-wrapper z-10">
               <div
                 key={resultAnimNonce}
-                className={`text-[4rem] sm:text-[6rem] md:text-[8rem] lg:text-[10rem] font-black font-mono leading-none transition-all duration-300 ${
+                className={`multiplier-text text-[3.5rem] sm:text-[5rem] md:text-[6.5rem] lg:text-[8rem] font-black font-mono leading-none transition-all duration-300 ${
                   gameState === "rolling"
                     ? "text-white animate-limbo-multiplier-rolling"
                     : gameState === "won"

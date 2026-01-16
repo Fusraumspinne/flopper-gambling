@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
-import { PlayArrow, Refresh, Bolt } from "@mui/icons-material";
+import { PlayArrow } from "@mui/icons-material";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type Suit = "hearts" | "diamonds" | "clubs" | "spades";

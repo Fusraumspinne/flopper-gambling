@@ -9,6 +9,7 @@ const games: Array<{ name: string; href: string; tagline: string; image?: string
   { name: "Mines", href: "/mines", tagline: "Find diamonds, avoid mines", image: "/images/Mines.png" },
   { name: "Keno", href: "/keno", tagline: "Pick 10 numbers", image: "/images/Keno.png" },
   { name: "Dragon Tower", href: "/dragontower", tagline: "Climb without hitting traps", image: "/images/DragonTower.png" },
+  { name: "Russian Roulette", href: "/russianroulette", tagline: "Risk it all — shoot sequentially", image: "/images/RussianRoulette.png" },
   { name: "Pump", href: "/pump", tagline: "Pump and cash out", image: "/images/Pump.png" },
   { name: "Limbo", href: "/limbo", tagline: "Hit your target multiplier", image: "/images/Limbo.png" },
   { name: "Dice", href: "/dice", tagline: "Roll and set your chance", image: "/images/Dice.png" },

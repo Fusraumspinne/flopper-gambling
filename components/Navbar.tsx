@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll } from "@mui/icons-material";
+import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment } from "@mui/icons-material";
 import { useWallet } from "./WalletProvider";
 import LiveStatsPanel from "./LiveStatsPanel";
 import { useSidebar } from "./Shell";
@@ -22,6 +22,7 @@ const games: Game[] = [
   { name: "Mines", icon: <Diamond className="w-5 h-5" />, href: "/mines" },
   { name: "Keno", icon: <GridOn className="w-5 h-5" />, href: "/keno" },
   { name: "Dragon Tower", icon: <AutoAwesome className="w-5 h-5" />, href: "/dragontower" },
+  { name: "Russian Roulette", icon: <LocalFireDepartment className="w-5 h-5" />, href: "/russianroulette" },
   { name: "Pump", icon: <TrendingUp className="w-5 h-5" />, href: "/pump" },
   { name: "Limbo", icon: <Timeline className="w-5 h-5" />, href: "/limbo" },
   { name: "Dice", icon: <SmartToy className="w-5 h-5" />, href: "/dice" },

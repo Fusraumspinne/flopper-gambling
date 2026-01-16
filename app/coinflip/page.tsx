@@ -259,7 +259,7 @@ export default function CoinFlipPage() {
             </button>
           </div>
           {gameState !== "playing" && (
-            <div className="mt-2">
+            <div className="mt-3">
               <button
                 onClick={placeBet}
                 disabled={betAmount <= 0}
@@ -272,7 +272,7 @@ export default function CoinFlipPage() {
           )}
 
           {gameState === "playing" && (
-            <div className="flex flex-col mt-2">
+            <div className="flex flex-col mt-3">
               <button
                 onClick={cashOut}
                 disabled={isFlipping || streak === 0}

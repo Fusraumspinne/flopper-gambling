@@ -30,6 +30,7 @@ export const GAME_OPTIONS = [
   { id: "mines", label: "Mines" },
   { id: "keno", label: "Keno" },
   { id: "dragontower", label: "Dragon Tower" },
+  { id: "russianroulette", label: "Russian Roulette" },
   { id: "pump", label: "Pump" },
   { id: "limbo", label: "Limbo" },
   { id: "dice", label: "Dice" },

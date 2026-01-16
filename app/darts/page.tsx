@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
-import { PlayArrow, Refresh } from "@mui/icons-material";
+import { PlayArrow } from "@mui/icons-material";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type RiskLevel = "Low" | "Medium" | "High" | "Expert";
@@ -845,12 +845,10 @@ export default function DartsPage() {
             disabled={isBusy || betAmount <= 0 || betAmount > balance}
             className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
           >
-            {isPlaying ? (
-              <Refresh className="animate-spin" />
-            ) : (
+            {!isPlaying && (
               <PlayArrow sx={{ fill: "currentColor" }} />
             )}
-            {isPlaying ? "Playing..." : "Bet"}
+            {isPlaying ? "Playing" : "Bet"}
           </button>
         )}
 

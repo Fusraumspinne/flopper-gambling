@@ -10,7 +10,7 @@ import React, {
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
-import { Delete, PlayArrow, Refresh } from "@mui/icons-material";
+import { Delete, PlayArrow } from "@mui/icons-material";
 
 const WHEEL_NUMBERS = [
   0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24,
@@ -364,8 +364,7 @@ export default function RoulettePage() {
       isSpinningRef.current = false;
       setLastResult(resultNumber);
 
-      let totalWin = 0;
-      let totalLost = 0;
+      let totalPayout = 0;
       betsSnapshot.forEach((bet) => {
         let won = false;
         let multiplier = 0;
@@ -438,16 +437,14 @@ export default function RoulettePage() {
         }
 
         if (won) {
-          totalWin += bet.amount * multiplier;
-        } else {
-          totalLost += bet.amount;
+          totalPayout += bet.amount * multiplier;
         }
       });
 
-      const payout = normalizeMoney(totalWin);
+      const payout = normalizeMoney(totalPayout);
       const netProfit = normalizeMoney(payout - totalBetNow);
       setLastPayout(payout);
-      setLastWonDisplay(netProfit);
+      setLastWonDisplay(payout);
 
       if (payout > 0) {
         addToBalance(payout);
@@ -639,12 +636,10 @@ export default function RoulettePage() {
           disabled={isSpinning || totalBet === 0}
           className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSpinning ? (
-            <Refresh className="animate-spin" />
-          ) : (
-            <PlayArrow />
+          {!isSpinning && (
+            <PlayArrow sx={{ fill: "currentColor" }} />
           )}
-          {isSpinning ? "Playing..." : "Bet"}
+          {isSpinning ? "Playing" : "Bet"}
         </button>
 
         {lastWonDisplay > 0 && !isSpinning && (
