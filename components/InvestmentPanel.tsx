@@ -163,7 +163,7 @@ export default function InvestmentPanel() {
         <div>
           <h2 className="text-white font-semibold text-xl">Invest</h2>
           <p className="text-sm text-[#b1bad3]">
-            Deposit from your balance and earn <span className="text-white font-semibold">1% per hour</span> (on max $100,000) — live, updated every
+            Deposit from your balance and earn <span className="text-white font-semibold">1% per hour</span> (max on $100,000) — live, updated every
             second
           </p>
         </div>
