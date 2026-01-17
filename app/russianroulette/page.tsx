@@ -46,6 +46,7 @@ export default function RussianRoulettePage() {
   const [accumulatedMultiplier, setAccumulatedMultiplier] = useState<number>(1);
   const [showMuzzle, setShowMuzzle] = useState(false);
   const [revealed, setRevealed] = useState<boolean>(false);
+  const [reloadPending, setReloadPending] = useState<boolean>(false);
 
   const resultTimeoutRef = useRef<number | null>(null);
   const fireTimeoutRef = useRef<number | null>(null);
@@ -181,6 +182,7 @@ export default function RussianRoulettePage() {
     setLastWin(0);
     setResultFx(null);
     setRevealed(false);
+    setReloadPending(false);
     setGameState("playing");
   };
 
@@ -252,14 +254,17 @@ export default function RussianRoulettePage() {
     showFx("win");
     setRevealed(true);
     setGameState("resolved");
+    setReloadPending(false);
+  };
+  // prepareReload: user clicks Reload to change bullets and confirm with Continue
+  const prepareReload = () => {
+    if (gameState !== "playing" || isFiring) return;
+    setReloadPending(true);
   };
 
+  // commit reload / continue: actually create new cylinder and carry multiplier
   const handleNextCylinder = () => {
-    if (
-      gameState !== "playing" ||
-      currentStep < CHAMBER_COUNT - activeBulletCount
-    )
-      return;
+    if (gameState !== "playing" || isFiring) return;
 
     // Play bet sound on reload as well
     playAudio(audioRef.current.bet);
@@ -272,6 +277,7 @@ export default function RussianRoulettePage() {
     setResult(null);
     setResultFx(null);
     setRevealed(false);
+    setReloadPending(false);
   };
 
   return (
@@ -342,9 +348,10 @@ export default function RussianRoulettePage() {
               step={1}
               value={bulletCount}
               disabled={
+                gameState === "firing" ||
                 (gameState === "playing" &&
-                  currentStep < CHAMBER_COUNT - activeBulletCount) ||
-                gameState === "firing"
+                  !reloadPending &&
+                  currentStep < CHAMBER_COUNT - activeBulletCount)
               }
               onChange={(e) => setBulletCount(Number(e.target.value))}
               className="mt-2 w-full accent-[#00e701]"
@@ -363,30 +370,56 @@ export default function RussianRoulettePage() {
               </button>
             ) : (
               <div className="flex gap-2">
-                {currentStep < CHAMBER_COUNT - activeBulletCount ? (
-                  <button
-                    onClick={handleShoot}
-                    disabled={isFiring}
-                    className="flex-1 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 cf-press text-md"
-                  >
-                     Shoot
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleNextCylinder}
-                    disabled={isFiring}
-                    className="flex-1 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 cf-press"
-                  >
-                    Reload
-                  </button>
-                )}
-                <button
-                  onClick={handleCashout}
-                  disabled={isFiring || (currentStep === 0 && accumulatedMultiplier === 1)}
-                  className="px-4 bg-[#00e701] hover:bg-[#00c201] text-black rounded-md font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 cf-press"
-                >
-                  Cashout
-                </button>
+                <div className="w-full">
+                  {/** determine whether all safe chambers were already fired or reload was prepared */}
+                  {(() => {
+                    const safeCount = CHAMBER_COUNT - activeBulletCount;
+                    const isAtEnd = currentStep >= safeCount;
+                    const showContinue = reloadPending || isAtEnd;
+
+                    if (showContinue) {
+                      return (
+                        <button
+                          onClick={handleNextCylinder}
+                          disabled={isFiring}
+                          className="w-full bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 cf-press"
+                        >
+                          Continue
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <>
+                        <div className="flex gap-2 mb-2">
+                          <button
+                            onClick={handleShoot}
+                            disabled={isFiring}
+                            className="flex-1 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 cf-press text-md"
+                          >
+                            Shoot
+                          </button>
+
+                          <button
+                            onClick={prepareReload}
+                            disabled={isFiring}
+                            className="flex-1 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2 cf-press"
+                          >
+                            Reload
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={handleCashout}
+                          disabled={isFiring || (currentStep === 0 && accumulatedMultiplier === 1)}
+                          className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 cf-press"
+                        >
+                          Cashout
+                        </button>
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             )}
           </div>
@@ -614,33 +647,35 @@ export default function RussianRoulettePage() {
 
             <div className="w-full max-w-md mt-2">
               <div className="flex items-center justify-center gap-2 sm:gap-3">
-                {Array.from({ length: CHAMBER_COUNT }).map((_, i) => {
-                  const isPast = i < currentStep;
-                  const isCurrent =
-                    i === currentStep && gameState === "playing";
-                  const isBullet = chambers[i];
-                  const showActual = revealed;
+              {Array.from({ length: CHAMBER_COUNT }).map((_, i) => {
+                const isPast = i < currentStep;
+                const isLastFired =
+                (i === currentStep - 1 && currentStep > 0 && result !== "lose") ||
+                (result === "lose" && i === currentStep && revealed);
+                const isBullet = chambers[i];
+                const showActual = revealed || reloadPending;
 
-                  let colorClass = "bg-[#1a2c38] border-[#3f5666]";
-                  if (showActual) {
-                    colorClass = isBullet
-                      ? "bg-red-500 border-red-400"
-                      : "bg-[#00e701] border-[#00c201]";
-                  } else if (isPast) {
-                    colorClass =
-                      "bg-[#00e701] border-[#00c201] opacity-60";
-                  } else if (isCurrent) {
-                    colorClass =
-                      "bg-[#1a2c38] border-[#00e701] animate-pulse scale-110";
-                  }
+                let colorClass = "bg-[#1a2c38] border-[#3f5666]";
+                if (showActual) {
+                colorClass = isBullet
+                  ? `bg-red-500 ${!isLastFired && "border-red-400"}`
+                  : "bg-[#00e701] border-[#00c201]";
+                } else if (isPast) {
+                colorClass = "bg-[#00e701] border-[#00c201] opacity-60";
+                }
 
-                  return (
-                    <div
-                      key={i}
-                      className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 transition-all duration-300 ${colorClass}`}
-                    />
-                  );
-                })}
+                let borderClass = "";
+                if (isLastFired) {
+                  borderClass = "border-4 border-[#3f5666]";
+                }
+
+                return (
+                <div
+                  key={i}
+                  className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 transition-all duration-300 ${colorClass} ${borderClass}`}
+                />
+                );
+              })}
               </div>
             </div>
           </div>

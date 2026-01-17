@@ -28,10 +28,13 @@ function parseAmount(raw: string): number {
 
 function computeCurrentValue(principal: number, startedAtMs: number, nowMs: number): number {
   if (principal <= 0) return 0;
+  const cappedPrincipal = Math.min(principal, 100000);
+  const nonInterestPrincipal = principal - cappedPrincipal;
   const elapsedMs = Math.max(0, nowMs - startedAtMs);
   const hours = elapsedMs / HOUR_MS;
-  const value = principal * (1 + RATE_PER_HOUR * hours);
-  return normalizeMoney(value);
+  const interestValue = cappedPrincipal * (1 + RATE_PER_HOUR * hours);
+  const totalValue = interestValue + nonInterestPrincipal;
+  return normalizeMoney(totalValue);
 }
 
 async function readStored(): Promise<StoredInvestment | null> {
@@ -160,15 +163,15 @@ export default function InvestmentPanel() {
         <div>
           <h2 className="text-white font-semibold text-xl">Invest</h2>
           <p className="text-sm text-[#b1bad3]">
-            Deposit from your balance and earn <span className="text-white font-semibold">1% per hour</span> — live, updated every
+            Deposit from your balance and earn <span className="text-white font-semibold">1% per hour</span> (on max $100,000) — live, updated every
             second
           </p>
         </div>
       </div>
 
       <div className="mt-4 bg-[#0f212e] rounded-lg p-4 border border-[#2f4553]/60">
-        <div className="text-xs text-[#557086]">Currently in investment (withdrawable)</div>
-        <div className="text-white font-semibold text-2xl">{currentValue.toFixed(2)}</div>
+        <div className="text-xs text-[#557086]">Currently in investment</div>
+        <div className="text-white font-semibold text-2xl">${currentValue.toFixed(2)}</div>
       </div>
 
       <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:items-center">

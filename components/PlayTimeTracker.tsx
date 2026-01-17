@@ -5,8 +5,6 @@ import { useWallet } from "./WalletProvider";
 import { getItem, setItem } from "../lib/indexedDB";
 
 const PLAYTIME_KEY = "flopper_playtime_v1";
-// Count only while the user is actively playing.
-// IMPORTANT: This should not reward "just leaving the tab open".
 const INACTIVITY_MS = 10_000;
 const PERSIST_EVERY_MS = 10_000;
 
@@ -54,13 +52,11 @@ export default function PlayTimeTracker() {
           totalMsRef.current = n;
         }
       }
-      // mark hydrated to avoid overwriting stored value before load completes
       hydratedRef.current = true;
     });
   }, []);
 
   const canCountNow = () => {
-    // Only start/resume after *real interaction* OR after a bet happened.
     return hasInteractedRef.current || lastBetAtRef.current != null;
   };
 
@@ -75,7 +71,6 @@ export default function PlayTimeTracker() {
       const prevPerf = lastTickPerfRef.current;
 
       if (typeof prevPerf === "number") {
-        // Clamp to avoid negative deltas and absurd jumps.
         const rawDelta = nowPerf - prevPerf;
         const delta = Math.min(Math.max(0, rawDelta), 10_000);
         if (delta > 0) {
@@ -114,7 +109,6 @@ export default function PlayTimeTracker() {
       pauseTimeoutRef.current = null;
     }
 
-    // If the tab is hidden, do not keep counting.
     if (!isPageVisible()) {
       pauseRunning();
       return;
@@ -134,7 +128,6 @@ export default function PlayTimeTracker() {
 
   useEffect(() => {
     if (lastBetAt == null) return;
-    // A bet is definitely "activity".
     refreshInactivityTimer();
   }, [lastBetAt]);
 
@@ -145,15 +138,12 @@ export default function PlayTimeTracker() {
     };
     const onVisibility = () => {
       if (isPageVisible()) {
-        // Do NOT start counting just because the tab became visible.
-        // Only resume if we already have real interaction or a bet.
         if (canCountNow()) refreshInactivityTimer();
       } else {
         pauseRunning();
       }
     };
 
-    // Start counting once the user interacts (avoids counting idle tab time).
     window.addEventListener("pointerdown", onActivity, { passive: true });
     window.addEventListener("keydown", onActivity);
     window.addEventListener("wheel", onActivity, { passive: true });
@@ -167,7 +157,6 @@ export default function PlayTimeTracker() {
       window.removeEventListener("touchstart", onActivity);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -177,10 +166,8 @@ export default function PlayTimeTracker() {
       if (persistTimerRef.current) window.clearInterval(persistTimerRef.current);
       persistNow();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ensure ref stays in sync with state if loaded value changes
   useEffect(() => {
     totalMsRef.current = totalMs;
   }, [totalMs]);

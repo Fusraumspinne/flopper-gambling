@@ -225,8 +225,6 @@ export default function DartsPage() {
   const [onWinPctInput, setOnWinPctInput] = useState<string>("0");
   const [onLoseMode, setOnLoseMode] = useState<"reset" | "raise">("reset");
   const [onLosePctInput, setOnLosePctInput] = useState<string>("0");
-  const [stopProfitInput, setStopProfitInput] = useState<string>("0");
-  const [stopLossInput, setStopLossInput] = useState<string>("0");
   const [isAutoBetting, setIsAutoBetting] = useState(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -563,8 +561,6 @@ export default function DartsPage() {
     isAutoBettingRef.current = true;
     setIsAutoBetting(true);
     while (isAutoBettingRef.current) {
-      const stopProfit = Math.max(0, normalizeMoney(parseNumberLoose(stopProfitInput)));
-      const stopLoss = Math.max(0, normalizeMoney(parseNumberLoose(stopLossInput)));
       const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
       const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
 
@@ -610,15 +606,6 @@ export default function DartsPage() {
           betAmountRef.current = next;
         }
       }
-
-      if (stopProfit > 0 && lastNet >= stopProfit) {
-        stopAutoBet();
-        break;
-      }
-      if (stopLoss > 0 && lastNet <= -stopLoss) {
-        stopAutoBet();
-        break;
-      }
       await sleep(200);
     }
 
@@ -631,8 +618,6 @@ export default function DartsPage() {
     onWinMode,
     onWinPctInput,
     playRound,
-    stopLossInput,
-    stopProfitInput,
     stopAutoBet,
     syncBalance,
   ]);
@@ -663,8 +648,6 @@ export default function DartsPage() {
       setOnWinPctInput("0");
       setOnLoseMode("reset");
       setOnLosePctInput("0");
-      setStopProfitInput("0");
-      setStopLossInput("0");
 
       isAutoBettingRef.current = false;
       setIsAutoBetting(false);
@@ -928,44 +911,6 @@ export default function DartsPage() {
                   />
                 </div>
               )}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Stop on Profit</label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
-                <input
-                  type="number"
-                  value={stopProfitInput}
-                  onChange={(e) => setStopProfitInput(e.target.value)}
-                  onBlur={() => {
-                    const raw = stopProfitInput.trim();
-                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
-                    setStopProfitInput(sanitized);
-                  }}
-                  disabled={isBusy}
-                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Stop on Loss</label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
-                <input
-                  type="number"
-                  value={stopLossInput}
-                  onChange={(e) => setStopLossInput(e.target.value)}
-                  onBlur={() => {
-                    const raw = stopLossInput.trim();
-                    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
-                    setStopLossInput(sanitized);
-                  }}
-                  disabled={isBusy}
-                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
-                />
-              </div>
             </div>
 
             {!isAutoBetting ? (

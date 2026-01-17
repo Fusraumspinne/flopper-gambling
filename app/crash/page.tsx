@@ -95,8 +95,6 @@ export default function CrashPage() {
   const [onLoseMode, setOnLoseMode] = useState<AutoAdjustMode>("reset");
   const [onWinPctInput, setOnWinPctInput] = useState<string>("0");
   const [onLosePctInput, setOnLosePctInput] = useState<string>("0");
-  const [stopProfitInput, setStopProfitInput] = useState<string>("0");
-  const [stopLossInput, setStopLossInput] = useState<string>("0");
 
   const targetRef = useRef<number>(2);
   const autoBaseBetRef = useRef<number>(100);
@@ -494,16 +492,6 @@ export default function CrashPage() {
   const shouldStopAuto = useCallback(() => {
     if (!isAutoBetting) return false;
 
-    const stopProfit = normalizeMoney(parseNumberLoose(stopProfitInput));
-    const stopLoss = normalizeMoney(parseNumberLoose(stopLossInput));
-
-    if (stopProfit > 0 && lastWin > 0) {
-        const roundProfit = normalizeMoney(lastWin - lastStakeRef.current);
-        if (roundProfit >= stopProfit) return true;
-    }
-
-    if (stopLoss > 0 && betAmount >= stopLoss) return true;
-
     if (betAmount <= 0) return true;
     if (betAmount > balance) return true;
 
@@ -511,7 +499,7 @@ export default function CrashPage() {
     if (!Number.isFinite(t) || t < MIN_TARGET) return true;
 
     return false;
-  }, [balance, betAmount, isAutoBetting, lastWin, stopLossInput, stopProfitInput]);
+  }, [balance, betAmount, isAutoBetting, lastWin]);
 
   const startRoundWithBet = useCallback(
     async (betValue: number) => {
@@ -642,8 +630,6 @@ export default function CrashPage() {
     setOnLoseMode("reset");
     setOnWinPctInput("0");
     setOnLosePctInput("0");
-    setStopProfitInput("0");
-    setStopLossInput("0");
 
     setHistory([]);
     resetBoard();
@@ -905,36 +891,6 @@ export default function CrashPage() {
                     />
                 </div>
               )}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Stop on Profit</label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
-                <input
-                  type="number"
-                  value={stopProfitInput}
-                  onChange={(e) => setStopProfitInput(e.target.value)}
-                  onBlur={() => setStopProfitInput((s) => s.trim().replace(/^0+(?=\d)/, "") || "0")}
-                  disabled={isBusy}
-                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
-                  />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Stop on Loss</label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
-                <input
-                  type="number"
-                  value={stopLossInput}
-                  onChange={(e) => setStopLossInput(e.target.value)}
-                  onBlur={() => setStopLossInput((s) => s.trim().replace(/^0+(?=\d)/, "") || "0")}
-                  disabled={isBusy}
-                  className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
-                  />
-              </div>
             </div>
 
             {!isAutoBetting ? (

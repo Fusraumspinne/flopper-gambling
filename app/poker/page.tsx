@@ -1865,8 +1865,9 @@ export default function PokerPage() {
         1,
         Math.floor(balance + playerRoundContribution)
       );
-      const betAnchor = Math.max(1, Math.floor(betAmount));
-      const maxRaiseByBet = Math.max(minR, betAnchor * 20);
+      const botMaxRaiseMultiplier = 20 + Math.floor(Math.random() * 11);
+      const betAnchor = bigBlind; 
+      const maxRaiseByBet = Math.max(minR, betAnchor * botMaxRaiseMultiplier);
       const maxRaiseByPlayer = Math.max(
         minR,
         Math.floor(playerEffective * 0.4 + betAnchor * 8)

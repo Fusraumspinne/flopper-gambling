@@ -13,7 +13,6 @@ function safeParseNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "string") return null;
 
-  // Supports JSON numeric strings, plain numeric strings, and ISO strings.
   const n = Number(value);
   if (Number.isFinite(n)) return n;
 
@@ -25,7 +24,6 @@ async function readStoredMs(primaryKey: string): Promise<number | null> {
   const raw = await getItem<string>(primaryKey);
   if (!raw) return null;
 
-  // Support JSON payloads from future versions.
   if (raw.trim().startsWith("{")) {
     try {
       const parsed = JSON.parse(raw) as Partial<StoredRewardState>;
@@ -33,7 +31,6 @@ async function readStoredMs(primaryKey: string): Promise<number | null> {
         return parsed.lastClaimAtMs;
       }
     } catch {
-      // ignore
     }
   }
 
@@ -50,7 +47,6 @@ async function ensureInitialized(primaryKey: string, legacyKeys: string[]) {
   const existing = await readStoredMs(primaryKey);
   if (existing !== null) return;
 
-  // Migrate: take the newest timestamp across all legacy keys.
   let bestMs: number | null = null;
   for (const key of legacyKeys) {
     const ms = await readStoredMs(key);
@@ -71,15 +67,12 @@ export function useHourlyReward(options?: { amountPerHour?: number; storageKeyPr
   const amountPerHour = options?.amountPerHour ?? 100;
   const prefix = options?.storageKeyPrefix ?? "flopper_hourly_reward";
 
-  // Single, human-readable key.
   const primaryKey = useMemo(() => `${prefix}_last_claim_v1`, [prefix]);
 
   const legacyKeys = useMemo(
     () => [
-      // Previous implementations used ISO strings in these keys.
       "flopper_free_last_claim_v2",
       "flopper_free_last_claim",
-      // Earlier hourly reward versions stored ms/iso in these keys.
       `${prefix}_last_claim_ms_v1`,
       `${prefix}_last_claim_ms_max_v1`,
     ],
@@ -98,17 +91,14 @@ export function useHourlyReward(options?: { amountPerHour?: number; storageKeyPr
       const storedMs = await readStoredMs(primaryKey);
       if (storedMs === null) return;
 
-      // First hydration must trust storage (avoid overwriting it with the initial in-memory value).
       if (!hydratedRef.current) {
         hydratedRef.current = true;
         setState({ lastClaimAtMs: storedMs });
         return;
       }
 
-      // After hydration, just reflect storage; do not write back here.
       setState({ lastClaimAtMs: storedMs });
     } catch {
-      // If storage is unavailable, keep current in-memory state.
     }
   }, [primaryKey, legacyKeys]);
 
@@ -151,12 +141,10 @@ export function useHourlyReward(options?: { amountPerHour?: number; storageKeyPr
         return 0;
       }
 
-      // Store the exact claim time so minutes/seconds update immediately.
       await writeStoredState(primaryKey, nowMs);
       setState({ lastClaimAtMs: nowMs });
       return amount;
     } catch {
-      // Fallback: use in-memory state (prevents multi-claim in same session).
       const baseMs = stateRef.current.lastClaimAtMs;
       const diff = nowMs - baseMs;
       const hours = Math.floor(diff / HOUR_MS);
