@@ -48,7 +48,7 @@ export default function WeeklyPotPanel() {
         <div>
           <h2 className="text-white font-semibold text-xl">Weekly payback</h2>
           <p className="text-sm text-[#b1bad3]">
-            Claim your weekly payback, available once per week.
+            Claim your weekly payback, available once per week (10% off your losses)
           </p>
         </div>
       </div>
