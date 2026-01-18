@@ -323,7 +323,9 @@ export default function PumpPage() {
     setCurrentStepIndex(0);
     setLastWin(0);
     setScale(1);
+    setCurrentStepIndex(0);
     setHasPumped(false);
+    setPlannedSafeSteps(null);
 
     const roll = Math.random() * 100;
 
@@ -457,9 +459,7 @@ export default function PumpPage() {
     resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
     window.setTimeout(() => {
       setIsFlyingAway(false);
-      setCurrentStepIndex(0);
       setHasPumped(false);
-      setPlannedSafeSteps(null);
     }, 900);
   };
 
@@ -498,11 +498,9 @@ export default function PumpPage() {
 
       setIsFlyingAway(false);
       setGameState("playing");
-      setCurrentStepIndex(0);
       setLastWin(0);
       setScale(1);
       setHasPumped(false);
-      setPlannedSafeSteps(null);
 
       const roll = Math.random() * 100;
       const safeIndex = data.findLastIndex((step) => roll <= step.probability);
@@ -1074,26 +1072,33 @@ export default function PumpPage() {
         <div className="w-full mt-4">
           <div ref={stepsScrollRef} className="w-full overflow-x-auto">
             <div className="flex items-center space-x-2 px-4 py-2">
-              {currentData.map((step, idx) => (
-                <div
-                  key={idx}
-                  ref={(el) => {
-                    stepRefs.current[idx] = el;
-                  }}
-                  className={`min-w-24 shrink-0 bg-[#213743] p-2 rounded-md border transition-transform ${
-                    idx === currentStepIndex
-                      ? "border-[#00e701] scale-105"
-                      : "border-[#2f4553]"
-                  }`}
-                >
-                  <div className="text-sm text-white font-bold text-center">
-                    {step.multiplier}x
+              {currentData.map((step, idx) => {
+                const isMaxPossible = plannedSafeSteps !== null && idx === plannedSafeSteps;
+                const isRoundOver = gameState === "popped" || gameState === "cashed_out";
+                let borderClass = "border-[#2f4553]";
+                if (idx === currentStepIndex) {
+                  borderClass = "border-[#6b21a8] scale-105";
+                }
+                if (isMaxPossible && isRoundOver) {
+                  borderClass = "border-[#00e701] scale-105";
+                }
+                return (
+                  <div
+                    key={idx}
+                    ref={(el) => {
+                      stepRefs.current[idx] = el;
+                    }}
+                    className={`min-w-24 shrink-0 bg-[#213743] p-2 rounded-md border-2 transition-transform ${borderClass}`}
+                  >
+                    <div className="text-sm text-white font-bold text-center">
+                      {step.multiplier}x
+                    </div>
+                    <div className="text-xs text-[#9fb0c6] mt-1 text-center">
+                      {formatProb(step.probability)}
+                    </div>
                   </div>
-                  <div className="text-xs text-[#9fb0c6] mt-1 text-center">
-                    {formatProb(step.probability)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

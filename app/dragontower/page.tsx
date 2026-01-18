@@ -1341,9 +1341,9 @@ export default function DragonTowerPage() {
                     ref={(el) => {
                       stepRefs.current[idx] = el;
                     }}
-                    className={`flex-1 min-w-0 bg-[#213743] p-2 rounded-md border transition-transform ${
+                    className={`flex-1 min-w-0 bg-[#213743] p-2 rounded-md border-2 transition-transform ${
                       idx === displayStepIndex
-                        ? "border-[#00e701] scale-105"
+                        ? "border-[#6b21a8] scale-105"
                         : "border-[#2f4553]"
                     }`}
                   >

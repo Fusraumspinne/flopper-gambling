@@ -5,6 +5,8 @@ import { WalletProvider } from "@/components/WalletProvider";
 import Shell from "@/components/Shell";
 import { SoundVolumeProvider } from "@/components/SoundVolumeProvider";
 import GiftClaimListener from "@/components/GiftClaimListener";
+import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +38,8 @@ export default function RootLayout({
             <Shell>
               <GiftClaimListener />
               {children}
+              <Analytics />
+              <SpeedInsights />
             </Shell>
           </SoundVolumeProvider>
         </WalletProvider>

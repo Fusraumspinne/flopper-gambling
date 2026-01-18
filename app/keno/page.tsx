@@ -202,7 +202,6 @@ export default function KenoPage() {
     if (isAnimating || isAutoBetting) return;
     if (isProcessingRef.current) return;
     
-    // Optimistic lock
     if (selectedNumbers.length >= 10 && !selectedNumbers.includes(num)) return;
     
     isProcessingRef.current = true;
@@ -1060,9 +1059,9 @@ export default function KenoPage() {
                     return (
                       <div
                         key={hits}
-                        className={`flex flex-col items-center p-2 rounded-md border text-center bg-[#213743] ${
+                        className={`flex flex-col items-center p-2 rounded-md border-2 text-center bg-[#213743] ${
                           isCurrent
-                            ? "border-[#00e701] scale-105"
+                            ? "border-[#6b21a8] scale-105"
                             : "border-[#2f4553]"
                         }`}
                       >

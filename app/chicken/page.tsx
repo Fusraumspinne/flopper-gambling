@@ -1862,9 +1862,25 @@ export default function ChickenPage() {
                       );
                     const multColor = getColorForMultiplier(info.multiplier);
 
-                    const pillClasses = isCurrent
-                      ? "bg-[#00e701] text-[#0b1b12]"
-                      : isVisited
+                    const isRoundOver = gameState === "crashed" || gameState === "cashed";
+                    const maxReachedStep = isRoundOver
+                      ? gameState === "crashed"
+                        ? deathAnim?.step ?? currentStep
+                        : currentStep
+                      : null;
+
+                    let borderClass = "border-[#101823]";
+                    let transformClass = "";
+                    if (isCurrent) {
+                      borderClass = "border-[#6b21a8]";
+                      transformClass = "scale-105";
+                    }
+                    if (isRoundOver && maxReachedStep === tileStep) {
+                      borderClass = "border-[#00e701]";
+                      transformClass = "scale-105";
+                    }
+
+                    const pillClasses = isVisited
                       ? "bg-[#1f2d3a] text-white"
                       : "bg-[#1f2d3a] text-[#e5e7eb]";
 
@@ -1885,8 +1901,8 @@ export default function ChickenPage() {
                           />
                         </div>
                         <div
-                          className={`mt-2 px-3 py-1 rounded-full text-[11px] font-extrabold shadow-[0_2px_0_#111a23] border border-[#101823] ${pillClasses}`}
-                          style={{ color: isCurrent ? "#0b1b12" : multColor }}
+                          className={`mt-2 px-3 py-1 rounded-full text-[11px] font-extrabold shadow-[0_2px_0_#111a23] border-2 transition-transform ${borderClass} ${pillClasses} ${transformClass}`}
+                          style={{ color: multColor }}
                         >
                           {formatMultiplier(info.multiplier)}x
                         </div>
@@ -1910,22 +1926,45 @@ export default function ChickenPage() {
                     className="flex flex-col items-center"
                     style={{ width: TILE_W }}
                   ></div>
-                  {steps.map((info) => (
-                    <div
-                      key={`meta-${info.step}`}
-                      className="flex flex-col items-center"
-                      style={{ width: TILE_W }}
-                    >
-                      <div className="bg-[#0f2a30] px-2 py-1 rounded-md border border-[#102428]">
-                        <div className="text-[11px] font-medium text-[#b1bad3]">
-                          {formatMultiplier(info.multiplier)}x
-                        </div>
-                        <div className="text-[9px] text-[#758295] mt-0.5">
-                          {formatChance(info.chance)}
+                  {steps.map((info) => {
+                    const tileStep = info.step;
+                    const isVisited = currentStep >= tileStep;
+                    const isCurrent = currentStep === tileStep && gameState === "walking";
+                    const isRoundOver = gameState === "crashed" || gameState === "cashed";
+                    const maxReachedStep = isRoundOver
+                      ? gameState === "crashed"
+                        ? deathAnim?.step ?? currentStep
+                        : currentStep
+                      : null;
+
+                    let borderClass = "border-[#102428]";
+                    let transformClass = "";
+                    if (isCurrent) {
+                      borderClass = "border-[#6b21a8]";
+                      transformClass = "scale-105";
+                    }
+                    if (isRoundOver && maxReachedStep === tileStep) {
+                      borderClass = "border-[#00e701]";
+                      transformClass = "scale-105";
+                    }
+
+                    return (
+                      <div
+                        key={`meta-${info.step}`}
+                        className="flex flex-col items-center"
+                        style={{ width: TILE_W }}
+                      >
+                        <div className={`bg-[#0f2a30] px-2 py-1 rounded-md border-2 transition-transform ${borderClass} ${transformClass}`}>
+                          <div className="text-[11px] font-medium text-[#b1bad3]">
+                            {formatMultiplier(info.multiplier)}x
+                          </div>
+                          <div className="text-[9px] text-[#758295] mt-0.5">
+                            {formatChance(info.chance)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
