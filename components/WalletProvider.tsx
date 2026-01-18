@@ -160,7 +160,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       betCountRef.current = 0;
 
       try {
-        const totalBalance = normalizeMoney(balanceRef.current);
+        const investmentValue = await getInvestmentValue();
+        const totalBalance = normalizeMoney(balanceRef.current + investmentValue);
         const updates = Array.from(snapshot.entries())
           .map(([game, upd]) => ({ game, ...upd }));
 
@@ -304,6 +305,27 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   const resetLiveStats = (gameId: GameKey = currentGameId) => {
     setLiveStatsByGame(prev => ({ ...prev, [gameId]: createEmptyLiveStats() }));
+  };
+
+  const getInvestmentValue = async (): Promise<number> => {
+    try {
+      const raw = await getItem<string>("flopper_investment_v1");
+      if (!raw) return 0;
+      const parsed = JSON.parse(raw);
+      if (typeof parsed.principal !== "number" || typeof parsed.startedAtMs !== "number") return 0;
+      
+      const HOUR_MS = 60 * 60 * 1000;
+      const RATE_PER_HOUR = 0.01;
+      const nowMs = Date.now();
+      
+      if (parsed.principal <= 0) return 0;
+      const elapsedMs = Math.max(0, nowMs - parsed.startedAtMs);
+      const hours = elapsedMs / HOUR_MS;
+      const value = parsed.principal * (1 + RATE_PER_HOUR * hours);
+      return normalizeMoney(value);
+    } catch {
+      return 0;
+    }
   };
 
   if (!isLoaded) return null;
