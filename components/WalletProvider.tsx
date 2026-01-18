@@ -114,10 +114,164 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   });
 
   const pendingBetsRef = useRef<number[]>([]);
+  const betCountRef = useRef<number>(0);
+  const syncTimerRef = useRef<number | null>(null);
   const pendingUpdatesRef = useRef<Map<GameKey, GameUpdate>>(new Map());
+  const flushInFlightRef = useRef<Promise<void> | null>(null);
+  const visibilityFlushQueuedRef = useRef(false);
   const pathname = usePathname();
   const currentGameId = useMemo(() => deriveGameId(pathname ?? "/"), [pathname]);
   const [lastBetAt, setLastBetAt] = useState<number | null>(null);
+
+  const SYNC_DEBOUNCE_MS = 5000;
+  const BETS_PER_SYNC = 25;
+
+  const mergeGameUpdate = (prev: GameUpdate | undefined, next: GameUpdate): GameUpdate => {
+    const merged: GameUpdate = { ...prev };
+
+    if (typeof next.profit === "number") {
+      merged.profit = Math.max(merged.profit ?? 0, next.profit);
+    }
+    if (typeof next.multi === "number") {
+      merged.multi = Math.max(merged.multi ?? 0, next.multi);
+    }
+    if (typeof next.loss === "number") {
+      merged.loss = Math.max(merged.loss ?? 0, next.loss);
+    }
+
+    return merged;
+  };
+
+  const queueUpdate = (meta: WinMeta | LossMeta) => {
+    const game = meta.game;
+    if (!game || game === "unknown" || game === "all") return;
+
+    const update: GameUpdate =
+      "loss" in meta
+        ? { loss: normalizeMoney(meta.loss) }
+        : {
+            profit: normalizeMoney(meta.profit),
+            multi: normalizeMoney(meta.multi),
+          };
+
+    pendingUpdatesRef.current.set(game, mergeGameUpdate(pendingUpdatesRef.current.get(game), update));
+  };
+
+  const clearSyncTimer = () => {
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible" && visibilityFlushQueuedRef.current) {
+        visibilityFlushQueuedRef.current = false;
+        void flushSync();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  const flushSync = async (): Promise<void> => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+      visibilityFlushQueuedRef.current = true;
+      return;
+    }
+    if (flushInFlightRef.current) return flushInFlightRef.current;
+
+    const run = (async () => {
+      clearSyncTimer();
+      const username = await getItem<string>("username");
+      if (!username) {
+        betCountRef.current = 0;
+        return;
+      }
+
+      const snapshot = new Map(pendingUpdatesRef.current);
+      pendingUpdatesRef.current.clear();
+
+      try {
+        const investmentValue = await getInvestmentValue();
+        const totalBalance = normalizeMoney(balanceRef.current + investmentValue);
+
+        const updates = Array.from(snapshot.entries())
+          .map(([game, upd]) => {
+            if (!upd) return null;
+            const payload: any = { game };
+            if (typeof upd.profit === "number" && upd.profit > 0) payload.profit = upd.profit;
+            if (typeof upd.multi === "number" && upd.multi > 0) payload.multi = upd.multi;
+            if (typeof upd.loss === "number" && upd.loss > 0) payload.loss = upd.loss;
+            if (!payload.profit && !payload.multi && !payload.loss) return null;
+            return payload;
+          })
+          .filter(Boolean);
+
+        await fetch("/api/user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: username, balance: totalBalance, updates }),
+        });
+
+        betCountRef.current = 0;
+      } catch (error) {
+        for (const [game, upd] of snapshot.entries()) {
+          pendingUpdatesRef.current.set(game, mergeGameUpdate(pendingUpdatesRef.current.get(game), upd));
+        }
+        console.error("Failed to sync balance", error);
+      }
+    })();
+
+    flushInFlightRef.current = run;
+    try {
+      await run;
+    } finally {
+      flushInFlightRef.current = null;
+    }
+  };
+
+  const scheduleSync = () => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+      visibilityFlushQueuedRef.current = true;
+      return;
+    }
+    clearSyncTimer();
+    syncTimerRef.current = window.setTimeout(() => {
+      void flushSync();
+    }, SYNC_DEBOUNCE_MS);
+  };
+
+  const getInvestmentValue = async (): Promise<number> => {
+    try {
+      const raw = await getItem<string>("flopper_investment_v1");
+      if (!raw) return 0;
+      const parsed = JSON.parse(raw);
+      if (typeof parsed.principal !== "number" || typeof parsed.startedAtMs !== "number") return 0;
+      
+      const HOUR_MS = 60 * 60 * 1000;
+      const RATE_PER_HOUR = 0.01;
+      const nowMs = Date.now();
+      
+      if (parsed.principal <= 0) return 0;
+      const elapsedMs = Math.max(0, nowMs - parsed.startedAtMs);
+      const hours = elapsedMs / HOUR_MS;
+      const value = parsed.principal * (1 + RATE_PER_HOUR * hours);
+      return normalizeMoney(value);
+    } catch {
+      return 0;
+    }
+  };
+
+  const syncBalance = async (): Promise<void> => {
+    try {
+      await flushSync();
+    } catch (error) {
+      console.error("Failed to sync balance", error);
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -176,6 +330,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     const next = normalizeMoney(balanceRef.current + a);
     balanceRef.current = next;
     setBalance(next);
+    scheduleSync();
   };
 
   const finalizePendingLoss = () => {
@@ -215,6 +370,12 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     balanceRef.current = next;
     setBalance(next);
     pendingBetsRef.current.push(a);
+    betCountRef.current += 1;
+    if (betCountRef.current >= BETS_PER_SYNC) {
+      void flushSync();
+    } else {
+      scheduleSync();
+    }
     setLastBetAt(Date.now());
     updateCurrentAndAll((s) => ({ ...s, wagered: normalizeMoney(s.wagered + a) }));
   };
@@ -225,6 +386,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     const next = normalizeMoney(balanceRef.current - a);
     balanceRef.current = next;
     setBalance(next);
+    scheduleSync();
     setLastBetAt(Date.now());
     return true;
   };
@@ -245,7 +407,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
-  const syncBalance = async () => { };
   const resetLiveStats = (gameId: GameKey = currentGameId) => {
      setLiveStatsByGame(prev => ({ ...prev, [gameId]: createEmptyLiveStats() }));
   };
