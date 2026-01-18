@@ -64,8 +64,6 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
     prevOpenRef.current = open;
     if (!open || wasOpen) return;
 
-    // When opening the panel, always default to All Games.
-    // Do NOT auto-switch when navigating to a different game route.
     setSelectedGameId("all");
   }, [open]);
 

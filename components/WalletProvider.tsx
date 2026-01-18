@@ -128,53 +128,20 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   const mergeGameUpdate = (prev: GameUpdate | undefined, next: GameUpdate): GameUpdate => {
     const merged: GameUpdate = { ...prev };
-
-    if (typeof next.profit === "number") {
-      merged.profit = Math.max(merged.profit ?? 0, next.profit);
-    }
-    if (typeof next.multi === "number") {
-      merged.multi = Math.max(merged.multi ?? 0, next.multi);
-    }
-    if (typeof next.loss === "number") {
-      merged.loss = Math.max(merged.loss ?? 0, next.loss);
-    }
-
+    if (typeof next.profit === "number") merged.profit = Math.max(merged.profit ?? 0, next.profit);
+    if (typeof next.multi === "number") merged.multi = Math.max(merged.multi ?? 0, next.multi);
+    if (typeof next.loss === "number") merged.loss = Math.max(merged.loss ?? 0, next.loss);
     return merged;
   };
 
   const queueUpdate = (meta: WinMeta | LossMeta) => {
     const game = meta.game;
     if (!game || game === "unknown" || game === "all") return;
-
-    const update: GameUpdate =
-      "loss" in meta
-        ? { loss: normalizeMoney(meta.loss) }
-        : {
-            profit: normalizeMoney(meta.profit),
-            multi: normalizeMoney(meta.multi),
-          };
-
+    const update: GameUpdate = "loss" in meta 
+        ? { loss: normalizeMoney(meta.loss) } 
+        : { profit: normalizeMoney(meta.profit), multi: normalizeMoney(meta.multi) };
     pendingUpdatesRef.current.set(game, mergeGameUpdate(pendingUpdatesRef.current.get(game), update));
   };
-
-  const clearSyncTimer = () => {
-    if (syncTimerRef.current) {
-      clearTimeout(syncTimerRef.current);
-      syncTimerRef.current = null;
-    }
-  };
-
-  useEffect(() => {
-    const onVis = () => {
-      if (document.visibilityState === "visible" && visibilityFlushQueuedRef.current) {
-        visibilityFlushQueuedRef.current = false;
-        void flushSync();
-      }
-    };
-
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
 
   const flushSync = async (): Promise<void> => {
     if (typeof document !== "undefined" && document.visibilityState === "hidden") {
@@ -184,93 +151,38 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     if (flushInFlightRef.current) return flushInFlightRef.current;
 
     const run = (async () => {
-      clearSyncTimer();
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
       const username = await getItem<string>("username");
-      if (!username) {
-        betCountRef.current = 0;
-        return;
-      }
+      if (!username) return;
 
       const snapshot = new Map(pendingUpdatesRef.current);
       pendingUpdatesRef.current.clear();
+      betCountRef.current = 0;
 
       try {
-        const investmentValue = await getInvestmentValue();
-        const totalBalance = normalizeMoney(balanceRef.current + investmentValue);
-
+        const totalBalance = normalizeMoney(balanceRef.current);
         const updates = Array.from(snapshot.entries())
-          .map(([game, upd]) => {
-            if (!upd) return null;
-            const payload: any = { game };
-            if (typeof upd.profit === "number" && upd.profit > 0) payload.profit = upd.profit;
-            if (typeof upd.multi === "number" && upd.multi > 0) payload.multi = upd.multi;
-            if (typeof upd.loss === "number" && upd.loss > 0) payload.loss = upd.loss;
-            if (!payload.profit && !payload.multi && !payload.loss) return null;
-            return payload;
-          })
-          .filter(Boolean);
+          .map(([game, upd]) => ({ game, ...upd }));
 
-        await fetch("/api/user", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: username, balance: totalBalance, updates }),
-        });
-
-        betCountRef.current = 0;
-      } catch (error) {
-        for (const [game, upd] of snapshot.entries()) {
-          pendingUpdatesRef.current.set(game, mergeGameUpdate(pendingUpdatesRef.current.get(game), upd));
+        if (updates.length > 0 || totalBalance !== 0) {
+          await fetch("/api/user", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: username, balance: totalBalance, updates }),
+          });
         }
+      } catch (error) {
         console.error("Failed to sync balance", error);
       }
     })();
 
     flushInFlightRef.current = run;
-    try {
-      await run;
-    } finally {
-      flushInFlightRef.current = null;
-    }
+    try { await run; } finally { flushInFlightRef.current = null; }
   };
 
   const scheduleSync = () => {
-    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
-      visibilityFlushQueuedRef.current = true;
-      return;
-    }
-    clearSyncTimer();
-    syncTimerRef.current = window.setTimeout(() => {
-      void flushSync();
-    }, SYNC_DEBOUNCE_MS);
-  };
-
-  const getInvestmentValue = async (): Promise<number> => {
-    try {
-      const raw = await getItem<string>("flopper_investment_v1");
-      if (!raw) return 0;
-      const parsed = JSON.parse(raw);
-      if (typeof parsed.principal !== "number" || typeof parsed.startedAtMs !== "number") return 0;
-      
-      const HOUR_MS = 60 * 60 * 1000;
-      const RATE_PER_HOUR = 0.01;
-      const nowMs = Date.now();
-      
-      if (parsed.principal <= 0) return 0;
-      const elapsedMs = Math.max(0, nowMs - parsed.startedAtMs);
-      const hours = elapsedMs / HOUR_MS;
-      const value = parsed.principal * (1 + RATE_PER_HOUR * hours);
-      return normalizeMoney(value);
-    } catch {
-      return 0;
-    }
-  };
-
-  const syncBalance = async (): Promise<void> => {
-    try {
-      await flushSync();
-    } catch (error) {
-      console.error("Failed to sync balance", error);
-    }
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = window.setTimeout(() => { void flushSync(); }, SYNC_DEBOUNCE_MS);
   };
 
   useEffect(() => {
@@ -280,17 +192,11 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         await clearStore();
         balanceRef.current = 1000.0;
         setBalance(1000.0);
-        setWeeklyPot(0);
-        setLastClaim(0);
         await setItem(BALANCE_KEY, "1000.00");
-        await setItem(POT_KEY, "0");
-        await setItem(LAST_CLAIM_KEY, "0");
         await setItem(VERIFIED_VERSION, "true");
       } else {
         const [storedBal, storedPot, storedClaim] = await Promise.all([
-          getItem<string>(BALANCE_KEY),
-          getItem<string>(POT_KEY),
-          getItem<string>(LAST_CLAIM_KEY)
+          getItem<string>(BALANCE_KEY), getItem<string>(POT_KEY), getItem<string>(LAST_CLAIM_KEY)
         ]);
         if (storedBal) {
           balanceRef.current = normalizeMoney(parseFloat(storedBal));
@@ -308,93 +214,10 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => { if (isLoaded) setItem(POT_KEY, weeklyPot.toString()); }, [weeklyPot, isLoaded]);
   useEffect(() => { if (isLoaded) setItem(LAST_CLAIM_KEY, lastClaim.toString()); }, [lastClaim, isLoaded]);
 
-  const addPayback = (netLoss: number) => {
-    if (netLoss <= 0) return;
-    const amount = normalizeMoney(netLoss * PAYBACK_RATE);
-    setWeeklyPot(prev => normalizeMoney(prev + amount));
-  };
-
-  const claimWeeklyPot = async () => {
-    const now = Date.now();
-    if (now - lastClaim < WEEK_MS) return { success: false, error: "7 Tage Sperre aktiv." };
-    if (weeklyPot <= 0) return { success: false, error: "Pot ist leer." };
-    creditBalance(weeklyPot);
-    setWeeklyPot(0);
-    setLastClaim(now);
-    return { success: true };
-  };
-
-  const creditBalance = (amount: number) => {
-    const a = normalizeMoney(amount);
-    if (a <= 0) return;
-    const next = normalizeMoney(balanceRef.current + a);
-    balanceRef.current = next;
-    setBalance(next);
-    scheduleSync();
-  };
-
-  const finalizePendingLoss = () => {
-    const bet = pendingBetsRef.current.shift();
-    if (typeof bet !== "number") return;
-    
-    updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
-    applyNetChange(-normalizeMoney(bet));
-    addPayback(bet);
-  };
-
-  const addToBalance = (amount: number) => {
-    const payout = normalizeMoney(amount);
-    const bet = pendingBetsRef.current.shift();
-    
-    const next = normalizeMoney(balanceRef.current + payout);
-    balanceRef.current = next;
-    setBalance(next);
-
-    if (typeof bet === "number") {
-      const roundNet = normalizeMoney(payout - bet);
-      applyNetChange(roundNet);
-      
-      if (roundNet > 0) {
-        updateCurrentAndAll((s) => ({ ...s, wins: s.wins + 1 }));
-      } else if (roundNet < 0) {
-        updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
-        addPayback(Math.abs(roundNet));
-      }
-    }
-  };
-
-  const subtractFromBalance = (amount: number) => {
-    const a = normalizeMoney(amount);
-    if (a <= 0 || a > balanceRef.current) return;
-    const next = normalizeMoney(balanceRef.current - a);
-    balanceRef.current = next;
-    setBalance(next);
-    pendingBetsRef.current.push(a);
-    betCountRef.current += 1;
-    if (betCountRef.current >= BETS_PER_SYNC) {
-      void flushSync();
-    } else {
-      scheduleSync();
-    }
-    setLastBetAt(Date.now());
-    updateCurrentAndAll((s) => ({ ...s, wagered: normalizeMoney(s.wagered + a) }));
-  };
-
-  const debitBalance = (amount: number): boolean => {
-    const a = normalizeMoney(amount);
-    if (a <= 0 || a > balanceRef.current) return false;
-    const next = normalizeMoney(balanceRef.current - a);
-    balanceRef.current = next;
-    setBalance(next);
-    scheduleSync();
-    setLastBetAt(Date.now());
-    return true;
-  };
-
   const updateCurrentAndAll = (updater: (prev: LiveStatsState, now: number) => LiveStatsState) => {
     const now = Date.now();
     setLiveStatsByGame((prev) => {
-      const apply = (key: GameKey) => updater(prev[key] ?? createEmptyLiveStats(), now);
+      const apply = (key: GameKey) => updater(prev[key] || createEmptyLiveStats(), now);
       return { ...prev, [currentGameId]: apply(currentGameId), all: apply("all") };
     });
   };
@@ -407,8 +230,80 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
+  const addToBalance = (amount: number) => {
+    const payout = normalizeMoney(amount);
+    const bet = pendingBetsRef.current.shift();
+    const next = normalizeMoney(balanceRef.current + payout);
+    balanceRef.current = next;
+    setBalance(next);
+
+    if (typeof bet === "number") {
+      const roundNet = normalizeMoney(payout - bet);
+      applyNetChange(roundNet);
+      if (roundNet > 0) {
+        updateCurrentAndAll((s) => ({ ...s, wins: s.wins + 1 }));
+        queueUpdate({ game: currentGameId, profit: roundNet, multi: normalizeMoney(payout / bet) });
+      } else if (roundNet < 0) {
+        updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
+        setWeeklyPot(prev => normalizeMoney(prev + Math.abs(roundNet) * PAYBACK_RATE));
+        queueUpdate({ game: currentGameId, loss: Math.abs(roundNet) });
+      }
+    }
+    scheduleSync();
+  };
+
+  const subtractFromBalance = (amount: number) => {
+    const a = normalizeMoney(amount);
+    if (a <= 0 || a > balanceRef.current) return;
+    const next = normalizeMoney(balanceRef.current - a);
+    balanceRef.current = next;
+    setBalance(next);
+    pendingBetsRef.current.push(a);
+    betCountRef.current += 1;
+    setLastBetAt(Date.now());
+    updateCurrentAndAll((s) => ({ ...s, wagered: normalizeMoney(s.wagered + a) }));
+    if (betCountRef.current >= BETS_PER_SYNC) void flushSync(); else scheduleSync();
+  };
+
+  const finalizePendingLoss = () => {
+    const bet = pendingBetsRef.current.shift();
+    if (typeof bet !== "number") return;
+    updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
+    applyNetChange(-normalizeMoney(bet));
+    setWeeklyPot(prev => normalizeMoney(prev + bet * PAYBACK_RATE));
+    queueUpdate({ game: currentGameId, loss: normalizeMoney(bet) });
+    scheduleSync();
+  };
+
+  const creditBalance = (amount: number) => {
+    const a = normalizeMoney(amount);
+    balanceRef.current = normalizeMoney(balanceRef.current + a);
+    setBalance(balanceRef.current);
+    scheduleSync();
+  };
+
+  const debitBalance = (amount: number): boolean => {
+    const a = normalizeMoney(amount);
+    if (a <= 0 || a > balanceRef.current) return false;
+    balanceRef.current = normalizeMoney(balanceRef.current - a);
+    setBalance(balanceRef.current);
+    setLastBetAt(Date.now());
+    scheduleSync();
+    return true;
+  };
+
+  const claimWeeklyPot = async () => {
+    const now = Date.now();
+    if (now - lastClaim < WEEK_MS) return { success: false, error: "7 Tage Sperre aktiv." };
+    if (weeklyPot <= 0) return { success: false, error: "Pot ist leer." };
+    creditBalance(weeklyPot);
+    setWeeklyPot(0);
+    setLastClaim(now);
+    return { success: true };
+  };
+
   const resetLiveStats = (gameId: GameKey = currentGameId) => {
-     setLiveStatsByGame(prev => ({ ...prev, [gameId]: createEmptyLiveStats() }));
+    setLiveStatsByGame(prev => ({ ...prev, [gameId]: createEmptyLiveStats() }));
   };
 
   if (!isLoaded) return null;
@@ -416,11 +311,10 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <WalletContext.Provider
       value={{
-        balance, weeklyPot, lastClaim,
-        addToBalance, subtractFromBalance, creditBalance, debitBalance,
+        balance, weeklyPot, lastClaim, addToBalance, subtractFromBalance, creditBalance, debitBalance,
         liveStats: liveStatsByGame[currentGameId] || liveStatsByGame.all,
         liveStatsByGame, currentGameId, resetLiveStats, finalizePendingLoss,
-        syncBalance, lastBetAt, claimWeeklyPot
+        syncBalance: flushSync, lastBetAt, claimWeeklyPot
       }}
     >
       {children}
