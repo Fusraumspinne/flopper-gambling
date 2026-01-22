@@ -7,6 +7,7 @@ import { SoundVolumeProvider } from "@/components/SoundVolumeProvider";
 import GiftClaimListener from "@/components/GiftClaimListener";
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import Wartungspause from "@/components/Wartungspause";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,16 +34,20 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#1a2c38] text-[#b1bad3]`}
       >
-        <WalletProvider>
-          <SoundVolumeProvider>
-            <Shell>
-              <GiftClaimListener />
-              {children}
-              <Analytics />
-              <SpeedInsights />
-            </Shell>
-          </SoundVolumeProvider>
-        </WalletProvider>
+        {false ? (
+          <WalletProvider>
+            <SoundVolumeProvider>
+              <Shell>
+                <GiftClaimListener />
+                {children}
+                <Analytics />
+                <SpeedInsights />
+              </Shell>
+            </SoundVolumeProvider>
+          </WalletProvider>
+        ) : (
+          <Wartungspause/>
+        )}
       </body>
     </html>
   );
