@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       const created = await User.create({
         name,
         password: "",
-        balance: typeof balance === "number" ? normalizeMoney(balance) : 0,
+        balance: 0,
         invest: 0,
         lastDailyReward: now,
         weeklyPayback: 0,

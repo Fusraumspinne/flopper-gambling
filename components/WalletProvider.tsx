@@ -334,8 +334,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       const baseStats = createEmptyLiveStatsByGame();
 
       if (!username) {
-        balanceRef.current = 1000.0;
-        setBalance(1000.0);
+        balanceRef.current = 0.0;
+        setBalance(0.0);
         setLastClaim(Date.now());
         setLastDailyRewardState(Date.now());
         setWeeklyPayback(0);
@@ -355,13 +355,13 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
             body: JSON.stringify({
               name: username,
               createOnly: true,
-              balance: 1000,
+              balance: 0,
               lastPot: now,
               investment: { principal: 0, startedAtMs: now },
             }),
           });
-          balanceRef.current = 1000.0;
-          setBalance(1000.0);
+          balanceRef.current = 0.0;
+          setBalance(0.0);
           setLastClaim(now);
           setLastDailyRewardState(now);
           setWeeklyPayback(0);
@@ -374,7 +374,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
-        const nextBalance = typeof data.balance === "number" ? normalizeMoney(data.balance) : 1000;
+        const nextBalance = typeof data.balance === "number" ? normalizeMoney(data.balance) : 0;
         balanceRef.current = nextBalance;
         setBalance(nextBalance);
 
@@ -415,8 +415,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         setLiveStatsByGame(baseStats);
       } catch (error) {
         console.error("Failed to load user data", error);
-        balanceRef.current = 1000.0;
-        setBalance(1000.0);
+        balanceRef.current = 0.0;
+        setBalance(0.0);
         setLastClaim(Date.now());
         setLastDailyRewardState(Date.now());
         setWeeklyPayback(0);
