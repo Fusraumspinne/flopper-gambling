@@ -17,6 +17,7 @@ export async function POST(req: any){
             password: hashedPassword,
             balance: 1000,
             invest: 0,
+            lastCheckedInvest: Date.now(),
             lastDailyReward: now,
             weeklyPayback: 0,
             lastWeeklyPayback: now,

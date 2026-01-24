@@ -19,6 +19,10 @@ const userSchema = new Schema(
       type: Number,
       required: true,
     },
+    lastCheckedInvest: {
+      type: Number,
+      required: true,
+    },
     lastDailyReward: {
       type: Date,
       required: true,

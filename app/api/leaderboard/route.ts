@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectMongoDB } from "@/lib/mongodb";
 import User from "@/models/user";
-import UserMeta from "@/models/userMeta";
 
 export const dynamic = 'force-dynamic';
 
@@ -9,8 +8,6 @@ export async function GET() {
   try {
     await connectMongoDB();
     const users = await User.find();
-    const metas = await UserMeta.find();
-    const metaByName = new Map(metas.map((m) => [m.name, m]));
 
     const normalizeMoney = (value: number): number => {
       if (!Number.isFinite(value)) return 0;
@@ -32,9 +29,8 @@ export async function GET() {
 
     const mapped = users
       .map((user) => {
-        const meta = metaByName.get(user.name);
-        const principal = Number(meta?.investment?.principal ?? 0);
-        const startedAtMs = Number(meta?.investment?.startedAtMs ?? Date.now());
+        const principal = Number(user?.invest ?? 0);
+        const startedAtMs = Number(user?.lastCheckedInvest ?? Date.now());
         const investmentValue = computeInvestmentValue(principal, startedAtMs);
         const balance = Number(user?.balance ?? 0);
         return {
