@@ -1,13 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { WalletProvider } from "@/components/WalletProvider";
-import Shell from "@/components/Shell";
-import { SoundVolumeProvider } from "@/components/SoundVolumeProvider";
-import GiftClaimListener from "@/components/GiftClaimListener";
-import { Analytics } from "@vercel/analytics/next"
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import LayoutWrapper from "@/components/LayoutWrapper";
 import Wartungspause from "@/components/Wartungspause";
+import { AuthProvider } from "@/app/providers"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,24 +25,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isMaintenance = false;
+
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#1a2c38] text-[#b1bad3]`}
-      >
-        {false ? (
-          <WalletProvider>
-            <SoundVolumeProvider>
-              <Shell>
-                <GiftClaimListener />
-                {children}
-                <Analytics />
-                <SpeedInsights />
-              </Shell>
-            </SoundVolumeProvider>
-          </WalletProvider>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#1a2c38] text-[#b1bad3]`}>
+        {isMaintenance ? (
+          <Wartungspause />
         ) : (
-          <Wartungspause/>
+          <LayoutWrapper>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </LayoutWrapper>
         )}
       </body>
     </html>
