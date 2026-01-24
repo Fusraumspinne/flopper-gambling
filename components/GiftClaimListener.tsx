@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getItem } from "@/lib/indexedDB";
+import { useSession } from "next-auth/react";
 import { useWallet } from "@/components/WalletProvider";
 
 function normalizeMoney(value: number): number {
@@ -22,16 +22,18 @@ function formatSenderList(senders: string[]): string {
 
 export default function GiftClaimListener() {
   const { creditBalance, syncBalance } = useWallet();
+  const { data: session, status } = useSession();
 
   const [open, setOpen] = useState(false);
   const [total, setTotal] = useState(0);
   const [senders, setSenders] = useState<string[]>([]);
 
   useEffect(() => {
+    if (status === "loading") return;
     let cancelled = false;
 
     (async () => {
-      const username = await getItem<string>("username");
+      const username = session?.user?.name;
       if (!username) return;
 
       try {
@@ -62,7 +64,7 @@ export default function GiftClaimListener() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [session?.user?.name, status]);
 
   if (!open) return null;
 

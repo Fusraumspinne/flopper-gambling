@@ -33,11 +33,11 @@ export default function RootLayout({
         {isMaintenance ? (
           <Wartungspause />
         ) : (
-          <LayoutWrapper>
-            <AuthProvider>
+          <AuthProvider>
+            <LayoutWrapper>
               {children}
-            </AuthProvider>
-          </LayoutWrapper>
+            </LayoutWrapper>
+          </AuthProvider>
         )}
       </body>
     </html>

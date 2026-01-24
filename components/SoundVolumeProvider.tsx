@@ -1,7 +1,6 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { getItem, setItem } from "../lib/indexedDB";
 
 type SoundVolumeContextValue = {
   volume: number; 
@@ -43,34 +42,38 @@ function installGlobalPlayHook() {
 
 export function SoundVolumeProvider({ children }: { children: React.ReactNode }) {
   const [volume, setVolumeState] = useState<number>(DEFAULT_VOLUME);
-  const hydratedRef = React.useRef(false);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   const setVolume = (next: number) => {
     setVolumeState(clamp01(next));
   };
 
+  // Load from localStorage on mount
   useEffect(() => {
-    getItem<string | number>(STORAGE_KEY).then((raw) => {
-      if (raw != null) {
-        const n = Number(raw);
-        if (Number.isFinite(n)) {
-          setVolumeState(clamp01(n));
-        }
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw !== null) {
+      const n = Number(raw);
+      if (Number.isFinite(n)) {
+        setVolumeState(clamp01(n));
       }
-      hydratedRef.current = true;
-      (window as any).__flopper_sound_volume__ = clamp01(Number(raw ?? DEFAULT_VOLUME));
-    });
+    }
+    setIsHydrated(true);
   }, []);
 
   useEffect(() => {
     installGlobalPlayHook();
   }, []);
 
+  // Save to localStorage when volume changes, but ONLY after hydration
   useEffect(() => {
-    if (!hydratedRef.current) return;
-    setItem(STORAGE_KEY, String(volume));
-    (window as any).__flopper_sound_volume__ = volume;
-  }, [volume]);
+    if (!isHydrated) return;
+    
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, String(volume));
+      (window as any).__flopper_sound_volume__ = volume;
+    }
+  }, [volume, isHydrated]);
 
   const value = useMemo<SoundVolumeContextValue>(() => ({ volume, setVolume }), [volume]);
 

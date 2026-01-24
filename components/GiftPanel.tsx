@@ -1,17 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getItem } from "@/lib/indexedDB";
+import { useSession } from "next-auth/react";
 import { useWallet } from "@/components/WalletProvider";
 
-const STORAGE_KEY = "flopper_investment_v1";
 const HOUR_MS = 60 * 60 * 1000;
 const RATE_PER_HOUR = 0.01;
-
-type StoredInvestment = {
-  principal: number;
-  startedAtMs: number;
-};
 
 function normalizeMoney(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -33,21 +27,9 @@ function computeCurrentValue(principal: number, startedAtMs: number, nowMs: numb
   return normalizeMoney(value);
 }
 
-async function readStoredInvestment(): Promise<StoredInvestment | null> {
-  try {
-    const raw = await getItem<string>(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<StoredInvestment>;
-    if (typeof parsed.principal !== "number" || typeof parsed.startedAtMs !== "number") return null;
-    if (!Number.isFinite(parsed.principal) || !Number.isFinite(parsed.startedAtMs)) return null;
-    return { principal: normalizeMoney(parsed.principal), startedAtMs: parsed.startedAtMs };
-  } catch {
-    return null;
-  }
-}
-
 export default function GiftPanel() {
-  const { balance, debitBalance } = useWallet();
+  const { balance, debitBalance, investment } = useWallet();
+  const { data: session } = useSession();
 
   const [username, setUsername] = useState<string | null>(null);
   const [recipient, setRecipient] = useState("");
@@ -58,10 +40,8 @@ export default function GiftPanel() {
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
-    getItem<string>("username").then((name) => {
-      setUsername(name ?? null);
-    });
-  }, []);
+    setUsername(session?.user?.name ?? null);
+  }, [session?.user?.name]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 1500);
@@ -70,19 +50,12 @@ export default function GiftPanel() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const stored = await readStoredInvestment();
-      if (!stored) {
-        if (!cancelled) setInvestmentValue(0);
-        return;
-      }
-      const value = computeCurrentValue(stored.principal, stored.startedAtMs, nowMs);
-      if (!cancelled) setInvestmentValue(value);
-    })();
+    const value = computeCurrentValue(investment.principal, investment.startedAtMs, nowMs);
+    if (!cancelled) setInvestmentValue(value);
     return () => {
       cancelled = true;
     };
-  }, [nowMs, balance]);
+  }, [nowMs, balance, investment.principal, investment.startedAtMs]);
 
   const totalAssets = useMemo(() => normalizeMoney(balance + investmentValue), [balance, investmentValue]);
   const showPanel = totalAssets > 5000;

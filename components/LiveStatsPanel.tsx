@@ -11,7 +11,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import PlayTimeTracker from "./PlayTimeTracker";
 import { Close, RestartAlt, QueryStats } from "@mui/icons-material";
 import { DROPDOWN_GAME_OPTIONS, useWallet } from "./WalletProvider";
 
@@ -21,6 +20,7 @@ type LiveStatsPanelProps = {
 };
 
 type StoredPos = { x: number; y: number };
+const POS_KEY = "flopper_livestats_pos_v1";
 
 function formatMoney(n: number) {
   const sign = n < 0 ? "-" : "";
@@ -53,8 +53,23 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
   const prevOpenRef = useRef<boolean>(open);
 
   useEffect(() => {
-    const x = Math.max(24, Math.floor(window.innerWidth * 0.22));
-    const y = 80;
+    let x = Math.max(24, Math.floor(window.innerWidth * 0.22));
+    let y = 80;
+
+    if (typeof window !== "undefined") {
+      const raw = window.localStorage.getItem(POS_KEY);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as Partial<StoredPos>;
+          if (typeof parsed.x === "number" && typeof parsed.y === "number") {
+            x = parsed.x;
+            y = parsed.y;
+          }
+        } catch {
+        }
+      }
+    }
+
     setPos({ x, y });
     setMounted(true);
   }, []);
@@ -131,6 +146,9 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
   const onStop = (_e: DraggableEvent, data: DraggableData) => {
     const nextPos = { x: data.x, y: data.y };
     setPos(nextPos);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(POS_KEY, JSON.stringify(nextPos));
+    }
   };
 
   if (!open || !mounted) return null;
@@ -233,8 +251,6 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
                 </ResponsiveContainer>
               </div>
             </div>
-
-            <PlayTimeTracker />
 
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs text-[#557086]">Start: {new Date(selectedStats.startedAt).toLocaleString()}</div>

@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectMongoDB } from "@/lib/mongodb";
 import User from "@/models/user";
+import UserMeta from "@/models/userMeta";
 import HighestProfit from "@/models/highestProfit";
 import HighestMultiplier from "@/models/highestMultiplier";
 import HighestLoss from "@/models/highestLoss";
+import Gift from "@/models/gift";
 
 function normalizeMoney(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -11,10 +14,65 @@ function normalizeMoney(value: number): number {
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 
+function sanitizeInvestment(input: any) {
+  if (!input || typeof input !== "object") return undefined;
+  const principal = Number(input.principal);
+  const startedAtMs = Number(input.startedAtMs);
+  if (!Number.isFinite(principal) || !Number.isFinite(startedAtMs)) return undefined;
+  return {
+    principal: normalizeMoney(principal),
+    startedAtMs: Math.floor(startedAtMs),
+  };
+}
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const name = searchParams.get("name");
+    if (!name) {
+      return NextResponse.json({ message: "Invalid name" }, { status: 400 });
+    }
+
+    await connectMongoDB();
+    const user = await User.findOne({ name: name.trim() });
+    if (!user) {
+      return NextResponse.json({ message: "User not found" }, { status: 404 });
+    }
+
+    const meta = await UserMeta.findOne({ name: name.trim() });
+
+    const res = NextResponse.json({
+      name: user.name,
+      balance: typeof user.balance === "number" ? user.balance : 0,
+      lastDailyReward: user.lastDailyReward ? new Date(user.lastDailyReward).getTime() : 0,
+      weeklyPayback: typeof user.weeklyPayback === "number" ? user.weeklyPayback : 0,
+      lastWeeklyPayback: user.lastWeeklyPayback ? new Date(user.lastWeeklyPayback).getTime() : 0,
+      lastPot: meta?.lastPot ? new Date(meta.lastPot).getTime() : 0,
+      investment: meta?.investment ?? { principal: 0, startedAtMs: Date.now() },
+    });
+    res.headers.set("Cache-Control", "private, no-store");
+    return res;
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    return NextResponse.json({ message: "Error fetching user" }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, balance, createOnly } = body ?? {};
+    const {
+      name,
+      balance,
+      balanceDelta,
+      weeklyPayback,
+      weeklyPaybackDelta,
+      lastDailyReward,
+      lastWeeklyPayback,
+      lastPot,
+      investment,
+      createOnly,
+    } = body ?? {};
     if (typeof name !== "string") {
       return NextResponse.json({ message: "Invalid name" }, { status: 400 });
     }
@@ -26,16 +84,63 @@ export async function POST(req: Request) {
       if (existing) {
         return NextResponse.json({ message: "Name already exists" }, { status: 409 });
       }
-      const created = await User.create({ name, balance: typeof balance === 'number' ? balance : 0 });
+      const now = new Date();
+      const created = await User.create({
+        name,
+        password: "",
+        balance: typeof balance === "number" ? normalizeMoney(balance) : 0,
+        invest: 0,
+        lastDailyReward: now,
+        weeklyPayback: 0,
+        lastWeeklyPayback: now,
+      });
+
+      await UserMeta.create({
+        name,
+        lastPot: typeof lastPot === "number" ? new Date(lastPot) : now,
+        investment: sanitizeInvestment(investment) ?? { principal: 0, startedAtMs: Date.now() },
+      });
       return NextResponse.json(created, { status: 201 });
     }
 
-    const nextBalance = typeof balance === "number" ? normalizeMoney(balance) : undefined;
-    const user = await User.findOneAndUpdate(
-      { name },
-      typeof nextBalance === "number" ? { balance: nextBalance } : {},
-      { new: true, upsert: true }
-    );
+    const update: Record<string, any> = {};
+    const inc: Record<string, number> = {};
+    const set: Record<string, any> = {};
+
+    if (typeof balance === "number") set.balance = normalizeMoney(balance);
+    if (typeof balanceDelta === "number") inc.balance = normalizeMoney(balanceDelta);
+    if (typeof weeklyPayback === "number") {
+      set.weeklyPayback = normalizeMoney(weeklyPayback);
+    } else if (typeof weeklyPaybackDelta === "number") {
+      inc.weeklyPayback = normalizeMoney(weeklyPaybackDelta);
+    }
+    if (typeof lastDailyReward === "number" && Number.isFinite(lastDailyReward)) {
+      set.lastDailyReward = new Date(lastDailyReward);
+    }
+    if (typeof lastWeeklyPayback === "number" && Number.isFinite(lastWeeklyPayback)) {
+      set.lastWeeklyPayback = new Date(lastWeeklyPayback);
+    }
+    const sanitizedInvestment = sanitizeInvestment(investment);
+    const metaSet: Record<string, any> = {};
+    if (typeof lastPot === "number" && Number.isFinite(lastPot)) {
+      metaSet.lastPot = new Date(lastPot);
+    }
+    if (sanitizedInvestment) metaSet.investment = sanitizedInvestment;
+
+    if (Object.keys(inc).length) update.$inc = inc;
+    if (Object.keys(set).length) update.$set = set;
+
+    const user = Object.keys(update).length
+      ? await User.findOneAndUpdate({ name }, update, { new: true, upsert: true })
+      : await User.findOne({ name });
+
+    if (Object.keys(metaSet).length) {
+      await UserMeta.findOneAndUpdate(
+        { name },
+        { $set: metaSet },
+        { new: true, upsert: true }
+      );
+    }
 
     const updates: Array<{ game: unknown; profit?: unknown; multi?: unknown; loss?: unknown }> =
       Array.isArray(body?.updates)
@@ -109,7 +214,7 @@ export async function POST(req: Request) {
       if (ops.length) await Promise.all(ops);
     }
 
-    const res = NextResponse.json(user);
+    const res = NextResponse.json(user ?? { name });
     res.headers.set("Cache-Control", "private, no-store");
     return res;
   } catch (error) {
@@ -150,6 +255,16 @@ export async function PATCH(req: Request) {
     if (!updated) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
+
+    // Rename in all related collections
+    await Promise.all([
+      UserMeta.updateMany({ name: from }, { name: to }),
+      HighestProfit.updateMany({ name: from }, { name: to }),
+      HighestMultiplier.updateMany({ name: from }, { name: to }),
+      HighestLoss.updateMany({ name: from }, { name: to }),
+      Gift.updateMany({ sender: from }, { sender: to }),
+      Gift.updateMany({ recipient: from }, { recipient: to }),
+    ]);
 
     const res = NextResponse.json(updated);
     res.headers.set("Cache-Control", "private, no-store");

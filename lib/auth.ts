@@ -27,12 +27,21 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   pages: { signIn: "/login" },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) token.id = user.id;
+    async jwt({ token, user, trigger, session }) {
+      if (user) {
+        token.id = user.id;
+        token.name = user.name;
+      }
+      if (trigger === "update" && session?.name) {
+        token.name = session.name;
+      }
       return token;
     },
     async session({ session, token }) {
-      if (session.user) (session.user as any).id = token.id;
+      if (session.user) {
+        (session.user as any).id = token.id;
+        session.user.name = token.name;
+      }
       return session;
     },
   },

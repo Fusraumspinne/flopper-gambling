@@ -30,7 +30,7 @@ const userSchema = new Schema(
     lastWeeklyPayback: {
       type: Date,
       required: true,
-    },
+    }
   },
   { timestamps: true }
 )

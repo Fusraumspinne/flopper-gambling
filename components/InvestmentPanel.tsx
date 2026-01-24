@@ -1,18 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
-import { getItem, setItem, removeItem } from "../lib/indexedDB";
 
 const HOUR_MS = 60 * 60 * 1000;
 const RATE_PER_HOUR = 0.01;
-
-const STORAGE_KEY = "flopper_investment_v1";
-
-type StoredInvestment = {
-  principal: number;
-  startedAtMs: number;
-};
 
 function normalizeMoney(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -37,78 +29,26 @@ function computeCurrentValue(principal: number, startedAtMs: number, nowMs: numb
   return normalizeMoney(totalValue);
 }
 
-async function readStored(): Promise<StoredInvestment | null> {
-  try {
-    const raw = await getItem<string>(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<StoredInvestment>;
-    if (typeof parsed.principal !== "number" || typeof parsed.startedAtMs !== "number") return null;
-    if (!Number.isFinite(parsed.principal) || !Number.isFinite(parsed.startedAtMs)) return null;
-    return {
-      principal: normalizeMoney(parsed.principal),
-      startedAtMs: parsed.startedAtMs,
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function writeStored(next: StoredInvestment | null) {
-  try {
-    if (!next || next.principal <= 0) {
-      await removeItem(STORAGE_KEY);
-      return;
-    }
-    await setItem(
-      STORAGE_KEY,
-      JSON.stringify({ principal: normalizeMoney(next.principal), startedAtMs: Math.floor(next.startedAtMs) })
-    );
-  } catch {
-  }
-}
-
 export default function InvestmentPanel() {
-  const { balance, creditBalance, debitBalance } = useWallet();
+  const { balance, creditBalance, debitBalance, investment, updateInvestment } = useWallet();
 
-  const [principal, setPrincipal] = useState(0);
-  const [startedAtMs, setStartedAtMs] = useState<number>(() => Date.now());
+  const [principal, setPrincipal] = useState(investment.principal);
+  const [startedAtMs, setStartedAtMs] = useState<number>(() => investment.startedAtMs || Date.now());
   const [amountRaw, setAmountRaw] = useState("100");
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
 
-  const hydratedRef = useRef(false);
-
   useEffect(() => {
-    readStored().then((stored) => {
-      if (stored) {
-        setPrincipal(stored.principal);
-        setStartedAtMs(stored.startedAtMs);
-      }
-      hydratedRef.current = true;
-    });
-  }, []);
+    setPrincipal(investment.principal);
+    setStartedAtMs(investment.startedAtMs || Date.now());
+  }, [investment.principal, investment.startedAtMs]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    const now = Date.now();
-    const valueNow = computeCurrentValue(principal, startedAtMs, nowMs);
-
-    if (valueNow - principal > 0.0001) {
-      const next = normalizeMoney(valueNow);
-      setPrincipal(next);
-      setStartedAtMs(now);
-      writeStored({ principal: next, startedAtMs: now });
-    }
-  }, [nowMs, principal, startedAtMs]);
-
-  useEffect(() => {
-    if (!hydratedRef.current) return;
-    writeStored(principal > 0 ? { principal, startedAtMs } : null);
-  }, [principal, startedAtMs]);
+  // Investment value is computed on the fly; we only persist on deposit/withdraw.
 
   const currentValue = useMemo(() => computeCurrentValue(principal, startedAtMs, nowMs), [principal, startedAtMs, nowMs]);
   const amount = useMemo(() => parseAmount(amountRaw), [amountRaw]);
@@ -136,7 +76,7 @@ export default function InvestmentPanel() {
     const nextPrincipal = normalizeMoney(valueNow + amount);
     setPrincipal(nextPrincipal);
     setStartedAtMs(now);
-    writeStored({ principal: nextPrincipal, startedAtMs: now });
+    updateInvestment({ principal: nextPrincipal, startedAtMs: now });
   };
 
   const onWithdraw = () => {
@@ -154,7 +94,7 @@ export default function InvestmentPanel() {
     const remaining = normalizeMoney(valueNow - amount);
     setPrincipal(remaining);
     setStartedAtMs(now);
-    writeStored(remaining > 0 ? { principal: remaining, startedAtMs: now } : null);
+    updateInvestment({ principal: remaining, startedAtMs: now });
   };
 
   return (

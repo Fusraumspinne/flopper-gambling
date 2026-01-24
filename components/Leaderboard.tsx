@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getItem, removeItem, setItem } from "@/lib/indexedDB";
-import { useWallet, VERIFIED_VERSION } from "./WalletProvider";
+import { useSession } from "next-auth/react";
+import { useWallet } from "./WalletProvider";
 import { fetchJsonCached, invalidateFetchCache } from "@/lib/fetchCache";
 
 type LeaderboardUser = {
@@ -14,11 +14,11 @@ type LeaderboardUser = {
 export default function Leaderboard() {
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [username, setUsername] = useState<string | null>(null);
-  const [inputName, setInputName] = useState("");
   const [editName, setEditName] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { syncBalance } = useWallet();
+  const { data: session, status, update } = useSession();
   const [page, setPage] = useState<number>(1);
   const PAGE_SIZE = 5;
 
@@ -46,55 +46,26 @@ export default function Leaderboard() {
 
   useEffect(() => {
     const init = async () => {
-      const isVerified = await getItem<string>(VERIFIED_VERSION);
-      const storedName = await getItem<string>("username");
-      if (storedName && isVerified === "true") {
-        setUsername(storedName);
-        setEditName(storedName);
-        syncBalance().catch(console.error);
+      if (status !== "loading") {
+        const sessionName = session?.user?.name ?? null;
+        if (sessionName) {
+          setUsername(sessionName);
+          setEditName(sessionName);
+          syncBalance().catch(console.error);
+        } else {
+          setUsername(null);
+          setEditName("");
+        }
       }
       await fetchLeaderboard();
       setLoading(false);
     };
     init();
-  }, []);
+  }, [session?.user?.name, status]);
 
   useEffect(() => {
     setEditName(username ?? "");
   }, [username]);
-
-  const handleRegister = async () => {
-    if (!inputName.trim()) return;
-    setErrorMsg(null);
-    try {
-      const res = await fetch("/api/user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: inputName.trim(),
-          createOnly: true,
-          balance: 0,
-        }),
-      });
-
-      if (res.status === 409) {
-        setErrorMsg("This name is already taken. Please choose another.");
-        return;
-      }
-      if (!res.ok) {
-        setErrorMsg("Registration failed. Please try again later.");
-        return;
-      }
-
-      await setItem("username", inputName.trim());
-      setUsername(inputName.trim());
-      await syncBalance();
-      await fetchLeaderboard({ force: true });
-    } catch (error) {
-      console.error("Failed to register", error);
-      setErrorMsg("Registration failed. Check the console.");
-    }
-  };
 
   const handleChangeUsername = async () => {
     if (!username) return;
@@ -123,38 +94,13 @@ export default function Leaderboard() {
         return;
       }
 
-      await setItem("username", nextName);
       setUsername(nextName);
+      await update({ name: nextName });
       await syncBalance();
       await fetchLeaderboard({ force: true });
     } catch (error) {
       console.error("Failed to change username", error);
       setErrorMsg("Could not change username. Check the console.");
-    }
-  };
-
-  const handleRemoveUser = async () => {
-    if (!username) return;
-    setErrorMsg(null);
-    try {
-      const res = await fetch("/api/user", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: username }),
-      });
-
-      if (!res.ok) {
-        setErrorMsg("Could not remove user. Please try again later.");
-        return;
-      }
-
-      await removeItem("username");
-      setUsername(null);
-      setInputName("");
-      await fetchLeaderboard({ force: true });
-    } catch (error) {
-      console.error("Failed to remove user", error);
-      setErrorMsg("Could not remove user. Check the console.");
     }
   };
 
@@ -172,30 +118,6 @@ export default function Leaderboard() {
   return (
     <div className="bg-[#213743] p-6 rounded-xl border border-[#2f4553]/60 w-full h-full mb-6 flex flex-col">
       <h2 className="text-2xl font-bold text-white mb-4">Leaderboard</h2>
-
-      {!username && (
-        <div className="mb-6 p-4 bg-[#0f212e] rounded-lg">
-          {errorMsg && (
-            <div className="text-sm text-rose-400 mb-2">{errorMsg}</div>
-          )}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={inputName}
-              onChange={(e) => setInputName(e.target.value)}
-              className="bg-[#0f212e] border border-[#2f4553] text-white px-3 py-2 rounded flex-1 focus:outline-none focus:border-[#00e701]"
-              placeholder="Username"
-            />
-            <button
-              onClick={handleRegister}
-              className="bg-[#00e701] hover:bg-[#00c701] text-black font-bold px-4 py-2 rounded transition-colors"
-            >
-              Join
-            </button>
-          </div>
-          <div className="mt-1 text-xs text-[#557086]">Only join the leaderboard with your main account, please don&apos;t spam accounts you won&apos;t use in the future, you can still use the website normally without appearing on the leaderboard</div>
-        </div>
-      )}
 
       {username && (
         <div className="mb-6 p-4 bg-[#0f212e] rounded-lg">
@@ -215,12 +137,6 @@ export default function Leaderboard() {
               className="bg-[#00e701] hover:bg-[#00c701] text-black font-bold px-4 py-2 rounded transition-colors whitespace-nowrap"
             >
               Change username
-            </button>
-            <button
-              onClick={handleRemoveUser}
-              className="bg-[#0f212e] border border-[#2f4553] text-white font-bold px-4 py-2 rounded transition-colors whitespace-nowrap"
-            >
-              Remove
             </button>
           </div>
         </div>

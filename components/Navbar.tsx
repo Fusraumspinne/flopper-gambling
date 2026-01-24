@@ -49,7 +49,7 @@ export default function Navbar() {
   const { volume, setVolume } = useSoundVolume();
 
   const { addToBalance } = useWallet();
-  const { claimableAmount, lastClaimISO, claim } = useHourlyReward({ amountPerHour: 100, storageKeyPrefix: "flopper_hourly_reward" });
+  const { claimableAmount, lastClaimISO, claim } = useHourlyReward({ amountPerHour: 100 });
 
   const [statsOpen, setStatsOpen] = useState(false);
 

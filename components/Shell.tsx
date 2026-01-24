@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import Navbar from "@/components/Navbar";
-import { getItem, setItem } from "../lib/indexedDB";
 
 type SidebarContextValue = {
   collapsed: boolean;
@@ -17,16 +16,20 @@ const KEY = "flopper_sidebar_collapsed_v1";
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    getItem<string>(KEY).then((raw) => {
-      if (raw === "1") setCollapsed(true);
-    });
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(KEY);
+    if (raw === "1") setCollapsed(true);
+    setIsHydrated(true);
   }, []);
 
   useEffect(() => {
-    setItem(KEY, collapsed ? "1" : "0");
-  }, [collapsed]);
+    if (!isHydrated) return;
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(KEY, collapsed ? "1" : "0");
+  }, [collapsed, isHydrated]);
 
   const sidebarWidth = useMemo(() => (collapsed ? "72px" : "20%"), [collapsed]);
 
