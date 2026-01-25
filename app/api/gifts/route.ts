@@ -39,25 +39,26 @@ export async function POST(req: Request) {
     }
 
     let senderUser = null as any;
+    let updatedSender: any = null;
     if (senderName !== "Unknown") {
       senderUser = await User.findOne({ name: senderName });
       if (!senderUser) {
         return NextResponse.json({ message: "Sender not found" }, { status: 404 });
       }
 
-      const updated = await User.findOneAndUpdate(
+      updatedSender = await User.findOneAndUpdate(
         { _id: senderUser._id, balance: { $gte: amt } },
         { $inc: { balance: -amt } },
         { new: true }
       );
 
-      if (!updated) {
+      if (!updatedSender) {
         return NextResponse.json({ message: "Not enough funds" }, { status: 400 });
       }
     }
 
     const created = await Gift.create({ sender: senderName, recipient: recipientName, amount: amt });
-    const res = NextResponse.json({ gift: created }, { status: 201 });
+    const res = NextResponse.json({ gift: created, senderBalance: updatedSender ? normalizeMoney(updatedSender.balance) : null }, { status: 201 });
     res.headers.set("Cache-Control", "no-store");
     return res;
   } catch (error) {

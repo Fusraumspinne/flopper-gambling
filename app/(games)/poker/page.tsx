@@ -1192,8 +1192,7 @@ export default function PokerPage() {
       persona: p,
       hole: [freshDeck.pop()!, freshDeck.pop()!],
       stack: Math.floor(
-        Math.max(0, Math.floor(balance)) * (0.25 + Math.random() * 0.35) +
-          Math.floor(betAmount * 40)
+        Math.max(1, Math.floor(betAmount)) * (20 + Math.random() * 15)
       ),
       contribution: 0,
       roundContribution: 0,

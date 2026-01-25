@@ -53,7 +53,26 @@ const AccessGate: React.FC<AccessGateProps> = ({ children }) => {
   };
 
   if (isAuthorized === null) {
-    return <div className="min-h-screen bg-[#1a2c38]" />;
+    return (
+      <div className="min-h-screen bg-[#0f212e] flex items-center justify-center p-8 text-center">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-indigo-500/10 blur-[140px] pointer-events-none" />
+        <div className="relative z-10 flex flex-col items-center gap-6">
+          <div className="relative">
+            <div className="w-20 h-20 border-4 border-[#2f4553] border-t-indigo-400 rounded-full animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl">🎲</span>
+            </div>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-white">Loading Flopper Gambling…</h1>
+            <p className="text-[#b1bad3] mt-2">Access is being verified, please wait a moment</p>
+          </div>
+          <div className="w-64 h-2 bg-[#213743] rounded-full overflow-hidden">
+            <div className="h-full w-1/2 bg-indigo-500 animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (isAuthorized) {

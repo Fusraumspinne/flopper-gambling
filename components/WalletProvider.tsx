@@ -84,6 +84,7 @@ interface WalletContextType {
   finalizePendingLoss: () => void;
   lastBetAt: number | null;
   syncBalance: () => Promise<void>;
+  setBalanceTo: (amount: number) => void;
   claimWeeklyPot: () => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -581,6 +582,12 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     return true;
   };
 
+  const setBalanceTo = (amount: number) => {
+    const next = normalizeMoney(Number(amount) || 0);
+    balanceRef.current = next;
+    setBalance(next);
+  };
+
   const updateInvestment = (next: InvestmentState) => {
     const principal = normalizeMoney(next.principal);
     const startedAtMs = Math.floor(next.startedAtMs);
@@ -628,7 +635,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         investment, updateInvestment, setLastDailyReward,
         liveStats: liveStatsByGame[currentGameId] || liveStatsByGame.all,
         liveStatsByGame, currentGameId, resetLiveStats, finalizePendingLoss,
-        syncBalance: flushSync, lastBetAt, claimWeeklyPot
+        syncBalance: flushSync, setBalanceTo, lastBetAt, claimWeeklyPot
       }}
     >
       {children}

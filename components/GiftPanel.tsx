@@ -28,7 +28,7 @@ function computeCurrentValue(principal: number, startedAtMs: number, nowMs: numb
 }
 
 export default function GiftPanel() {
-  const { balance, debitBalance, investment } = useWallet();
+  const { balance, debitBalance, investment, setBalanceTo } = useWallet();
   const { data: session } = useSession();
 
   const [username, setUsername] = useState<string | null>(null);
@@ -102,10 +102,9 @@ export default function GiftPanel() {
         return;
       }
 
-      const debited = debitBalance(amount);
-      if (!debited) {
-        setError("Not enough wallet balance.");
-        return;
+      const data = await res.json().catch(() => null);
+      if (data && typeof data.senderBalance === "number") {
+        setBalanceTo(data.senderBalance);
       }
 
       setRecipient("");

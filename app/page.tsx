@@ -162,7 +162,7 @@ export default function Home() {
           out the moment luck smiles
         </p>
         <p className="text-sm text-[#557086] mt-2">
-          Big wins • Climb the leaderboard • Play responsibly • Website only for
+          Big wins • Climb the leaderboard • Play responsible • Website only for
           private use
         </p>
       </div>

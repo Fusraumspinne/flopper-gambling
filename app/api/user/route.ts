@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
 import { connectMongoDB } from "@/lib/mongodb";
 import User from "@/models/user";
 import HighestProfit from "@/models/highestProfit";
@@ -59,10 +58,10 @@ export async function GET(req: Request) {
     const computedInvestment = computeInvestmentValue(rawPrincipal, rawStartedAtMs, nowMs);
 
     if (computedInvestment !== rawPrincipal || rawStartedAtMs !== nowMs) {
-      await User.updateOne(
-        { name: user.name },
-        { $set: { invest: computedInvestment, lastCheckedInvest: nowMs } }
-      );
+      const investmentDelta = normalizeMoney(computedInvestment - rawPrincipal);
+      const update: Record<string, any> = { $set: { lastCheckedInvest: nowMs } };
+      if (investmentDelta !== 0) update.$inc = { invest: investmentDelta };
+      await User.updateOne({ name: user.name }, update);
     }
 
     const res = NextResponse.json({
@@ -98,6 +97,7 @@ export async function POST(req: Request) {
       lastWeeklyPayback,
       lastPot,
       investment,
+      investmentDelta,
       createOnly,
     } = body ?? {};
     if (typeof name !== "string") {
@@ -140,10 +140,18 @@ export async function POST(req: Request) {
     const inc: Record<string, number> = {};
     const set: Record<string, any> = {};
 
-    if (typeof balance === "number") set.balance = normalizeMoney(balance);
+    if (typeof balance === "number") {
+      return NextResponse.json(
+        { message: "Send balanceDelta instead of absolute balance" },
+        { status: 400 }
+      );
+    }
     if (typeof balanceDelta === "number") inc.balance = normalizeMoney(balanceDelta);
     if (typeof weeklyPayback === "number") {
-      set.weeklyPayback = normalizeMoney(weeklyPayback);
+      return NextResponse.json(
+        { message: "Send weeklyPaybackDelta instead of absolute weeklyPayback" },
+        { status: 400 }
+      );
     } else if (typeof weeklyPaybackDelta === "number") {
       inc.weeklyPayback = normalizeMoney(weeklyPaybackDelta);
     }
@@ -153,10 +161,15 @@ export async function POST(req: Request) {
     if (typeof lastWeeklyPayback === "number" && Number.isFinite(lastWeeklyPayback)) {
       set.lastWeeklyPayback = new Date(lastWeeklyPayback);
     }
-    const sanitizedInvestment = sanitizeInvestment(investment);
-    if (sanitizedInvestment) {
-      set.invest = sanitizedInvestment.principal;
-      set.lastCheckedInvest = sanitizedInvestment.startedAtMs;
+    if (investment) {
+      return NextResponse.json(
+        { message: "Send investmentDelta instead of absolute investment" },
+        { status: 400 }
+      );
+    }
+    if (typeof investmentDelta === "number") {
+      inc.invest = normalizeMoney(investmentDelta);
+      set.lastCheckedInvest = nowMs;
     } else if (userBefore) {
       const rawPrincipal = typeof userBefore.invest === "number" ? userBefore.invest : 0;
       const rawStartedAtMs =
@@ -166,7 +179,8 @@ export async function POST(req: Request) {
       const computedInvestment = computeInvestmentValue(rawPrincipal, rawStartedAtMs, nowMs);
 
       if (computedInvestment !== rawPrincipal || rawStartedAtMs !== nowMs) {
-        set.invest = computedInvestment;
+        const investmentDelta = normalizeMoney(computedInvestment - rawPrincipal);
+        if (investmentDelta !== 0) inc.invest = investmentDelta;
         set.lastCheckedInvest = nowMs;
       }
     }
@@ -204,13 +218,6 @@ export async function POST(req: Request) {
 
       const ops: Promise<any>[] = [];
 
-      // Atomic Update Logic
-      // We attempt to update ONLY IF the new value is greater than the existing value ($lt check in filter).
-      // We use upsert: true.
-      // If the document exists AND the score is higher -> Update happens.
-      // If the document exists AND the score is lower/equal -> Filter fails. Upsert tries to insert. Fails with E11000 (Duplicate Key). We catch and ignore.
-      // If the document does not exist -> Filter fails (technically). Upsert inserts. Success.
-
       if (scoreValue > 0) {
         ops.push(
           HighestProfit.findOneAndUpdate(
@@ -221,7 +228,6 @@ export async function POST(req: Request) {
              if (err.code !== 11000) {
                  console.error("HighestProfit update error:", err);
              }
-             // Ignore duplicate key error (means existing record is higher/equal)
           })
         );
       }
@@ -299,7 +305,6 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    // Rename in all related collections
     await Promise.all([
       HighestProfit.updateMany({ name: from }, { name: to }),
       HighestMultiplier.updateMany({ name: from }, { name: to }),
@@ -317,23 +322,5 @@ export async function PATCH(req: Request) {
     }
     console.error("Error renaming user:", error);
     return NextResponse.json({ message: "Error renaming user" }, { status: 500 });
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const { name } = await req.json();
-    if (typeof name !== "string" || !name.trim()) {
-      return NextResponse.json({ message: "Invalid name" }, { status: 400 });
-    }
-
-    await connectMongoDB();
-    const deleted = await User.findOneAndDelete({ name: name.trim() });
-    const res = NextResponse.json({ deleted: Boolean(deleted) });
-    res.headers.set("Cache-Control", "private, no-store");
-    return res;
-  } catch (error) {
-    console.error("Error deleting user:", error);
-    return NextResponse.json({ message: "Error deleting user" }, { status: 500 });
   }
 }
