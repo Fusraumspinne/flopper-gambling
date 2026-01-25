@@ -145,7 +145,7 @@ const games: Array<{
   {
     name: "HiLo",
     href: "/hilo",
-    tagline: "Wette, ob die nächste Karte höher oder niedriger ist.",
+    tagline: "Wette, ob die nächste Karte höher oder niedriger ist",
     image: "/images/HiLo.png",
   },
 ];

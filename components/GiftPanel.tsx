@@ -58,12 +58,9 @@ export default function GiftPanel() {
   }, [nowMs, balance, investment.principal, investment.startedAtMs]);
 
   const totalAssets = useMemo(() => normalizeMoney(balance + investmentValue), [balance, investmentValue]);
-  const showPanel = totalAssets > 5000;
+  const showPanel = totalAssets > 0;
 
-  const maxGift = useMemo(() => {
-    const limitByMin = normalizeMoney(totalAssets - 5000);
-    return Math.max(0, Math.min(balance, limitByMin));
-  }, [balance, totalAssets]);
+  const maxGift = useMemo(() => Math.max(0, balance), [balance]);
 
   const amount = useMemo(() => parseAmount(amountRaw), [amountRaw]);
 
@@ -82,7 +79,7 @@ export default function GiftPanel() {
     }
 
     if (amount > maxGift) {
-      setError(`Max gift is ${maxGift.toFixed(2)} (must keep 5000 total).`);
+      setError(`Max gift is ${maxGift.toFixed(2)}.`);
       return;
     }
 
@@ -128,7 +125,7 @@ export default function GiftPanel() {
       <div>
         <h2 className="text-white font-semibold text-xl">Gifts</h2>
         <p className="text-sm text-[#b1bad3]">
-          You can gift money to leaderboard players. You must keep <span className="text-white font-semibold">5000</span> total
+          You can gift money to leaderboard players, gifts are taken from your balance
         </p>
       </div>
 

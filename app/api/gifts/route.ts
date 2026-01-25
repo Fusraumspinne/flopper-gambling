@@ -45,13 +45,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: "Sender not found" }, { status: 404 });
       }
 
-      const senderTotal = typeof senderUser.balance === "number" ? normalizeMoney(senderUser.balance) : 0;
-      if (senderTotal - amt < 5000) {
-        return NextResponse.json({ message: "Must keep at least 5000" }, { status: 400 });
-      }
-
       const updated = await User.findOneAndUpdate(
-        { _id: senderUser._id, balance: { $gte: amt + 5000 } },
+        { _id: senderUser._id, balance: { $gte: amt } },
         { $inc: { balance: -amt } },
         { new: true }
       );
