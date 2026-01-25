@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { useWallet } from "@/components/WalletProvider";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -30,7 +31,9 @@ function computeCurrentValue(principal: number, startedAtMs: number, nowMs: numb
 }
 
 export default function InvestmentPanel() {
-  const { balance, creditBalance, debitBalance, investment, updateInvestment } = useWallet();
+  const { data: session } = useSession();
+  const username = session?.user?.name ?? null;
+  const { balance, investment, syncBalance, applyServerBalanceDelta, applyServerInvestment } = useWallet();
 
   const [principal, setPrincipal] = useState(investment.principal);
   const [startedAtMs, setStartedAtMs] = useState<number>(() => investment.startedAtMs || Date.now());
@@ -56,31 +59,43 @@ export default function InvestmentPanel() {
   const canDeposit = amount > 0 && amount <= balance;
   const canWithdraw = amount > 0 && amount <= currentValue;
 
-  const onDeposit = () => {
+  const onDeposit = async () => {
     setError(null);
+    if (!username) {
+      setError("Not logged in.");
+      return;
+    }
     if (amount <= 0) return;
     if (amount > balance) {
       setError("Not enough balance.");
       return;
     }
 
-    const now = Date.now();
-    const valueNow = computeCurrentValue(principal, startedAtMs, now);
+    await syncBalance();
 
-    const accepted = debitBalance(amount);
-    if (!accepted) {
-      setError("Not enough balance.");
+    const res = await fetch("/api/invest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: username, action: "deposit", amount }),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      setError(data?.message || "Deposit failed.");
       return;
     }
 
-    const nextPrincipal = normalizeMoney(valueNow + amount);
-    setPrincipal(nextPrincipal);
-    setStartedAtMs(now);
-    updateInvestment({ principal: nextPrincipal, startedAtMs: now });
+    const delta = Number(data.balanceDelta) || 0;
+    if (delta !== 0) applyServerBalanceDelta(delta);
+    if (data.investment) applyServerInvestment(data.investment);
   };
 
-  const onWithdraw = () => {
+  const onWithdraw = async () => {
     setError(null);
+    if (!username) {
+      setError("Not logged in.");
+      return;
+    }
     if (amount <= 0) return;
 
     const now = Date.now();
@@ -90,11 +105,23 @@ export default function InvestmentPanel() {
       return;
     }
 
-    creditBalance(amount);
-    const remaining = normalizeMoney(valueNow - amount);
-    setPrincipal(remaining);
-    setStartedAtMs(now);
-    updateInvestment({ principal: remaining, startedAtMs: now });
+    await syncBalance();
+
+    const res = await fetch("/api/invest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: username, action: "withdraw", amount }),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      setError(data?.message || "Withdraw failed.");
+      return;
+    }
+
+    const delta = Number(data.balanceDelta) || 0;
+    if (delta !== 0) applyServerBalanceDelta(delta);
+    if (data.investment) applyServerInvestment(data.investment);
   };
 
   return (

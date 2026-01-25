@@ -4,7 +4,6 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const PAYBACK_RATE = 0.1; 
 
 type LiveStatsPoint = {
@@ -77,6 +76,9 @@ interface WalletContextType {
   investment: InvestmentState;
   updateInvestment: (next: InvestmentState) => void;
   setLastDailyReward: (next: number) => void;
+  applyServerBalanceDelta: (delta: number) => void;
+  applyServerLastDailyReward: (next: number) => void;
+  applyServerInvestment: (next: InvestmentState) => void;
   liveStats: LiveStatsState;
   liveStatsByGame: LiveStatsByGame;
   currentGameId: GameKey;
@@ -167,7 +169,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const { data: session, status } = useSession();
   const username = session?.user?.name ?? null;
 
-  const SYNC_DEBOUNCE_MS = 5000;
+  const SYNC_DEBOUNCE_MS = 2500;
   const BETS_PER_SYNC = 25;
 
   const weeklyPot = useMemo(() => weeklyPayback, [weeklyPayback]);
@@ -581,6 +583,31 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     setBalance(next);
   };
 
+  const applyServerBalanceDelta = (delta: number) => {
+    const a = normalizeMoney(delta);
+    if (a === 0) return;
+    balanceRef.current = normalizeMoney(balanceRef.current + a);
+    setBalance(balanceRef.current);
+  };
+
+  const applyServerLastDailyReward = (next: number) => {
+    const ts = Math.floor(next);
+    if (!Number.isFinite(ts)) return;
+    setLastDailyRewardState(ts);
+    lastDailyRewardRef.current = ts;
+    lastDailyRewardDirtyRef.current = false;
+  };
+
+  const applyServerInvestment = (next: InvestmentState) => {
+    const principal = normalizeMoney(next.principal);
+    const startedAtMs = Math.floor(next.startedAtMs);
+    const sanitized = { principal, startedAtMs };
+    investmentRef.current = sanitized;
+    setInvestment(sanitized);
+    pendingInvestmentDeltaRef.current = 0;
+    investmentDirtyRef.current = false;
+  };
+
   const updateInvestment = (next: InvestmentState) => {
     const principal = normalizeMoney(next.principal);
     const startedAtMs = Math.floor(next.startedAtMs);
@@ -595,20 +622,35 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const claimWeeklyPot = async () => {
-    const now = Date.now();
-    if (now - lastClaim < WEEK_MS) return { success: false, error: "7 Tage Sperre aktiv." };
-    if (weeklyPot <= 0) return { success: false, error: "Pot ist leer." };
-    creditBalance(weeklyPot);
-    setLastClaim(now);
-    lastClaimDirtyRef.current = true;
-    const prevWeekly = weeklyPaybackRef.current;
-    const resetDelta = normalizeMoney(-prevWeekly);
-    setWeeklyPayback(0);
-    weeklyPaybackRef.current = 0;
-    if (resetDelta !== 0) {
-      pendingWeeklyPaybackDeltaRef.current = normalizeMoney(pendingWeeklyPaybackDeltaRef.current + resetDelta);
+    const activeUsername = usernameRef.current;
+    if (!activeUsername) return { success: false, error: "Nicht eingeloggt." };
+
+    await flushSync();
+
+    const res = await fetch("/api/rewards/weekly", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: activeUsername }),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      return { success: false, error: data?.error || "Fehler beim Claim." };
     }
-    scheduleSync();
+
+    const amount = normalizeMoney(Number(data.amount) || 0);
+    if (amount > 0) applyServerBalanceDelta(amount);
+
+    const nextLast = Number(data.lastWeeklyPayback ?? Date.now());
+    setLastClaim(nextLast);
+    lastClaimRef.current = nextLast;
+    lastClaimDirtyRef.current = false;
+
+    const nextWeekly = normalizeMoney(Number(data.weeklyPayback ?? 0));
+    setWeeklyPayback(nextWeekly);
+    weeklyPaybackRef.current = nextWeekly;
+    pendingWeeklyPaybackDeltaRef.current = 0;
+
     return { success: true };
   };
 
@@ -633,6 +675,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       value={{
         balance, weeklyPot, lastClaim, lastDailyReward, addToBalance, subtractFromBalance, creditBalance, debitBalance,
         investment, updateInvestment, setLastDailyReward,
+        applyServerBalanceDelta, applyServerLastDailyReward, applyServerInvestment,
         liveStats: liveStatsByGame[currentGameId] || liveStatsByGame.all,
         liveStatsByGame, currentGameId, resetLiveStats, finalizePendingLoss,
         syncBalance: flushSync, setBalanceTo, lastBetAt, claimWeeklyPot

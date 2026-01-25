@@ -48,15 +48,12 @@ export default function Navbar() {
   const { collapsed, toggleCollapsed, sidebarWidth } = useSidebar();
   const { volume, setVolume } = useSoundVolume();
 
-  const { addToBalance } = useWallet();
   const { claimableAmount, lastClaimISO, claim } = useHourlyReward({ amountPerHour: 100 });
 
   const [statsOpen, setStatsOpen] = useState(false);
 
   const claimFree = async () => {
-    const amount = await claim();
-    if (amount <= 0) return;
-    addToBalance(amount);
+    await claim();
   };
 
   return (

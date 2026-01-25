@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { useWallet } from "./WalletProvider";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -13,7 +14,9 @@ export type HourlyRewardState = {
 
 export function useHourlyReward(options?: { amountPerHour?: number }) {
   const amountPerHour = options?.amountPerHour ?? 100;
-  const { lastDailyReward, setLastDailyReward } = useWallet();
+  const { lastDailyReward, syncBalance, applyServerBalanceDelta, applyServerLastDailyReward } = useWallet();
+  const { data: session } = useSession();
+  const username = session?.user?.name ?? null;
   const lastClaimRef = useRef(lastDailyReward);
 
   useEffect(() => {
@@ -34,15 +37,26 @@ export function useHourlyReward(options?: { amountPerHour?: number }) {
   }, [lastDailyReward, amountPerHour]);
 
   const claim = useCallback(async (): Promise<number> => {
-    const nowMs = Date.now();
-    const diff = nowMs - lastClaimRef.current;
-    const hours = Math.floor(diff / HOUR_MS);
-    const amount = Math.max(0, hours * amountPerHour);
+    if (!username) return 0;
 
-    if (amount <= 0) return 0;
-    setLastDailyReward(nowMs);
+    await syncBalance();
+
+    const res = await fetch("/api/rewards/daily", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: username }),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) return 0;
+
+    const amount = Number(data.amount) || 0;
+    if (amount > 0) applyServerBalanceDelta(amount);
+
+    const nextLast = Number(data.lastDailyReward ?? Date.now());
+    applyServerLastDailyReward(nextLast);
     return amount;
-  }, [amountPerHour]);
+  }, [username, syncBalance, applyServerBalanceDelta, applyServerLastDailyReward]);
 
   return {
     ...derived,
