@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Invalid recipient" }, { status: 400 });
     }
 
-    const recipientName = recipient.trim();
+    const recipientName = recipient;
 
     await connectMongoDB();
 

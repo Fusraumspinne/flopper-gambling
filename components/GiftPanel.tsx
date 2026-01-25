@@ -70,8 +70,8 @@ export default function GiftPanel() {
   const onSendGift = async () => {
     setError(null);
 
-    const to = recipient.trim();
-    if (!to) {
+    const to = recipient;
+    if (!to.trim()) {
       setError("Please enter a recipient name.");
       return;
     }
@@ -87,7 +87,7 @@ export default function GiftPanel() {
     }
 
     try {
-      const sender = username ?? "Unknown";
+      const sender = username;
       const res = await fetch("/api/gifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -95,7 +95,7 @@ export default function GiftPanel() {
       });
 
       if (res.status === 404) {
-        setError("Recipient not found (must be on leaderboard).");
+        setError("Recipient not found (must be an exact match).");
         return;
       }
 

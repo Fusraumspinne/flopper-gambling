@@ -9,10 +9,6 @@ function normalizeMoney(value: number): number {
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 
-function escapeRegex(str: string) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 export async function POST(req: Request) {
   try {
     const { sender, recipient, amount } = await req.json();
@@ -21,11 +17,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Invalid sender/recipient" }, { status: 400 });
     }
 
-    const senderName = sender.trim();
-    const recipientName = recipient.trim();
+    const senderName = sender; // 1:1 match
+    const recipientName = recipient; // 1:1 match
     const amt = normalizeMoney(Number(amount));
 
-    if (!senderName || !recipientName) {
+    if (!senderName.trim() || !recipientName.trim()) {
       return NextResponse.json({ message: "Invalid sender/recipient" }, { status: 400 });
     }
     if (senderName === recipientName) {
@@ -37,16 +33,14 @@ export async function POST(req: Request) {
 
     await connectMongoDB();
 
-    const recipientQuery = { name: { $regex: `^${escapeRegex(recipientName)}$`, $options: "i" } };
-    const recipientUser = await User.findOne(recipientQuery);
+    const recipientUser = await User.findOne({ name: recipientName });
     if (!recipientUser) {
       return NextResponse.json({ message: "Recipient not found" }, { status: 404 });
     }
 
     let senderUser = null as any;
     if (senderName !== "Unknown") {
-      const senderQuery = { name: { $regex: `^${escapeRegex(senderName)}$`, $options: "i" } };
-      senderUser = await User.findOne(senderQuery);
+      senderUser = await User.findOne({ name: senderName });
       if (!senderUser) {
         return NextResponse.json({ message: "Sender not found" }, { status: 404 });
       }
@@ -80,8 +74,8 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const recipient = (url.searchParams.get("recipient") ?? "").trim();
-    if (!recipient) {
+    const recipient = url.searchParams.get("recipient") ?? "";
+    if (!recipient.trim()) {
       return NextResponse.json({ message: "Missing recipient" }, { status: 400 });
     }
 

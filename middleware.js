@@ -7,4 +7,4 @@ export default withAuth({
   secret: process.env.NEXTAUTH_SECRET,
 });
 
-export const config = { matcher: ["/((?!login|signup|api|_next/static|_next/image|images|favicon.ico).*)"] }
+export const config = { matcher: ["/((?!login|signup|privacy|api|_next/static|_next/image|images|favicon.ico).*)"] }

@@ -10,11 +10,13 @@ export default function LoginForm() {
 
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
 
     if (!name || !password) {
+      setError("Please enter both username and password.");
       return;
     }
 
@@ -24,13 +26,12 @@ export default function LoginForm() {
       })
 
       if(res?.error){
-        console.log("Invalid data")
+        setError("Invalid username or password.");
         return
       }
-
       router.push("/")
     } catch (err) {
-      console.log("Error while loging in")
+      setError("Login failed. Please try again later.");
     }
   };
 
@@ -53,7 +54,7 @@ export default function LoginForm() {
               type="text"
               placeholder="Username"
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-lg p-3 text-white focus:outline-none focus:border-indigo-400 transition-colors"
-              onChange={e => setName(e.target.value)}
+              onChange={e => { setName(e.target.value); setError(""); }}
             />
           </div>
           <div>
@@ -64,9 +65,13 @@ export default function LoginForm() {
               type="password"
               placeholder="••••••••"
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-lg p-3 text-white focus:outline-none focus:border-indigo-400 transition-colors"
-              onChange={e => setPassword(e.target.value)}
+              onChange={e => { setPassword(e.target.value); setError(""); }}
             />
           </div>
+
+          {error && (
+            <p className="mt-2 text-sm text-[#ffb4b4]">{error}</p>
+          )}
 
           <button className="w-full py-3 px-4 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg transition-all duration-200 transform hover:scale-[1.02] mt-4">
             Login

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment } from "@mui/icons-material";
+import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment, PrivacyTip } from "@mui/icons-material";
 import { useWallet } from "./WalletProvider";
 import LiveStatsPanel from "./LiveStatsPanel";
 import { useSidebar } from "./Shell";
@@ -113,7 +113,7 @@ export default function Navbar() {
               onChange={(e) => setVolume(Number(e.target.value) / 100)}
             />
             <div className="text-xs text-[#8399aa] mt-2">
-              If games lag, set Volume to 0% to increase performance.
+              If games lag, set Volume to 0% to increase performance
             </div>
           </div>
         </div>
@@ -156,8 +156,8 @@ export default function Navbar() {
       </nav>
 
       {!collapsed && (
-        <div className="px-4 pb-6">
-          <div className="border-t border-[#213743] pt-4">
+        <div className="px-4 pb-2">
+          <div className="border-t border-[#213743] pt-2">
             <button
               onClick={claimFree}
               disabled={claimableAmount <= 0}
@@ -174,6 +174,20 @@ export default function Navbar() {
           </div>
         </div>
       )}
+
+      <div className={`${collapsed ? "px-2" : "px-4"} pb-2`}>
+        <div className="border-t border-[#213743] pt-2">
+          <Link
+            href="/privacy"
+            prefetch={false}
+            title="Privacy Policy"
+            className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} text-xs text-[#8399aa] hover:text-white`}
+          >
+            <PrivacyTip sx={{ fontSize: 18 }} />
+            {!collapsed && <span>Privacy Policy</span>}
+          </Link>
+        </div>
+      </div>
 
       <LiveStatsPanel open={statsOpen} onClose={() => setStatsOpen(false)} />
     </aside>

@@ -48,7 +48,6 @@ export function SoundVolumeProvider({ children }: { children: React.ReactNode })
     setVolumeState(clamp01(next));
   };
 
-  // Load from localStorage on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -65,7 +64,6 @@ export function SoundVolumeProvider({ children }: { children: React.ReactNode })
     installGlobalPlayHook();
   }, []);
 
-  // Save to localStorage when volume changes, but ONLY after hydration
   useEffect(() => {
     if (!isHydrated) return;
     

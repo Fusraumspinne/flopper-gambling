@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import LayoutWrapper from "@/components/LayoutWrapper";
 import Wartungspause from "@/components/Wartungspause";
+import AccessGate from "@/components/AccessGate";
 import { AuthProvider } from "@/app/providers"
 
 const geistSans = Geist({
@@ -33,11 +34,13 @@ export default function RootLayout({
         {isMaintenance ? (
           <Wartungspause />
         ) : (
-          <AuthProvider>
-            <LayoutWrapper>
-              {children}
-            </LayoutWrapper>
-          </AuthProvider>
+          <AccessGate>
+            <AuthProvider>
+              <LayoutWrapper>
+                {children}
+              </LayoutWrapper>
+            </AuthProvider>
+          </AccessGate>
         )}
       </body>
     </html>
