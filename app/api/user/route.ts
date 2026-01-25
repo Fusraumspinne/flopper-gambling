@@ -106,13 +106,14 @@ export async function POST(req: Request) {
 
     await connectMongoDB();
 
+    const userBefore = await User.findOne({ name });
+    const nowMs = Date.now();
+
     if (createOnly) {
-      const existing = await User.findOne({ name });
-      if (existing) {
+      if (userBefore) {
         return NextResponse.json({ message: "Name already exists" }, { status: 409 });
       }
       const now = new Date();
-      const nowMs = Date.now();
       const sanitizedInvestment = sanitizeInvestment(investment);
       const principal = sanitizedInvestment?.principal ?? 0;
       const startedAtMs = sanitizedInvestment?.startedAtMs ?? nowMs;
@@ -156,6 +157,18 @@ export async function POST(req: Request) {
     if (sanitizedInvestment) {
       set.invest = sanitizedInvestment.principal;
       set.lastCheckedInvest = sanitizedInvestment.startedAtMs;
+    } else if (userBefore) {
+      const rawPrincipal = typeof userBefore.invest === "number" ? userBefore.invest : 0;
+      const rawStartedAtMs =
+        typeof userBefore.lastCheckedInvest === "number" && Number.isFinite(userBefore.lastCheckedInvest)
+          ? userBefore.lastCheckedInvest
+          : nowMs;
+      const computedInvestment = computeInvestmentValue(rawPrincipal, rawStartedAtMs, nowMs);
+
+      if (computedInvestment !== rawPrincipal || rawStartedAtMs !== nowMs) {
+        set.invest = computedInvestment;
+        set.lastCheckedInvest = nowMs;
+      }
     }
     if (
       typeof lastPot === "number" &&
