@@ -3,6 +3,12 @@ import User from "@/models/user"
 import bcrypt from "bcryptjs"
 import { NextResponse } from "next/server"
 
+function normalizeMoney(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+    return Object.is(rounded, -0) ? 0 : rounded;
+}
+
 export async function POST(req: any){
     try{
         const { name, password } = await req.json()
@@ -15,11 +21,11 @@ export async function POST(req: any){
         await User.create({
             name,
             password: hashedPassword,
-            balance: 1000,
-            invest: 0,
+            balance: normalizeMoney(1000),
+            invest: normalizeMoney(0),
             lastCheckedInvest: Date.now(),
             lastDailyReward: now,
-            weeklyPayback: 0,
+            weeklyPayback: normalizeMoney(0),
             lastWeeklyPayback: now,
         });
 

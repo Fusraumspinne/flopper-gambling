@@ -156,10 +156,10 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const pendingBalanceDeltaRef = useRef<number>(0);
   
   const pendingWeeklyPaybackDeltaRef = useRef<number>(0);
+  const pendingInvestmentDeltaRef = useRef<number>(0);
   const investmentDirtyRef = useRef(false);
   const lastClaimDirtyRef = useRef(false);
   const lastDailyRewardDirtyRef = useRef(false);
-  const weeklyPaybackDirtyRef = useRef(false);
   const usernameRef = useRef<string | null>(null);
   const pathname = usePathname();
   const currentGameId = useMemo(() => deriveGameId(pathname ?? "/"), [pathname]);
@@ -196,10 +196,10 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     const snapshot = new Map(pendingUpdatesRef.current);
     const balanceDelta = normalizeMoney(pendingBalanceDeltaRef.current);
     const weeklyPaybackDelta = normalizeMoney(pendingWeeklyPaybackDeltaRef.current);
+    const investmentDelta = normalizeMoney(pendingInvestmentDeltaRef.current);
     const investmentDirty = investmentDirtyRef.current;
     const lastClaimDirty = lastClaimDirtyRef.current;
     const lastDailyDirty = lastDailyRewardDirtyRef.current;
-    const weeklyPaybackDirty = weeklyPaybackDirtyRef.current;
 
     if (
       snapshot.size === 0 &&
@@ -207,7 +207,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       !investmentDirty &&
       !lastClaimDirty &&
       !lastDailyDirty &&
-      !weeklyPaybackDirty &&
       weeklyPaybackDelta === 0
     ) {
       return null;
@@ -221,12 +220,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     if (balanceDelta !== 0) payload.balanceDelta = balanceDelta;
     if (lastClaimDirty) payload.lastWeeklyPayback = lastClaimRef.current;
     if (lastDailyDirty) payload.lastDailyReward = lastDailyRewardRef.current;
-    if (investmentDirty) payload.investment = investmentRef.current;
-    if (weeklyPaybackDirty) {
-      payload.weeklyPayback = weeklyPaybackRef.current;
-    } else if (weeklyPaybackDelta !== 0) {
-      payload.weeklyPaybackDelta = weeklyPaybackDelta;
-    }
+    if (investmentDirty) payload.investmentDelta = investmentDelta;
+    if (weeklyPaybackDelta !== 0) payload.weeklyPaybackDelta = weeklyPaybackDelta;
 
     return payload;
   };
@@ -235,11 +230,11 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     pendingUpdatesRef.current.clear();
     pendingBalanceDeltaRef.current = 0;
     pendingWeeklyPaybackDeltaRef.current = 0;
+    pendingInvestmentDeltaRef.current = 0;
     betCountRef.current = 0;
     investmentDirtyRef.current = false;
     lastClaimDirtyRef.current = false;
     lastDailyRewardDirtyRef.current = false;
-    weeklyPaybackDirtyRef.current = false;
   };
 
   const flushSync = async (options?: { allowHidden?: boolean; useBeacon?: boolean }): Promise<void> => {
@@ -356,9 +351,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
             body: JSON.stringify({
               name: username,
               createOnly: true,
-              balance: 0,
               lastPot: now,
-              investment: { principal: 0, startedAtMs: now },
             }),
           });
           balanceRef.current = 0.0;
@@ -592,6 +585,10 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     const principal = normalizeMoney(next.principal);
     const startedAtMs = Math.floor(next.startedAtMs);
     const sanitized = { principal, startedAtMs };
+    const prevPrincipal = investmentRef.current?.principal ?? 0;
+    const delta = normalizeMoney(principal - prevPrincipal);
+    pendingInvestmentDeltaRef.current = normalizeMoney(pendingInvestmentDeltaRef.current + delta);
+    investmentRef.current = sanitized;
     setInvestment(sanitized);
     investmentDirtyRef.current = true;
     scheduleSync();
@@ -604,10 +601,13 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     creditBalance(weeklyPot);
     setLastClaim(now);
     lastClaimDirtyRef.current = true;
+    const prevWeekly = weeklyPaybackRef.current;
+    const resetDelta = normalizeMoney(-prevWeekly);
     setWeeklyPayback(0);
     weeklyPaybackRef.current = 0;
-    pendingWeeklyPaybackDeltaRef.current = 0;
-    weeklyPaybackDirtyRef.current = true;
+    if (resetDelta !== 0) {
+      pendingWeeklyPaybackDeltaRef.current = normalizeMoney(pendingWeeklyPaybackDeltaRef.current + resetDelta);
+    }
     scheduleSync();
     return { success: true };
   };

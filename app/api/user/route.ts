@@ -24,17 +24,6 @@ function computeInvestmentValue(principal: number, startedAtMs: number, nowMs: n
   return normalizeMoney(interestValue + nonInterestPrincipal);
 }
 
-function sanitizeInvestment(input: any) {
-  if (!input || typeof input !== "object") return undefined;
-  const principal = Number(input.principal);
-  const startedAtMs = Number(input.startedAtMs);
-  if (!Number.isFinite(principal) || !Number.isFinite(startedAtMs)) return undefined;
-  return {
-    principal: normalizeMoney(principal),
-    startedAtMs: Math.floor(startedAtMs),
-  };
-}
-
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -114,9 +103,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: "Name already exists" }, { status: 409 });
       }
       const now = new Date();
-      const sanitizedInvestment = sanitizeInvestment(investment);
-      const principal = sanitizedInvestment?.principal ?? 0;
-      const startedAtMs = sanitizedInvestment?.startedAtMs ?? nowMs;
       const createdLastWeeklyPayback =
         typeof lastWeeklyPayback === "number"
           ? new Date(lastWeeklyPayback)
@@ -127,8 +113,8 @@ export async function POST(req: Request) {
         name,
         password: "",
         balance: 0,
-        invest: principal,
-        lastCheckedInvest: startedAtMs,
+        invest: 0,
+        lastCheckedInvest: nowMs,
         lastDailyReward: now,
         weeklyPayback: 0,
         lastWeeklyPayback: createdLastWeeklyPayback,
