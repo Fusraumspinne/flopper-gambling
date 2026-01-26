@@ -3,6 +3,7 @@ import InvestmentPanel from "@/components/InvestmentPanel";
 import Leaderboard from "@/components/Leaderboard";
 import GiftPanel from "@/components/GiftPanel";
 import WeeklyPotPanel from "@/components/WeeklyPotPanel";
+import CryptoPanel from "@/components/CryptoPanel";
 
 const games: Array<{
   name: string;
@@ -167,18 +168,11 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="mb-8 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-        <p className="text-indigo-200 text-sm">
-          <span className="font-bold mr-2 text-indigo-400">Notice:</span> 
-          The platform's recent changes are still in progress and may not be perfect yet,
-          If you find bugs reach out and let me know
-        </p>
-      </div>
-
       <div className="grid grid-cols-2 gap-6">
         <InvestmentPanel />
-        <WeeklyPotPanel />
+        <CryptoPanel/>
       </div>
+      <WeeklyPotPanel />
       <Leaderboard />
       <GiftPanel />
 

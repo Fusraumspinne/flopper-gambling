@@ -548,7 +548,7 @@ export default function CrashPage() {
   }, [betInput, startRoundWithBet]);
 
   const startAutoBet = useCallback(async () => {
-    if (isRunning || isRevealingMax) return;
+    if (isAutoBettingRef.current) return;
 
     handleBetInputBlur();
     handleTargetBlur();
@@ -556,21 +556,57 @@ export default function CrashPage() {
     const t = targetRef.current;
     if (!Number.isFinite(t) || t < MIN_TARGET) return;
 
-    const baseBet = normalizeMoney(betAmount);
-    if (baseBet <= 0 || baseBet > balance) return;
+    const startingBet = normalizeMoney(betAmount);
+    if (startingBet <= 0 || startingBet > balance) return;
 
-    autoBaseBetRef.current = baseBet;
+    autoBaseBetRef.current = startingBet;
     autoStartBalanceRef.current = balance;
+
+    isAutoBettingRef.current = true;
     setIsAutoBetting(true);
 
-    if (!runningRef.current) {
-      await startRoundWithBet(baseBet);
+    const waitForRoundFinish = () =>
+      new Promise<void>((resolve) => {
+        const start = performance.now();
+        const poll = () => {
+          if (!runningRef.current && settledRef.current) return resolve();
+          if (performance.now() - start > 30_000) return resolve();
+          setTimeout(poll, 50);
+        };
+        poll();
+      });
+
+    try {
+      while (isAutoBettingRef.current) {
+        const roundBet = normalizeMoney(betAmount);
+        if (roundBet <= 0) break;
+        if (roundBet > balance) break;
+
+        if (runningRef.current) {
+          await new Promise((r) => setTimeout(r, 100));
+          continue;
+        }
+
+        void startRoundWithBet(roundBet);
+        await waitForRoundFinish();
+
+        if (!isAutoBettingRef.current) break;
+        if (shouldStopAuto()) break;
+      }
+    } finally {
+      isAutoBettingRef.current = false;
+      setIsAutoBetting(false);
+      try {
+        await syncBalance();
+      } catch {}
     }
   }, [balance, betAmount, handleBetInputBlur, handleTargetBlur, isRevealingMax, isRunning, startRoundWithBet]);
 
   const stopAutoBet = useCallback(() => {
+    isAutoBettingRef.current = false;
     setIsAutoBetting(false);
-  }, []);
+    void syncBalance();
+  }, [syncBalance]);
 
   useEffect(() => {
     if (!isAutoBetting || playMode !== "auto") return;
@@ -584,7 +620,15 @@ export default function CrashPage() {
 
     const id = window.setTimeout(() => {
       if (!runningRef.current && !isRevealingMax) {
-        void startRoundWithBet(betAmount);
+        (async () => {
+          try {
+            await syncBalance();
+          } catch (e) {
+          }
+          if (!runningRef.current && !isRevealingMax) {
+            void startRoundWithBet(betAmount);
+          }
+        })();
       }
     }, 250);
 

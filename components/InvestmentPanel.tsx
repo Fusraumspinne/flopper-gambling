@@ -130,8 +130,7 @@ export default function InvestmentPanel() {
         <div>
           <h2 className="text-white font-semibold text-xl">Invest</h2>
           <p className="text-sm text-[#b1bad3]">
-            Deposit from your balance and earn <span className="text-white font-semibold">1% per day</span> — live, updated every
-            second
+            Deposit from your balance and earn 1% per day
           </p>
         </div>
       </div>
@@ -141,21 +140,21 @@ export default function InvestmentPanel() {
         <div className="text-white font-semibold text-2xl">${currentValue.toFixed(2)}</div>
       </div>
 
-      <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:items-center">
+      <div className="mt-4">
         <input
           value={amountRaw}
           onChange={(e) => setAmountRaw(e.target.value)}
           inputMode="decimal"
-          className="flex-1 bg-[#0f212e] border border-[#2f4553]/60 rounded-lg px-3 py-2 text-white outline-none"
+          className="flex-1 w-full bg-[#0f212e] border border-[#2f4553]/60 rounded-lg px-3 py-2 text-white outline-none"
           placeholder="Amount"
           aria-label="Amount"
         />
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full mt-4">
           <button
             onClick={onDeposit}
             disabled={!canDeposit}
-            className="px-4 py-2 rounded-lg bg-[#2b3f49] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-2 rounded-lg bg-[#2b3f49] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Deposit
           </button>
@@ -165,7 +164,7 @@ export default function InvestmentPanel() {
             aria-label="All balance"
             title="All balance"
             disabled={(balance ?? 0) <= 0}
-            className="w-10 h-10 flex items-center justify-center rounded-lg bg-[#2b3f49] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-35 h-10 flex items-center justify-center rounded-lg bg-[#2b3f49] text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <OutboxIcon fontSize="small" />
           </button>
@@ -173,7 +172,7 @@ export default function InvestmentPanel() {
           <button
             onClick={onWithdraw}
             disabled={!canWithdraw}
-            className="px-4 py-2 rounded-lg bg-[#2b3f49] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-2 rounded-lg bg-[#2b3f49] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Withdraw
           </button>
@@ -183,7 +182,7 @@ export default function InvestmentPanel() {
             aria-label="All invest"
             title="All invest"
             disabled={currentValue <= 0}
-            className="w-10 h-10 flex items-center justify-center rounded-lg bg-[#2b3f49] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-35 h-10 flex items-center justify-center rounded-lg bg-[#2b3f49] text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <OutboxIcon fontSize="small" />
           </button>
