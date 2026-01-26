@@ -34,6 +34,11 @@ const userSchema = new Schema(
     lastWeeklyPayback: {
       type: Date,
       required: true,
+    },
+    processedSyncs: {
+      type: [String],
+      default: [],
+      select: false,
     }
   },
   { timestamps: true }

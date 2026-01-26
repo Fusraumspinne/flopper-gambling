@@ -78,6 +78,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const {
       name,
+      syncId,
       balance,
       balanceDelta,
       weeklyPayback,
@@ -94,6 +95,16 @@ export async function POST(req: Request) {
     }
 
     await connectMongoDB();
+
+    if (syncId) {
+      const alreadyProcessed = await User.findOne({ 
+        name, 
+        processedSyncs: syncId 
+      });
+      if (alreadyProcessed) {
+        return NextResponse.json(alreadyProcessed);
+      }
+    }
 
     const userBefore = await User.findOne({ name });
     const nowMs = Date.now();
@@ -181,16 +192,25 @@ export async function POST(req: Request) {
     if (Object.keys(inc).length) update.$inc = inc;
     if (Object.keys(set).length) update.$set = set;
 
-    const user = Object.keys(update).length
-      ? await User.findOneAndUpdate({ name }, update, { new: true, upsert: true })
-      : await User.findOne({ name });
-
     const updates: Array<{ game: unknown; profit?: unknown; multi?: unknown; loss?: unknown }> =
       Array.isArray(body?.updates)
         ? body.updates
         : typeof body?.game === "string" && body.game.trim()
           ? [{ game: body.game, profit: body.profit, multi: body.multi, loss: body.loss }]
           : [];
+
+    if (syncId) {
+       update.$push = { 
+         processedSyncs: { 
+           $each: [syncId], 
+           $slice: -100 
+         } 
+       };
+    }
+
+    const user = Object.keys(update).length
+      ? await User.findOneAndUpdate({ name }, update, { new: true, upsert: true })
+      : await User.findOne({ name });
 
     for (const rawUpd of updates) {
       const gameRaw = typeof rawUpd?.game === "string" ? rawUpd.game.trim() : "";

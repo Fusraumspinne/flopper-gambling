@@ -171,9 +171,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const { data: session, status } = useSession();
   const username = session?.user?.name ?? null;
 
-  const SYNC_DEBOUNCE_MS = 2500;
-  const BETS_PER_SYNC = 25;
-
   const weeklyPot = useMemo(() => weeklyPayback, [weeklyPayback]);
 
   const mergeGameUpdate = (prev: GameUpdate | undefined, next: GameUpdate): GameUpdate => {
@@ -193,52 +190,66 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     pendingUpdatesRef.current.set(game, mergeGameUpdate(pendingUpdatesRef.current.get(game), update));
   };
 
-  const buildSyncPayload = () => {
+  const buildSyncPayload = (
+    snapshotUpdates: Map<GameKey, GameUpdate>,
+    snapBalanceDelta: number,
+    snapWeeklyPaybackDelta: number,
+    snapInvestmentDelta: number,
+    snapInvestmentDirty: boolean,
+    snapLastClaimDirty: boolean,
+    snapLastDailyDirty: boolean,
+    snapLastClaim: number,
+    snapLastDaily: number
+  ) => {
     const activeUsername = usernameRef.current;
     if (!activeUsername) return null;
 
-    const snapshot = new Map(pendingUpdatesRef.current);
-    const balanceDelta = normalizeMoney(pendingBalanceDeltaRef.current);
-    const weeklyPaybackDelta = normalizeMoney(pendingWeeklyPaybackDeltaRef.current);
-    const investmentDelta = normalizeMoney(pendingInvestmentDeltaRef.current);
-    const investmentDirty = investmentDirtyRef.current;
-    const lastClaimDirty = lastClaimDirtyRef.current;
-    const lastDailyDirty = lastDailyRewardDirtyRef.current;
+    const payload: Record<string, any> = { 
+      name: activeUsername,
+      syncId: Math.random().toString(36).substring(2) + Date.now().toString(36)
+    };
 
-    if (
-      snapshot.size === 0 &&
-      balanceDelta === 0 &&
-      !investmentDirty &&
-      !lastClaimDirty &&
-      !lastDailyDirty &&
-      weeklyPaybackDelta === 0
-    ) {
-      return null;
+    if (snapshotUpdates.size > 0) {
+      payload.updates = Array.from(snapshotUpdates.entries()).map(([game, upd]) => ({ game, ...upd }));
     }
-
-    const payload: Record<string, any> = { name: activeUsername };
-
-    if (snapshot.size > 0) {
-      payload.updates = Array.from(snapshot.entries()).map(([game, upd]) => ({ game, ...upd }));
-    }
-    if (balanceDelta !== 0) payload.balanceDelta = balanceDelta;
-    if (lastClaimDirty) payload.lastWeeklyPayback = lastClaimRef.current;
-    if (lastDailyDirty) payload.lastDailyReward = lastDailyRewardRef.current;
-    if (investmentDirty) payload.investmentDelta = investmentDelta;
-    if (weeklyPaybackDelta !== 0) payload.weeklyPaybackDelta = weeklyPaybackDelta;
+    if (snapBalanceDelta !== 0) payload.balanceDelta = snapBalanceDelta;
+    if (snapLastClaimDirty) payload.lastWeeklyPayback = snapLastClaim;
+    if (snapLastDailyDirty) payload.lastDailyReward = snapLastDaily;
+    if (snapInvestmentDirty) payload.investmentDelta = snapInvestmentDelta;
+    if (snapWeeklyPaybackDelta !== 0) payload.weeklyPaybackDelta = snapWeeklyPaybackDelta;
 
     return payload;
   };
 
-  const clearPending = () => {
-    pendingUpdatesRef.current.clear();
-    pendingBalanceDeltaRef.current = 0;
-    pendingWeeklyPaybackDeltaRef.current = 0;
-    pendingInvestmentDeltaRef.current = 0;
-    betCountRef.current = 0;
-    investmentDirtyRef.current = false;
-    lastClaimDirtyRef.current = false;
-    lastDailyRewardDirtyRef.current = false;
+  const clearSnapshotted = (
+    snapUpdates: Map<GameKey, GameUpdate>,
+    snapBalanceDelta: number,
+    snapWeeklyPaybackDelta: number,
+    snapInvestmentDelta: number,
+    snapInvestmentDirty: boolean,
+    snapLastClaimDirty: boolean,
+    snapLastDailyDirty: boolean
+  ) => {
+    pendingBalanceDeltaRef.current = normalizeMoney(pendingBalanceDeltaRef.current - snapBalanceDelta);
+    pendingWeeklyPaybackDeltaRef.current = normalizeMoney(pendingWeeklyPaybackDeltaRef.current - snapWeeklyPaybackDelta);
+    pendingInvestmentDeltaRef.current = normalizeMoney(pendingInvestmentDeltaRef.current - snapInvestmentDelta);
+
+    if (snapInvestmentDirty) investmentDirtyRef.current = false;
+    if (snapLastClaimDirty) lastClaimDirtyRef.current = false;
+    if (snapLastDailyDirty) lastDailyRewardDirtyRef.current = false;
+
+    for (const [game, snapUpd] of snapUpdates) {
+      const currentUpd = pendingUpdatesRef.current.get(game);
+      if (currentUpd) {
+        if (currentUpd.profit === snapUpd.profit) delete currentUpd.profit;
+        if (currentUpd.multi === snapUpd.multi) delete currentUpd.multi;
+        if (currentUpd.loss === snapUpd.loss) delete currentUpd.loss;
+        if (Object.keys(currentUpd).length === 0) {
+          pendingUpdatesRef.current.delete(game);
+        }
+      }
+    }
+    betCountRef.current = Math.max(0, betCountRef.current - snapUpdates.size);
   };
 
   const flushSync = async (options?: { allowHidden?: boolean; useBeacon?: boolean }): Promise<void> => {
@@ -247,18 +258,49 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
+    const snapshotUpdates = new Map(pendingUpdatesRef.current);
+    const snapBalanceDelta = normalizeMoney(pendingBalanceDeltaRef.current);
+    const snapWeeklyPaybackDelta = normalizeMoney(pendingWeeklyPaybackDeltaRef.current);
+    const snapInvestmentDelta = normalizeMoney(pendingInvestmentDeltaRef.current);
+    const snapInvestmentDirty = investmentDirtyRef.current;
+    const snapLastClaimDirty = lastClaimDirtyRef.current;
+    const snapLastDailyDirty = lastDailyRewardDirtyRef.current;
+    const snapLastClaim = lastClaimRef.current;
+    const snapLastDaily = lastDailyRewardRef.current;
+
+    if (
+      snapshotUpdates.size === 0 &&
+      snapBalanceDelta === 0 &&
+      !snapInvestmentDirty &&
+      !snapLastClaimDirty &&
+      !snapLastDailyDirty &&
+      snapWeeklyPaybackDelta === 0
+    ) {
+      return;
+    }
+
+    const payload = buildSyncPayload(
+      snapshotUpdates,
+      snapBalanceDelta,
+      snapWeeklyPaybackDelta,
+      snapInvestmentDelta,
+      snapInvestmentDirty,
+      snapLastClaimDirty,
+      snapLastDailyDirty,
+      snapLastClaim,
+      snapLastDaily
+    );
+    if (!payload) return;
+
     if (options?.useBeacon) {
-      const payload = buildSyncPayload();
-      if (!payload) return;
       if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
         try {
           const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
           const ok = navigator.sendBeacon("/api/user", blob);
           if (ok) {
-            clearPending();
+            clearSnapshotted(snapshotUpdates, snapBalanceDelta, snapWeeklyPaybackDelta, snapInvestmentDelta, snapInvestmentDirty, snapLastClaimDirty, snapLastDailyDirty);
           }
-        } catch {
-        }
+        } catch { }
       }
       return;
     }
@@ -267,8 +309,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
     const run = (async () => {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-      const payload = buildSyncPayload();
-      if (!payload) return;
 
       try {
         const res = await fetch("/api/user", {
@@ -280,12 +320,13 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
         const data = await res.json().catch(() => null);
 
-        clearPending();
+        clearSnapshotted(snapshotUpdates, snapBalanceDelta, snapWeeklyPaybackDelta, snapInvestmentDelta, snapInvestmentDirty, snapLastClaimDirty, snapLastDailyDirty);
 
         if (data && typeof data.balance === "number") {
-          const nextBalance = normalizeMoney(data.balance);
-          balanceRef.current = nextBalance;
-          setBalance(nextBalance);
+          const serverBalance = normalizeMoney(data.balance);
+          const reconciledBalance = normalizeMoney(serverBalance + pendingBalanceDeltaRef.current);
+          balanceRef.current = reconciledBalance;
+          setBalance(reconciledBalance);
         }
         if (data && data.lastPot) {
           const parsed = new Date(data.lastPot).getTime();
@@ -299,13 +340,19 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
           if (Number.isFinite(parsed)) setLastDailyRewardState(Math.floor(parsed));
         }
         if (data && typeof data.weeklyPayback === "number") {
-          setWeeklyPayback(normalizeMoney(data.weeklyPayback));
+          const serverWeekly = normalizeMoney(data.weeklyPayback);
+          const reconciledWeekly = normalizeMoney(serverWeekly + pendingWeeklyPaybackDeltaRef.current);
+          setWeeklyPayback(reconciledWeekly);
+          weeklyPaybackRef.current = reconciledWeekly;
         }
         if (data && data.investment && typeof data.investment === "object") {
           const principal = Number(data.investment.principal ?? 0);
           const startedAtMs = Number(data.investment.startedAtMs ?? Date.now());
           if (Number.isFinite(principal) && Number.isFinite(startedAtMs)) {
-            setInvestment({ principal: normalizeMoney(principal), startedAtMs: Math.floor(startedAtMs) });
+            const reconciledPrincipal = normalizeMoney(principal + pendingInvestmentDeltaRef.current);
+            const sanitized = { principal: reconciledPrincipal, startedAtMs: Math.floor(startedAtMs) };
+            setInvestment(sanitized);
+            investmentRef.current = sanitized;
           }
         }
       } catch (error) {
@@ -314,17 +361,29 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     })();
 
     flushInFlightRef.current = run;
-    try { await run; } finally { flushInFlightRef.current = null; }
+    try {
+      await run;
+    } finally {
+      flushInFlightRef.current = null;
+    }
+
+    const snapshotPendingUpdates = new Map(pendingUpdatesRef.current);
+    if (
+      snapshotPendingUpdates.size > 0 ||
+      pendingBalanceDeltaRef.current !== 0 ||
+      investmentDirtyRef.current ||
+      lastClaimDirtyRef.current ||
+      lastDailyRewardDirtyRef.current ||
+      pendingWeeklyPaybackDeltaRef.current !== 0
+    ) {
+      void flushSync();
+    }
   };
 
-  const scheduleSync = () => {
+  const scheduleSync = (unused?: boolean) => {
     if (typeof window === "undefined") return;
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-
-    syncTimerRef.current = window.setTimeout(() => {
-      syncTimerRef.current = null;
-      void flushSync();
-    }, SYNC_DEBOUNCE_MS);
+    void flushSync();
   };
 
   useEffect(() => {
@@ -549,7 +608,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       }
     }
 
-    scheduleSync();
+    void flushSync();
   };
 
   const subtractFromBalance = (amount: number) => {
@@ -566,7 +625,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     setBalance(next);
     recordBalanceDelta(-a);
 
-    if (betCountRef.current >= BETS_PER_SYNC) void flushSync(); else scheduleSync();
+    void flushSync();
   };
 
   const finalizePendingLoss = () => {
