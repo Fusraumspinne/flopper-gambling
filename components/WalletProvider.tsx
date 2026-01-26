@@ -513,15 +513,23 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   const addToBalance = (amount: number) => {
     const payout = normalizeMoney(amount);
-    const bet = pendingBetsRef.current.shift();
+    const rawBet = pendingBetsRef.current.shift();
+    const hasBet = typeof rawBet === "number" && Number.isFinite(rawBet);
+    const bet = hasBet ? rawBet : 0;
+
+    if (!hasBet) {
+      console.warn("addToBalance called without matching pending bet; crediting payout anyway", { payout, rawBet });
+    }
+
     const next = normalizeMoney(balanceRef.current + payout);
     balanceRef.current = next;
     setBalance(next);
     recordBalanceDelta(payout);
 
-    if (typeof bet === "number") {
-      const roundNet = normalizeMoney(payout - bet);
-      applyNetChange(roundNet);
+    const roundNet = normalizeMoney(payout - bet);
+    applyNetChange(roundNet);
+
+    if (hasBet) {
       if (roundNet > 0) {
         updateCurrentAndAll((s) => ({ ...s, wins: s.wins + 1 }));
         queueUpdate({ game: currentGameId, profit: roundNet, multi: normalizeMoney(payout / bet) });
@@ -531,20 +539,26 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         addWeeklyPayback(roundNet);
       }
     }
+
     scheduleSync();
   };
 
   const subtractFromBalance = (amount: number) => {
     const a = normalizeMoney(amount);
     if (a <= 0 || a > balanceRef.current) return;
-    const next = normalizeMoney(balanceRef.current - a);
-    balanceRef.current = next;
-    setBalance(next);
-    recordBalanceDelta(-a);
+    // Push pending bet first to avoid a race where a payout arrives before the
+    // bet is recorded. This prevents the very-rare case where `addToBalance`
+    // sees no matching pending bet and would otherwise ignore the payout.
     pendingBetsRef.current.push(a);
     betCountRef.current += 1;
     setLastBetAt(Date.now());
     updateCurrentAndAll((s) => ({ ...s, wagered: normalizeMoney(s.wagered + a) }));
+
+    const next = normalizeMoney(balanceRef.current - a);
+    balanceRef.current = next;
+    setBalance(next);
+    recordBalanceDelta(-a);
+
     if (betCountRef.current >= BETS_PER_SYNC) void flushSync(); else scheduleSync();
   };
 
