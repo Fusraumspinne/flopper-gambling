@@ -18,9 +18,9 @@ export async function GET(req: Request) {
     await connectMongoDB();
 
     const [profitDoc, multiDoc, lossDoc] = await Promise.all([
-      HighestProfit.findOne({ game }).lean(),
-      HighestMultiplier.findOne({ game }).lean(),
-      HighestLoss.findOne({ game }).lean(),
+      HighestProfit.findOne({ game }).sort({ profit: -1, updatedAt: -1 }).lean(),
+      HighestMultiplier.findOne({ game }).sort({ multiplier: -1, updatedAt: -1 }).lean(),
+      HighestLoss.findOne({ game }).sort({ loss: -1, updatedAt: -1 }).lean(),
     ]);
 
     const res = NextResponse.json({

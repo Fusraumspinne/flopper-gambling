@@ -222,51 +222,46 @@ export async function POST(req: Request) {
 
       const scoreValue = profitValue ?? 0;
 
-      const ops: Promise<any>[] = [];
+      async function ensureBest(model: any, value: number | null, field: string) {
+        if (value === null || value <= 0) return;
 
-      if (scoreValue > 0) {
-        ops.push(
-          HighestProfit.findOneAndUpdate(
-            { game: gameRaw, profit: { $lt: scoreValue } },
-            { game: gameRaw, username: name, profit: scoreValue },
-            { upsert: true, new: true }
-          ).catch((err: any) => {
-             if (err.code !== 11000) {
-                 console.error("HighestProfit update error:", err);
-             }
-          })
-        );
+        const docs = await model.find({ game: gameRaw }).sort({ [field]: -1, updatedAt: -1 }).exec();
+        if (docs.length > 1) {
+          const keep = docs[0];
+          const remove = docs.slice(1).map((d: any) => d._id);
+          try {
+            await model.deleteMany({ _id: { $in: remove } });
+          } catch (err) {
+            console.warn(`Failed to remove duplicate ${model.modelName} docs for ${gameRaw}:`, err);
+          }
+          docs.length = 1;
+          docs[0] = keep;
+        }
+
+        const existing = docs[0];
+        if (!existing) {
+          try {
+            await model.create({ game: gameRaw, username: name, [field]: value });
+          } catch (err: any) {
+            if (err.code !== 11000) console.error(`Create ${model.modelName} error:`, err);
+          }
+        } else {
+          const current = typeof existing[field] === "number" ? existing[field] : 0;
+          if (value > current) {
+            try {
+              await model.updateOne({ _id: existing._id }, { $set: { username: name, [field]: value } });
+            } catch (err: any) {
+              if (err.code !== 11000) console.error(`Update ${model.modelName} error:`, err);
+            }
+          }
+        }
       }
 
-      if (multiValue !== null && multiValue > 0) {
-        ops.push(
-          HighestMultiplier.findOneAndUpdate(
-            { game: gameRaw, multiplier: { $lt: multiValue } },
-            { game: gameRaw, username: name, multiplier: multiValue },
-            { upsert: true, new: true }
-          ).catch((err: any) => {
-             if (err.code !== 11000) {
-                console.error("HighestMultiplier update error:", err);
-             }
-          })
-        );
-      }
-
-      if (lossValue !== null && lossValue > 0) {
-        ops.push(
-          HighestLoss.findOneAndUpdate(
-            { game: gameRaw, loss: { $lt: lossValue } },
-            { game: gameRaw, username: name, loss: lossValue },
-            { upsert: true, new: true }
-          ).catch((err: any) => {
-             if (err.code !== 11000) {
-                console.error("HighestLoss update error:", err);
-             }
-          })
-        );
-      }
-
-      if (ops.length) await Promise.all(ops);
+      await Promise.all([
+        ensureBest(HighestProfit, scoreValue > 0 ? scoreValue : null, "profit"),
+        ensureBest(HighestMultiplier, multiValue, "multiplier"),
+        ensureBest(HighestLoss, lossValue, "loss"),
+      ]);
     }
 
     const res = NextResponse.json(user ?? { name });
