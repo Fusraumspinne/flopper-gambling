@@ -170,8 +170,8 @@ export default function Home() {
       <div className="mb-8 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
         <p className="text-indigo-200 text-sm">
           <span className="font-bold mr-2 text-indigo-400">Notice:</span> 
-          The platform's recent changes are still in progress and may not be perfect yet. 
-          If you would like to have your old balance restored, please reach out and let me know!
+          The platform's recent changes are still in progress and may not be perfect yet,
+          If you find bugs reach out and let me know
         </p>
       </div>
 

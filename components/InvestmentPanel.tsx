@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useWallet } from "@/components/WalletProvider";
+import OutboxIcon from '@mui/icons-material/Outbox';
 
 const HOUR_MS = 60 * 60 * 1000;
-const RATE_PER_HOUR = 0.01;
+const RATE_PER_HOUR = 0.01 / 24;
 
 function normalizeMoney(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -21,12 +22,9 @@ function parseAmount(raw: string): number {
 
 function computeCurrentValue(principal: number, startedAtMs: number, nowMs: number): number {
   if (principal <= 0) return 0;
-  const cappedPrincipal = Math.min(principal, 100000);
-  const nonInterestPrincipal = principal - cappedPrincipal;
   const elapsedMs = Math.max(0, nowMs - startedAtMs);
   const hours = elapsedMs / HOUR_MS;
-  const interestValue = cappedPrincipal * (1 + RATE_PER_HOUR * hours);
-  const totalValue = interestValue + nonInterestPrincipal;
+  const totalValue = principal * (1 + RATE_PER_HOUR * hours);
   return normalizeMoney(totalValue);
 }
 
@@ -51,12 +49,11 @@ export default function InvestmentPanel() {
     return () => window.clearInterval(id);
   }, []);
 
-  // Investment value is computed on the fly; we only persist on deposit/withdraw.
-
   const currentValue = useMemo(() => computeCurrentValue(principal, startedAtMs, nowMs), [principal, startedAtMs, nowMs]);
   const amount = useMemo(() => parseAmount(amountRaw), [amountRaw]);
 
-  const canDeposit = amount > 0 && amount <= balance;
+  const normalizedBalance = normalizeMoney(balance ?? 0);
+  const canDeposit = amount > 0 && amount <= normalizedBalance;
   const canWithdraw = amount > 0 && amount <= currentValue;
 
   const onDeposit = async () => {
@@ -66,7 +63,7 @@ export default function InvestmentPanel() {
       return;
     }
     if (amount <= 0) return;
-    if (amount > balance) {
+    if (amount > normalizedBalance) {
       setError("Not enough balance.");
       return;
     }
@@ -124,13 +121,16 @@ export default function InvestmentPanel() {
     if (data.investment) applyServerInvestment(data.investment);
   };
 
+  const setMaxDeposit = () => setAmountRaw(normalizeMoney(balance ?? 0).toFixed(2));
+  const setMaxWithdraw = () => setAmountRaw(currentValue.toFixed(2));
+
   return (
     <section className="mb-6 bg-[#213743] border border-[#2f4553]/60 rounded-xl p-5">
       <div className="flex items-start">
         <div>
           <h2 className="text-white font-semibold text-xl">Invest</h2>
           <p className="text-sm text-[#b1bad3]">
-            Deposit from your balance and earn <span className="text-white font-semibold">1% per hour</span> (max on $100,000) — live, updated every
+            Deposit from your balance and earn <span className="text-white font-semibold">1% per day</span> — live, updated every
             second
           </p>
         </div>
@@ -146,26 +146,48 @@ export default function InvestmentPanel() {
           value={amountRaw}
           onChange={(e) => setAmountRaw(e.target.value)}
           inputMode="decimal"
-          className="w-full bg-[#0f212e] border border-[#2f4553]/60 rounded-lg px-3 py-2 text-white outline-none"
+          className="flex-1 bg-[#0f212e] border border-[#2f4553]/60 rounded-lg px-3 py-2 text-white outline-none"
           placeholder="Amount"
           aria-label="Amount"
         />
 
-        <button
-          onClick={onDeposit}
-          disabled={!canDeposit}
-          className="px-4 py-2 rounded-lg bg-[#2f4553] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Deposit
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onDeposit}
+            disabled={!canDeposit}
+            className="px-4 py-2 rounded-lg bg-[#2b3f49] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Deposit
+          </button>
+          <button
+            type="button"
+            onClick={setMaxDeposit}
+            aria-label="All balance"
+            title="All balance"
+            disabled={(balance ?? 0) <= 0}
+            className="w-10 h-10 flex items-center justify-center rounded-lg bg-[#2b3f49] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <OutboxIcon fontSize="small" />
+          </button>
 
-        <button
-          onClick={onWithdraw}
-          disabled={!canWithdraw}
-          className="px-4 py-2 rounded-lg bg-[#1a2c38] border border-[#2f4553]/60 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Withdraw
-        </button>
+          <button
+            onClick={onWithdraw}
+            disabled={!canWithdraw}
+            className="px-4 py-2 rounded-lg bg-[#2b3f49] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Withdraw
+          </button>
+          <button
+            type="button"
+            onClick={setMaxWithdraw}
+            aria-label="All invest"
+            title="All invest"
+            disabled={currentValue <= 0}
+            className="w-10 h-10 flex items-center justify-center rounded-lg bg-[#2b3f49] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <OutboxIcon fontSize="small" />
+          </button>
+        </div>
       </div>
 
       {error ? <div className="mt-3 text-sm text-[#ffb4b4]">{error}</div> : null}

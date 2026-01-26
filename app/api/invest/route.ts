@@ -11,13 +11,11 @@ function normalizeMoney(value: number): number {
 function computeInvestmentValue(principal: number, startedAtMs: number, nowMs: number): number {
   if (!Number.isFinite(principal) || principal <= 0) return 0;
   const HOUR_MS = 60 * 60 * 1000;
-  const RATE_PER_HOUR = 0.01;
-  const cappedPrincipal = Math.min(principal, 100000);
-  const nonInterestPrincipal = principal - cappedPrincipal;
+  const RATE_PER_HOUR = 0.01 / 24;
   const elapsedMs = Math.max(0, nowMs - startedAtMs);
   const hours = elapsedMs / HOUR_MS;
-  const interestValue = cappedPrincipal * (1 + RATE_PER_HOUR * hours);
-  return normalizeMoney(interestValue + nonInterestPrincipal);
+  const totalValue = principal * (1 + RATE_PER_HOUR * hours);
+  return normalizeMoney(totalValue);
 }
 
 export async function POST(req: Request) {
