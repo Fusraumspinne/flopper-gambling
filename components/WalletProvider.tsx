@@ -150,6 +150,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const [liveStatsByGame, setLiveStatsByGame] = useState<LiveStatsByGame>(() => createEmptyLiveStatsByGame());
 
   const pendingBetsRef = useRef<number[]>([]);
+  const lastBetPushTsRef = useRef<number | null>(null);
+  const lastFinalizeLossAtRef = useRef<number | null>(null);
   const betCountRef = useRef<number>(0);
   const syncTimerRef = useRef<number | null>(null);
   const pendingUpdatesRef = useRef<Map<GameKey, GameUpdate>>(new Map());
@@ -518,6 +520,13 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     const bet = hasBet ? rawBet : 0;
 
     if (!hasBet) {
+      const lastPush = lastBetPushTsRef.current;
+      const lastLoss = lastFinalizeLossAtRef.current;
+      if (lastPush && lastLoss && lastLoss >= lastPush) {
+        console.warn("addToBalance called after finalizePendingLoss for the same bet; ignoring suspicious payout", { payout, rawBet, lastPush, lastLoss });
+        return;
+      }
+
       console.warn("addToBalance called without matching pending bet; crediting payout anyway", { payout, rawBet });
     }
 
@@ -546,10 +555,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const subtractFromBalance = (amount: number) => {
     const a = normalizeMoney(amount);
     if (a <= 0 || a > balanceRef.current) return;
-    // Push pending bet first to avoid a race where a payout arrives before the
-    // bet is recorded. This prevents the very-rare case where `addToBalance`
-    // sees no matching pending bet and would otherwise ignore the payout.
     pendingBetsRef.current.push(a);
+    lastBetPushTsRef.current = Date.now();
     betCountRef.current += 1;
     setLastBetAt(Date.now());
     updateCurrentAndAll((s) => ({ ...s, wagered: normalizeMoney(s.wagered + a) }));
@@ -565,6 +572,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const finalizePendingLoss = () => {
     const bet = pendingBetsRef.current.shift();
     if (typeof bet !== "number") return;
+    lastFinalizeLossAtRef.current = Date.now();
     updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
     applyNetChange(-normalizeMoney(bet));
     queueUpdate({ game: currentGameId, loss: normalizeMoney(bet) });
