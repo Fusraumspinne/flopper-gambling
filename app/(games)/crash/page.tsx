@@ -941,7 +941,7 @@ export default function CrashPage() {
           {history.length > 0 && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
               {history.slice(-8).map((h, i) => {
-                const mult = h.win ? (typeof h.cashedAt === "number" ? h.cashedAt : h.crashAt) : h.crashAt;
+                const mult = h.crashAt;
                 return (
                   <div
                     key={i}
