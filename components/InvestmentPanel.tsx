@@ -35,7 +35,7 @@ export default function InvestmentPanel() {
 
   const [principal, setPrincipal] = useState(investment.principal);
   const [startedAtMs, setStartedAtMs] = useState<number>(() => investment.startedAtMs || Date.now());
-  const [amountRaw, setAmountRaw] = useState("100");
+  const [amountRaw, setAmountRaw] = useState("0");
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
 
@@ -87,6 +87,28 @@ export default function InvestmentPanel() {
     if (data.investment) applyServerInvestment(data.investment);
   };
 
+  const performDepositAll = async () => {
+    setError(null);
+    if (!username) { setError("Not logged in."); return; }
+    await syncBalance();
+    const amountAll = normalizeMoney(balance ?? 0);
+    if (amountAll <= 0) return;
+
+    const res = await fetch("/api/invest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: username, action: "deposit", amount: amountAll }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      setError(data?.message || "Deposit failed.");
+      return;
+    }
+    const delta = Number(data.balanceDelta) || 0;
+    if (delta !== 0) applyServerBalanceDelta(delta);
+    if (data.investment) applyServerInvestment(data.investment);
+  };
+
   const onWithdraw = async () => {
     setError(null);
     if (!username) {
@@ -121,8 +143,34 @@ export default function InvestmentPanel() {
     if (data.investment) applyServerInvestment(data.investment);
   };
 
-  const setMaxDeposit = () => setAmountRaw(normalizeMoney(balance ?? 0).toFixed(2));
-  const setMaxWithdraw = () => setAmountRaw(currentValue.toFixed(2));
+  const performWithdrawAll = async () => {
+    setError(null);
+    if (!username) { setError("Not logged in."); return; }
+    const now = Date.now();
+    const valueNow = computeCurrentValue(principal, startedAtMs, now);
+    if (valueNow <= 0) return;
+    await syncBalance();
+
+    const res = await fetch("/api/invest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: username, action: "withdraw", amount: valueNow }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      setError(data?.message || "Withdraw failed.");
+      return;
+    }
+    const delta = Number(data.balanceDelta) || 0;
+    if (delta !== 0) applyServerBalanceDelta(delta);
+    if (data.investment) applyServerInvestment(data.investment);
+  };
+
+  const setAmountBoth = (next: number) => {
+    const v = normalizeMoney(next);
+    setPrincipal((p) => p);
+    setAmountRaw(String(v));
+  };
 
   return (
     <section className="mb-6 bg-[#213743] border border-[#2f4553]/60 rounded-xl p-5">
@@ -141,50 +189,67 @@ export default function InvestmentPanel() {
       </div>
 
       <div className="mt-4">
-        <input
-          value={amountRaw}
-          onChange={(e) => setAmountRaw(e.target.value)}
-          inputMode="decimal"
-          className="flex-1 w-full bg-[#0f212e] border border-[#2f4553]/60 rounded-lg px-3 py-2 text-white outline-none"
-          placeholder="Amount"
-          aria-label="Amount"
-        />
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={amountRaw}
+            onChange={(e) => {
+              let v = e.target.value;
+              if (v === "") { setAmountRaw(""); return; }
+              if (parseFloat(v) < 0) v = "0";
+              setAmountRaw(v);
+            }}
+            onBlur={() => {
+              const raw = (amountRaw ?? "").toString();
+              const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+              const num = Number(sanitized);
+              setAmountBoth(num);
+            }}
+            inputMode="decimal"
+            className="w-full bg-[#0f212e] border border-[#2f4553]/60 rounded-lg pl-10 pr-3 py-2 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
+            placeholder="Amount"
+            aria-label="Amount"
+          />
+        </div>
 
-        <div className="flex items-center gap-2 w-full mt-4">
+        <div className="grid grid-cols-4 gap-2 w-full mt-4">
           <button
             onClick={onDeposit}
             disabled={!canDeposit}
-            className="w-full px-4 py-2 rounded-lg bg-[#2b3f49] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-10 flex items-center justify-center rounded-lg bg-[#2b3f49] hover:bg-[#3e5666] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-[#00e701]"
           >
             Deposit
           </button>
           <button
             type="button"
-            onClick={setMaxDeposit}
-            aria-label="All balance"
-            title="All balance"
+            onClick={performDepositAll}
+            aria-label="Deposit all"
+            title="Deposit all"
             disabled={(balance ?? 0) <= 0}
-            className="w-35 h-10 flex items-center justify-center rounded-lg bg-[#2b3f49] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-10 flex items-center justify-center rounded-lg bg-[#2b3f49] hover:bg-[#3e5666] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-[#00e701]"
           >
-            <OutboxIcon fontSize="small" />
+            Deposit all
           </button>
 
           <button
             onClick={onWithdraw}
             disabled={!canWithdraw}
-            className="w-full px-4 py-2 rounded-lg bg-[#2b3f49] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-10 flex items-center justify-center rounded-lg bg-[#2b3f49] hover:bg-[#3e5666] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-[#00e701]"
           >
             Withdraw
           </button>
           <button
             type="button"
-            onClick={setMaxWithdraw}
-            aria-label="All invest"
-            title="All invest"
+            onClick={performWithdrawAll}
+            aria-label="Withdraw all"
+            title="Withdraw all"
             disabled={currentValue <= 0}
-            className="w-35 h-10 flex items-center justify-center rounded-lg bg-[#2b3f49] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-10 flex items-center justify-center rounded-lg bg-[#2b3f49] hover:bg-[#3e5666] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-[#00e701]"
           >
-            <OutboxIcon fontSize="small" />
+            Withdraw all
           </button>
         </div>
       </div>

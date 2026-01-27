@@ -64,6 +64,8 @@ export async function GET(req: Request) {
         principal: computedInvestment,
         startedAtMs: nowMs,
       },
+      btcHoldings: typeof user.btcHoldings === "number" ? user.btcHoldings : 0,
+      btcCostUsd: typeof user.btcCostUsd === "number" ? user.btcCostUsd : 0,
     });
     res.headers.set("Cache-Control", "private, no-store");
     return res;
@@ -125,6 +127,8 @@ export async function POST(req: Request) {
         password: "",
         balance: 0,
         invest: 0,
+        btcHoldings: 0,
+        btcCostUsd: 0,
         lastCheckedInvest: nowMs,
         lastDailyReward: now,
         weeklyPayback: 0,

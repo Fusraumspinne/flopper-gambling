@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectMongoDB } from "@/lib/mongodb";
 import User from "@/models/user";
+import { fetchJsonCached } from "@/lib/fetchCache";
 
 export const dynamic = 'force-dynamic';
 
@@ -27,16 +28,33 @@ export async function GET() {
       return normalizeMoney(interestValue + nonInterestPrincipal);
     };
 
+    // get BTC price (cached) so leaderboard includes crypto holdings value
+    let btcPrice = 0;
+    try {
+      const p = await fetchJsonCached('binance:btc_price', async () => {
+        const r = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
+        const j = await r.json();
+        return Number(j.price);
+      }, 30_000);
+      btcPrice = Number(p) || 0;
+    } catch (e) {
+      btcPrice = 0;
+    }
+
     const mapped = users
       .map((user) => {
+        // fetch BTC price (cached) to include crypto holdings in leaderboard
+        // note: fetched once per request below
         const principal = Number(user?.invest ?? 0);
         const startedAtMs = Number(user?.lastCheckedInvest ?? Date.now());
         const investmentValue = computeInvestmentValue(principal, startedAtMs);
+        const btcHoldings = Number(user?.btcHoldings ?? 0);
+        const btcUsdValue = normalizeMoney(btcHoldings * btcPrice);
         const balance = Number(user?.balance ?? 0);
         return {
           _id: user._id,
           name: user.name,
-          balance: normalizeMoney(balance + investmentValue),
+          balance: normalizeMoney(balance + investmentValue + (btcUsdValue || 0)),
         };
       })
       .sort((a, b) => b.balance - a.balance);

@@ -407,7 +407,6 @@ export default function BarsPage() {
 
       const perPickDist = perPickDistribution(riskLevelRef.current, pickCount);
 
-      // Reveal tiles using the same distribution we show below (risk + picks)
       const drawnMultis: number[] = grid.map(() => pickWeighted(perPickDist));
 
       const totalSumMulti = grid.reduce(
@@ -696,7 +695,7 @@ export default function BarsPage() {
           {!isAnimating && (
           <PlayArrow sx={{ fill: "currentColor" }} />
           )}
-          {isAnimating ? "Playing..." : "Bet"}
+          {isAnimating ? "Playing" : "Bet"}
         </button>
       ) : (
         <>

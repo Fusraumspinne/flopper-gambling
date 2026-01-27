@@ -69,6 +69,8 @@ interface WalletContextType {
   weeklyPot: number;
   lastClaim: number;
   lastDailyReward: number;
+  btcHoldings: number;
+  btcCostUsd: number;
   addToBalance: (amount: number) => void;
   subtractFromBalance: (amount: number) => void;
   creditBalance: (amount: number) => void;
@@ -79,6 +81,8 @@ interface WalletContextType {
   applyServerBalanceDelta: (delta: number) => void;
   applyServerLastDailyReward: (next: number) => void;
   applyServerInvestment: (next: InvestmentState) => void;
+  applyServerBtcHoldings: (next: number) => void;
+  applyServerBtcCostUsd: (next: number) => void;
   liveStats: LiveStatsState;
   liveStatsByGame: LiveStatsByGame;
   currentGameId: GameKey;
@@ -136,6 +140,8 @@ function computeWeeklyPotFromHistory(history: LiveStatsPoint[], lastClaim: numbe
 
 export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const [balance, setBalance] = useState<number>(0);
+  const [btcHoldings, setBtcHoldings] = useState<number>(0);
+  const [btcCostUsd, setBtcCostUsd] = useState<number>(0);
   const [lastClaim, setLastClaim] = useState<number>(0);
   const [lastDailyReward, setLastDailyRewardState] = useState<number>(0);
   const [weeklyPayback, setWeeklyPayback] = useState<number>(0);
@@ -468,7 +474,17 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           setInvestment({ principal: 0, startedAtMs: Date.now() });
         }
-
+        // load btc holdings + cost basis
+        if (typeof data.btcHoldings === "number" && Number.isFinite(data.btcHoldings)) {
+          setBtcHoldings(Number(data.btcHoldings));
+        } else {
+          setBtcHoldings(0);
+        }
+        if (typeof data.btcCostUsd === "number" && Number.isFinite(data.btcCostUsd)) {
+          setBtcCostUsd(normalizeMoney(Number(data.btcCostUsd)));
+        } else {
+          setBtcCostUsd(0);
+        }
         setLiveStatsByGame(baseStats);
       } catch (error) {
         console.error("Failed to load user data", error);
@@ -689,6 +705,18 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     investmentDirtyRef.current = false;
   };
 
+  const applyServerBtcHoldings = (next: number) => {
+    const n = Number(next) || 0;
+    if (!Number.isFinite(n)) return;
+    setBtcHoldings(n);
+  };
+
+  const applyServerBtcCostUsd = (next: number) => {
+    const n = Number(next) || 0;
+    if (!Number.isFinite(n)) return;
+    setBtcCostUsd(normalizeMoney(n));
+  };
+
   const updateInvestment = (next: InvestmentState) => {
     const principal = normalizeMoney(next.principal);
     const startedAtMs = Math.floor(next.startedAtMs);
@@ -756,7 +784,9 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       value={{
         balance, weeklyPot, lastClaim, lastDailyReward, addToBalance, subtractFromBalance, creditBalance, debitBalance,
         investment, updateInvestment, setLastDailyReward,
-        applyServerBalanceDelta, applyServerLastDailyReward, applyServerInvestment,
+        applyServerBalanceDelta, applyServerLastDailyReward, applyServerInvestment, applyServerBtcHoldings, applyServerBtcCostUsd,
+        btcHoldings,
+        btcCostUsd,
         liveStats: liveStatsByGame[currentGameId] || liveStatsByGame.all,
         liveStatsByGame, currentGameId, resetLiveStats, finalizePendingLoss,
         syncBalance: flushSync, setBalanceTo, lastBetAt, claimWeeklyPot
