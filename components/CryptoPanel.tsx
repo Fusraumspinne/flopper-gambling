@@ -52,28 +52,10 @@ export default function CryptoPanel() {
   const [error, setError] = useState<string | null>(null);
 
   const _loadedRef = useRef(false);
+  const portfolioSyncedRef = useRef(false);
   useEffect(() => {
     if (_loadedRef.current) return;
     _loadedRef.current = true;
-    const load = async () => {
-      try {
-        const kres = await fetch("/api/crypto/klines");
-        if (kres.ok) {
-          const kd = await kres.json();
-          if (kd && Array.isArray(kd.klines)) {
-            const vals = kd.klines.map((row: any) => Number(row[4]));
-            setKlines(vals);
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    void load();
-  }, []);
-
-  useEffect(() => {
-    if (!_loadedRef.current) return;
 
     let ws: WebSocket | null = null;
     try {
@@ -81,11 +63,27 @@ export default function CryptoPanel() {
       ws.addEventListener('message', (ev) => {
         try {
           const data = JSON.parse(ev.data as string);
-          if (data && data.p) {
-            const live = Number(data.p);
-            if (!Number.isNaN(live)) setPrice(live);
+          const p = data.p ?? data.price ?? null;
+          const live = Number(p);
+          if (!Number.isFinite(live) || live <= 0) return;
+          setPrice(live);
+
+          // one-shot portfolio sync: set the flag immediately to prevent races
+          if (!portfolioSyncedRef.current && username) {
+            portfolioSyncedRef.current = true;
+            void (async () => {
+              try {
+                await fetch('/api/crypto/portfolio', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: username, clientPrice: live })
+                });
+              } catch (e) {
+                console.debug('portfolio sync failed on ws message', e);
+              }
+            })();
           }
         } catch (e) {
+          // ignore
         }
       });
       ws.addEventListener('error', (e) => {
@@ -95,14 +93,45 @@ export default function CryptoPanel() {
       console.debug('Failed to open Binance WS', e);
     }
 
+    const seed = (price && price > 0) ? price : 40000;
+    setKlines((prev) => {
+      if (prev.length > 0) return prev;
+      const pts = 96;
+      const arr: number[] = [];
+      let cur = seed;
+      for (let i = 0; i < pts; i++) {
+        const change = (Math.random() - 0.5) * 0.002;
+        cur = Math.max(1, cur * (1 + change));
+        arr.push(Math.round(cur * 100) / 100);
+      }
+      return arr;
+    });
+
     return () => {
       try {
         if (ws && ws.readyState === WebSocket.OPEN) ws.close();
-      } catch (e) {
-      }
+      } catch (e) {}
       ws = null;
     };
   }, []);
+
+  // fallback: if username becomes available after first price, ensure one-time sync
+  useEffect(() => {
+    if (portfolioSyncedRef.current) return;
+    if (!username) return;
+    if (!price || price <= 0) return;
+    void (async () => {
+      try {
+        const res = await fetch('/api/crypto/portfolio', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: username, clientPrice: price })
+        });
+        if (res.ok) portfolioSyncedRef.current = true;
+      } catch (e) {
+        console.debug('portfolio sync failed on effect', e);
+      }
+    })();
+  }, [username, price]);
 
   const amount = useMemo(() => parseAmount(amountRaw), [amountRaw]);
   const normalizedBalance = normalizeMoney(balance ?? 0);
@@ -141,7 +170,7 @@ export default function CryptoPanel() {
 
     const res = await fetch('/api/crypto/trade', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: username, action: 'buy', amount })
+      body: JSON.stringify({ name: username, action: 'buy', amount, clientPrice: price })
     });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.success) {
@@ -163,7 +192,7 @@ export default function CryptoPanel() {
 
     const res = await fetch('/api/crypto/trade', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: username, action: 'sell', amount })
+      body: JSON.stringify({ name: username, action: 'sell', amount, clientPrice: price })
     });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.success) {
@@ -181,7 +210,7 @@ export default function CryptoPanel() {
     try {
       const res = await fetch('/api/crypto/trade', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: username, action: 'buy_all' })
+        body: JSON.stringify({ name: username, action: 'buy_all', clientPrice: price })
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
@@ -203,7 +232,7 @@ export default function CryptoPanel() {
     try {
       const res = await fetch('/api/crypto/trade', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: username, action: 'sell_all' })
+        body: JSON.stringify({ name: username, action: 'sell_all', clientPrice: price })
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {

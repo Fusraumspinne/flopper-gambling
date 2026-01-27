@@ -10,7 +10,7 @@ function normalizeMoney(value: number): number {
 
 export async function POST(req: Request) {
   try {
-    const { name, action, amount } = await req.json();
+    const { name, action, amount, clientPrice } = await req.json();
     if (typeof name !== "string" || !name.trim()) {
       return NextResponse.json({ message: "Invalid name" }, { status: 400 });
     }
@@ -25,11 +25,12 @@ export async function POST(req: Request) {
       }
     }
 
-    const priceRes = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT");
-    if (!priceRes.ok) return NextResponse.json({ message: "Failed to fetch price" }, { status: 502 });
-    const priceData = await priceRes.json();
-    const price = Number(priceData.price || 0);
-    if (!Number.isFinite(price) || price <= 0) return NextResponse.json({ message: "Invalid price" }, { status: 502 });
+    const cp = clientPrice !== undefined ? Number(clientPrice) : NaN;
+    if (!Number.isFinite(cp) || cp <= 0) {
+      console.warn('/api/crypto/trade missing/invalid clientPrice', { name, action, amount, clientPrice });
+      return NextResponse.json({ message: "clientPrice required" }, { status: 400 });
+    }
+    const price = cp;
 
     await connectMongoDB();
 
@@ -53,7 +54,11 @@ export async function POST(req: Request) {
 
       if (!updated) return NextResponse.json({ message: "State changed, retry" }, { status: 409 });
 
-      const res = NextResponse.json({ success: true, amount: rawAmount, price, balanceDelta: -rawAmount, btcHoldings: updated.btcHoldings, btcCostUsd: updated.btcCostUsd });
+      // update portfolioUsd (cached) based on new holdings and client price
+      const newPortfolio = normalizeMoney(Number(updated.btcHoldings || 0) * price);
+      const finalUpdated = await User.findByIdAndUpdate(updated._id, { $set: { portfolioUsd: newPortfolio } }, { new: true });
+
+      const res = NextResponse.json({ success: true, amount: rawAmount, price, balanceDelta: -rawAmount, btcHoldings: finalUpdated.btcHoldings, btcCostUsd: finalUpdated.btcCostUsd, portfolioUsd: finalUpdated.portfolioUsd });
       res.headers.set("Cache-Control", "private, no-store");
       return res;
     }
@@ -75,7 +80,10 @@ export async function POST(req: Request) {
 
       if (!updatedAll) return NextResponse.json({ message: "State changed, retry" }, { status: 409 });
 
-      const res = NextResponse.json({ success: true, action: 'buy_all', price, amountUsd: -normalizeMoney(balance), balanceDelta: -normalizeMoney(balance), btcHoldings: updatedAll.btcHoldings, btcCostUsd: updatedAll.btcCostUsd });
+      const newPortfolioAll = normalizeMoney(Number(updatedAll.btcHoldings || 0) * price);
+      const finalUpdatedAll = await User.findByIdAndUpdate(updatedAll._id, { $set: { portfolioUsd: newPortfolioAll } }, { new: true });
+
+      const res = NextResponse.json({ success: true, action: 'buy_all', price, amountUsd: -normalizeMoney(balance), balanceDelta: -normalizeMoney(balance), btcHoldings: finalUpdatedAll.btcHoldings, btcCostUsd: finalUpdatedAll.btcCostUsd, portfolioUsd: finalUpdatedAll.portfolioUsd });
       res.headers.set("Cache-Control", "private, no-store");
       return res;
     }
@@ -95,7 +103,10 @@ export async function POST(req: Request) {
 
       if (!updatedAll) return NextResponse.json({ message: "State changed, retry" }, { status: 409 });
 
-      const res = NextResponse.json({ success: true, action: 'sell_all', price, amountUsd: normalizedProceeds, balanceDelta: normalizedProceeds, btcHoldings: updatedAll.btcHoldings, btcCostUsd: updatedAll.btcCostUsd });
+      // portfolio is now zero
+      const finalUpdatedSellAll = await User.findByIdAndUpdate(updatedAll._id, { $set: { portfolioUsd: 0 } }, { new: true });
+
+      const res = NextResponse.json({ success: true, action: 'sell_all', price, amountUsd: normalizedProceeds, balanceDelta: normalizedProceeds, btcHoldings: finalUpdatedSellAll.btcHoldings, btcCostUsd: finalUpdatedSellAll.btcCostUsd, portfolioUsd: finalUpdatedSellAll.portfolioUsd });
       res.headers.set("Cache-Control", "private, no-store");
       return res;
     }
@@ -104,7 +115,6 @@ export async function POST(req: Request) {
     const btcNeeded = rawAmount / price;
     if (btcNeeded > btcHoldings + 1e-12) return NextResponse.json({ message: "Not enough BTC to sell" }, { status: 400 });
 
-    // reduce cost basis proportionally for the BTC sold
     const prevCostUsd = typeof user.btcCostUsd === 'number' ? user.btcCostUsd : 0;
     let newCostUsd = prevCostUsd;
     if (btcHoldings > 0) {
@@ -121,7 +131,10 @@ export async function POST(req: Request) {
 
     if (!updated) return NextResponse.json({ message: "State changed, retry" }, { status: 409 });
 
-    const res = NextResponse.json({ success: true, amount: rawAmount, price, balanceDelta: rawAmount, btcHoldings: updated.btcHoldings, btcCostUsd: updated.btcCostUsd });
+    const newPortfolioSell = normalizeMoney(Number(updated.btcHoldings || 0) * price);
+    const finalUpdatedSell = await User.findByIdAndUpdate(updated._id, { $set: { portfolioUsd: newPortfolioSell } }, { new: true });
+
+    const res = NextResponse.json({ success: true, amount: rawAmount, price, balanceDelta: rawAmount, btcHoldings: finalUpdatedSell.btcHoldings, btcCostUsd: finalUpdatedSell.btcCostUsd, portfolioUsd: finalUpdatedSell.portfolioUsd });
     res.headers.set("Cache-Control", "private, no-store");
     return res;
   } catch (error) {
