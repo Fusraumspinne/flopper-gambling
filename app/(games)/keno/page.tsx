@@ -395,7 +395,7 @@ export default function KenoPage() {
               setResultFx(null);
               resultTimeoutRef.current = null;
               resolve();
-            }, 900);
+            }, 300);
           });
         } else {
           finalizePendingLoss();
@@ -410,7 +410,7 @@ export default function KenoPage() {
               setResultFx(null);
               resultTimeoutRef.current = null;
               resolve();
-            }, 900);
+            }, 300);
           });
         }
 

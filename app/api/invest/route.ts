@@ -18,6 +18,13 @@ function computeInvestmentValue(principal: number, startedAtMs: number, nowMs: n
   return normalizeMoney(totalValue);
 }
 
+function normalizeTimestampMs(v: unknown, fallback: number): number {
+  if (typeof v === "number" && Number.isFinite(v)) {
+    return v < 1e12 ? Math.round(v * 1000) : Math.round(v);
+  }
+  return fallback;
+}
+
 export async function POST(req: Request) {
   try {
     const { name, action, amount } = await req.json();
@@ -42,10 +49,12 @@ export async function POST(req: Request) {
 
     const nowMs = Date.now();
     const rawPrincipal = typeof user.invest === "number" ? user.invest : 0;
-    const rawStartedAtMs =
+    const rawStartedAtMs = normalizeTimestampMs(
       typeof user.lastCheckedInvest === "number" && Number.isFinite(user.lastCheckedInvest)
         ? user.lastCheckedInvest
-        : nowMs;
+        : nowMs,
+      nowMs
+    );
     const currentValue = computeInvestmentValue(rawPrincipal, rawStartedAtMs, nowMs);
 
     if (action === "deposit") {

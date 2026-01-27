@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useWallet } from "@/components/WalletProvider";
-import OutboxIcon from '@mui/icons-material/Outbox';
 
 function normalizeMoney(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -286,7 +285,7 @@ export default function CryptoPanel() {
             }}
             inputMode="decimal"
             className="w-full bg-[#0f212e] border border-[#2f4553]/60 rounded-lg pl-10 pr-3 py-2 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
-            placeholder="Amount (USD)"
+            placeholder="Amount"
             aria-label="Amount"
           />
         </div>

@@ -3,10 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useWallet } from "@/components/WalletProvider";
-import OutboxIcon from '@mui/icons-material/Outbox';
 
 const HOUR_MS = 60 * 60 * 1000;
 const RATE_PER_HOUR = 0.01 / 24;
+
+function normalizeTimestampMs(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v)) {
+    return v < 1e12 ? Math.round(v * 1000) : Math.round(v);
+  }
+  return Date.now();
+}
 
 function normalizeMoney(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -34,14 +40,14 @@ export default function InvestmentPanel() {
   const { balance, investment, syncBalance, applyServerBalanceDelta, applyServerInvestment } = useWallet();
 
   const [principal, setPrincipal] = useState(investment.principal);
-  const [startedAtMs, setStartedAtMs] = useState<number>(() => investment.startedAtMs || Date.now());
+  const [startedAtMs, setStartedAtMs] = useState<number>(() => normalizeTimestampMs(investment.startedAtMs));
   const [amountRaw, setAmountRaw] = useState("0");
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setPrincipal(investment.principal);
-    setStartedAtMs(investment.startedAtMs || Date.now());
+    setStartedAtMs(normalizeTimestampMs(investment.startedAtMs));
   }, [investment.principal, investment.startedAtMs]);
 
   useEffect(() => {
