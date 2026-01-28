@@ -155,7 +155,9 @@ const games: Array<{
 
 export default async function Home() {
   const status = await getWebsiteStatus();
-  const allowedGames = games.filter((game) => status.games[getGameKeyFromHref(game.href)] !== false);
+  const allowedGames = games.filter(
+    (game) => status.games[getGameKeyFromHref(game.href)] === true
+  );
 
   return (
     <div className="p-8">
