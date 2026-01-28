@@ -4,6 +4,8 @@ import Leaderboard from "@/components/Leaderboard";
 import GiftPanel from "@/components/GiftPanel";
 import WeeklyPotPanel from "@/components/WeeklyPotPanel";
 import CryptoPanel from "@/components/CryptoPanel";
+import { getWebsiteStatus } from "@/lib/websiteStatus";
+import { getGameKeyFromHref } from "@/lib/gameStatus";
 
 const games: Array<{
   name: string;
@@ -151,7 +153,10 @@ const games: Array<{
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const status = await getWebsiteStatus();
+  const allowedGames = games.filter((game) => status.games[getGameKeyFromHref(game.href)] !== false);
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -175,7 +180,7 @@ export default function Home() {
       <WeeklyPotPanel />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
-        {games.map((game) => (
+        {allowedGames.map((game) => (
           <Link
             key={game.href}
             href={game.href}

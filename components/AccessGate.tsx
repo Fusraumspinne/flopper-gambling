@@ -13,18 +13,23 @@ const AccessGate: React.FC<AccessGateProps> = ({ children }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const checkStatus = async () => {
+    const checkStatus = () => {
       try {
-        const res = await fetch('/api/gate/status');
-        if (res.ok) {
-          setIsAuthorized(true);
-        } else {
-          setIsAuthorized(false);
+        if (typeof window !== 'undefined') {
+          const localUser = localStorage.getItem('flopper_user_authorized');
+          const localAdmin = localStorage.getItem('flopper_admin_authorized');
+          if (localUser === 'true' || localAdmin === 'true') {
+            setIsAuthorized(true);
+            return;
+          }
         }
-      } catch (err) {
-        setIsAuthorized(false);
+      } catch (e) {
+        
       }
+
+      setIsAuthorized(false);
     };
+
     checkStatus();
   }, []);
 
@@ -38,8 +43,21 @@ const AccessGate: React.FC<AccessGateProps> = ({ children }) => {
         body: JSON.stringify({ password }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         setIsAuthorized(true);
+
+        try {
+          if (typeof window !== 'undefined') {
+            if (data && data.role === 'admin') {
+              localStorage.setItem('flopper_admin_authorized', 'true');
+            } else {
+              localStorage.setItem('flopper_user_authorized', 'true');
+            }
+          }
+        } catch (e) {
+        }
       } else {
         setError(true);
         setPassword('');

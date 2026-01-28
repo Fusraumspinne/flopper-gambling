@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment, PrivacyTip } from "@mui/icons-material";
@@ -9,6 +9,7 @@ import LiveStatsPanel from "./LiveStatsPanel";
 import { useSidebar } from "./Shell";
 import { useHourlyReward } from "./useHourlyReward";
 import { useSoundVolume } from "./SoundVolumeProvider";
+import { DEFAULT_GAME_STATUS, getGameKeyFromHref } from "@/lib/gameStatus";
 
 interface Game {
   name: string;
@@ -51,6 +52,37 @@ export default function Navbar() {
   const { claimableAmount, lastClaimISO, claim } = useHourlyReward({ amountPerHour: 100 });
 
   const [statsOpen, setStatsOpen] = useState(false);
+  const [gameStatus, setGameStatus] = useState<Record<string, boolean>>(DEFAULT_GAME_STATUS);
+  const [adminAuthorized, setAdminAuthorized] = useState(false);
+
+  useEffect(() => {
+    const loadStatus = async () => {
+      try {
+        const res = await fetch("/api/status", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.games && typeof data.games === "object") {
+          setGameStatus({ ...DEFAULT_GAME_STATUS, ...data.games });
+        }
+      } catch (e) {}
+    };
+
+    const checkAdmin = () => {
+      try {
+        if (typeof window !== "undefined") {
+          setAdminAuthorized(localStorage.getItem("flopper_admin_authorized") === "true");
+        }
+      } catch (e) {}
+    };
+
+    loadStatus();
+    checkAdmin();
+  }, []);
+
+  const visibleGames = useMemo(
+    () => games.filter((game) => gameStatus[getGameKeyFromHref(game.href)] !== false),
+    [gameStatus]
+  );
 
   const claimFree = async () => {
     await claim();
@@ -134,7 +166,7 @@ export default function Navbar() {
           <div className={`${collapsed ? "hidden" : "mb-2 px-4"} text-xs font-bold uppercase tracking-wider text-[#557086]`}>Games</div>
         )}
         
-        {games.map((game, index) => (
+        {visibleGames.map((game, index) => (
           <Link
             key={index}
             href={game.href}
@@ -173,7 +205,18 @@ export default function Navbar() {
       )}
 
       <div className={`${collapsed ? "px-2" : "px-4"} pb-2`}>
-        <div className="border-t border-[#213743] pt-2">
+        <div className="border-t border-[#213743] pt-2 space-y-2">
+          {adminAuthorized && (
+            <Link
+              href="/admin"
+              prefetch={false}
+              title="Admin"
+              className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} text-xs text-[#8399aa] hover:text-white`}
+            >
+              <Lock sx={{ fontSize: 18 }} />
+              {!collapsed && <span>Admin</span>}
+            </Link>
+          )}
           <Link
             href="/privacy"
             prefetch={false}

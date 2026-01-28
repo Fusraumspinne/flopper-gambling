@@ -5,6 +5,9 @@ import LayoutWrapper from "@/components/LayoutWrapper";
 import Wartungspause from "@/components/Wartungspause";
 import AccessGate from "@/components/AccessGate";
 import { AuthProvider } from "@/app/providers"
+import Pause from "@/components/Pause";
+import AdminBypass from "@/components/AdminBypass";
+import { getWebsiteStatus } from "@/lib/websiteStatus";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,18 +24,26 @@ export const metadata: Metadata = {
   description: "The best fake money gambling site",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const isMaintenance = false;
+  const status = await getWebsiteStatus();
+  const isMaintenance = status.isMaintenance;
+  const isPause = status.isPaused;
 
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#1a2c38] text-[#b1bad3]`}>
         {isMaintenance ? (
-          <Wartungspause />
+          <AdminBypass isMaintenance>
+            {children}
+          </AdminBypass>
+        ) : isPause ? (
+          <AdminBypass isPause>
+            {children}
+          </AdminBypass>
         ) : (
           <AccessGate>
             <AuthProvider>
