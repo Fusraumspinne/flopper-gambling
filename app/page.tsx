@@ -4,6 +4,7 @@ import Leaderboard from "@/components/Leaderboard";
 import GiftPanel from "@/components/GiftPanel";
 import WeeklyPotPanel from "@/components/WeeklyPotPanel";
 import CryptoPanel from "@/components/CryptoPanel";
+import UpdatesPanel from "@/components/UpdatesPanel";
 import { getWebsiteStatus } from "@/lib/websiteStatus";
 import { getGameKeyFromHref } from "@/lib/gameStatus";
 import GamesGrid from "@/components/GamesGrid";
@@ -31,6 +32,7 @@ export default async function Home() {
         </p>
       </div>
 
+      <UpdatesPanel />
       <InvestmentPanel />
       <CryptoPanel/>
       <Leaderboard />

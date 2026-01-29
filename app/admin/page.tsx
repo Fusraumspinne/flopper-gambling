@@ -496,16 +496,28 @@ export default function AdminPage() {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={saveUser}
-                disabled={!selectedUserId}
-                className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+                disabled={!selectedUserId || loading}
+                className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-2"
               >
+                {loading && (
+                  <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                  </svg>
+                )}
                 Save User
               </button>
               <button
                 onClick={deleteUser}
-                disabled={!selectedUserId}
-                className="bg-[#c84b4b] hover:bg-[#d65a5a] text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+                disabled={!selectedUserId || loading}
+                className="bg-[#c84b4b] hover:bg-[#d65a5a] text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-2"
               >
+                {loading && (
+                  <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                  </svg>
+                )}
                 Delete User
               </button>
             </div>
@@ -578,16 +590,28 @@ export default function AdminPage() {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={saveRecord}
-                disabled={!recordForm}
-                className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+                disabled={!recordForm || loading}
+                className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-2"
               >
+                {loading && (
+                  <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                  </svg>
+                )}
                 Save Record
               </button>
               <button
                 onClick={deleteRecord}
-                disabled={!recordForm}
-                className="bg-[#c84b4b] hover:bg-[#d65a5a] text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+                disabled={!recordForm || loading}
+                className="bg-[#c84b4b] hover:bg-[#d65a5a] text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-2"
               >
+                {loading && (
+                  <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                  </svg>
+                )}
                 Delete Record
               </button>
             </div>
@@ -654,16 +678,28 @@ export default function AdminPage() {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={saveGift}
-                disabled={!selectedGiftId}
-                className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+                disabled={!selectedGiftId || loading}
+                className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-2"
               >
+                {loading && (
+                  <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                  </svg>
+                )}
                 Save Gift
               </button>
               <button
                 onClick={deleteGift}
-                disabled={!selectedGiftId}
-                className="bg-[#c84b4b] hover:bg-[#d65a5a] text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+                disabled={!selectedGiftId || loading}
+                className="bg-[#c84b4b] hover:bg-[#d65a5a] text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-2"
               >
+                {loading && (
+                  <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                  </svg>
+                )}
                 Delete Gift
               </button>
             </div>
@@ -725,8 +761,15 @@ export default function AdminPage() {
           <div className="mt-6">
             <button
               onClick={saveStatus}
-              className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg"
+              disabled={loading}
+              className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-2"
             >
+              {loading && (
+                <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+              )}
               Save Website Status
             </button>
           </div>

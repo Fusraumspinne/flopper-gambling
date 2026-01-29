@@ -1,7 +1,9 @@
 "use client";
-import React from 'react'
+import React, { useState } from 'react'
 
 function Wartungspause() {
+  const [changes, setChanges] = useState<string>("We're making some exciting updates to enhance your experience!");
+
   return (
     <div className="min-h-screen bg-[#0f212e] flex flex-col items-center justify-center p-8 text-center">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/10 blur-[120px] pointer-events-none" />
@@ -29,7 +31,7 @@ function Wartungspause() {
             Status Update
           </p>
           <p className="text-white text-lg">
-            I am coding real accounts so people cant cheat and you cant use multiple accounts.
+            {changes}
             <br />
             <span className="text-yellow-300/80 italic">Don't worry, your balance is safe.</span>
           </p>

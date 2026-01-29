@@ -284,7 +284,6 @@ export default function RoulettePage() {
     const totalBetNow = bets.reduce((acc, b) => acc + b.amount, 0);
     if (isSpinningRef.current || isSpinning || totalBetNow <= 0) return;
     if (totalBetNow > balance) {
-      alert("Insufficient balance!");
       return;
     }
     

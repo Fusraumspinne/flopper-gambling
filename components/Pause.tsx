@@ -21,12 +21,12 @@ function Pause() {
         </h1>
 
         <p className="text-[#b1bad3] text-xl mb-6">
-          A little break will do you good — you addicted players! Rest your nerves, get some fresh air,
-          and step away from the high score frenzy for a moment.
+          A little break will do you good — you addicted players, rest your nerves, get some fresh air,
+          and step away from the high score frenzy for a moment
         </p>
     
         <p className="text-sm text-[#557086]">
-          Estimated return: shortly — Play responsibly and take care of yourself.
+          Estimated return: shortly — Play responsibly and take care of yourself
         </p>
       </div>
     </div>

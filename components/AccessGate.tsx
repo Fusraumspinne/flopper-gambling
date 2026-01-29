@@ -131,7 +131,7 @@ const AccessGate: React.FC<AccessGateProps> = ({ children }) => {
             />
             {error && (
               <p role="status" aria-live="polite" className="text-[#ffb4b4] text-sm mt-2">
-                Incorrect password — please try again.
+                Incorrect password — please try again
               </p>
             )}
           </div>
