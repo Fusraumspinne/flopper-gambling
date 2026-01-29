@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { withAuth } from "next-auth/middleware";
 import { GAME_ROUTE_TO_KEY } from "./lib/gameStatus";
 
-export async function middleware(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const pathname = req.nextUrl.pathname.replace(/\/+$/, "");
     const parts = pathname.split("/").filter(Boolean);
@@ -26,6 +27,13 @@ export async function middleware(req: NextRequest) {
 
   return NextResponse.next();
 }
+
+export default withAuth(handler, {
+  pages: {
+    signIn: "/login",
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+});
 
 export const config = {
   matcher: [

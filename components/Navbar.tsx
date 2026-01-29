@@ -67,6 +67,10 @@ export default function Navbar() {
       } catch (e) {}
     };
 
+    loadStatus();
+  }, [pathname]);
+
+  useEffect(() => {
     const checkAdmin = () => {
       try {
         if (typeof window !== "undefined") {
@@ -75,7 +79,6 @@ export default function Navbar() {
       } catch (e) {}
     };
 
-    loadStatus();
     checkAdmin();
   }, []);
 
