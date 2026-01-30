@@ -27,7 +27,7 @@ interface Particle {
   y: number;
   vx: number;
   vy: number;
-  life: number; // ms
+  life: number;
   size: number;
   color: string;
 }
@@ -90,7 +90,7 @@ const FIXED_MULTIPLIERS: Record<RiskLevel, Record<number, number[]>> = {
     9: [5.6, 2, 1.6, 1, 0.7, 0.7, 1, 1.6, 2, 5.6],
     10: [8.9, 3, 1.4, 1.1, 1, 0.5, 1, 1.1, 1.4, 3, 8.9],
     11: [8.4, 3, 1.9, 1.3, 1, 0.7, 0.7, 1, 1.3, 1.9, 3, 8.4],
-    12: [10, 3, 1.6, 1.4, 1.1, 0.5, 1, 1.1, 1.4, 1.6, 3, 10],
+    12: [10, 3, 1.6, 1.4, 1, 1.1, 0.5, 1, 1.1, 1.4, 1.6, 3, 10],
     13: [8.1, 4, 3, 1.9, 1.2, 0.9, 0.7, 0.7, 0.9, 1.2, 1.9, 3, 4, 8.1],
     14: [7.1, 4, 1.9, 1.4, 1.3, 1.1, 1, 0.5, 1, 1.1, 1.3, 1.4, 1.9, 4, 7.1],
     15: [15, 8, 3, 2, 1.5, 1.1, 1, 0.7, 0.7, 1, 1.1, 1.5, 2, 3, 8, 15],
@@ -115,11 +115,47 @@ const FIXED_MULTIPLIERS: Record<RiskLevel, Record<number, number[]>> = {
     12: [170, 24, 8.1, 2, 0.7, 0.2, 0.2, 0.2, 0.7, 2, 8.1, 24, 170],
     13: [260, 37, 11, 4, 1, 0.2, 0.2, 0.2, 0.2, 1, 4, 11, 37, 260],
     14: [420, 56, 18, 5, 1.9, 0.3, 0.2, 0.2, 0.2, 0.3, 1.9, 5, 18, 56, 420],
-    15: [620, 83, 27, 8, 3, 0.5, 0.2, 0.2, 0.2, 0.2, 0.5, 3, 8, 83, 620],
+    15: [620, 83, 27, 8, 3, 0.5, 0.2, 0.2, 0.2, 0.2, 0.5, 3, 8, 27, 83, 620],
     16: [
       1000, 130, 26, 9, 4, 2, 0.2, 0.2, 0.2, 0.2, 0.2, 2, 4, 9, 26, 130, 1000,
     ],
   },
+};
+
+const FIXED_SLOT_PROBS_RAW: Record<number, number[]> = {
+  8: [0.3906, 3.125, 10.9375, 21.875, 27.3438],
+  9: [0.1953, 1.7578, 7.0313, 16.4063, 24.6094],
+  10: [0.0977, 0.9766, 4.3945, 11.7188, 20.5078, 24.6094],
+  11: [0.0488, 0.5371, 2.6855, 8.0566, 16.1133, 22.5586],
+  12: [0.0244, 0.293, 1.6113, 5.3711, 12.085, 19.3359, 22.5586],
+  13: [0.0122, 0.1587, 0.9521, 3.4912, 8.728, 15.7104, 20.9473],
+  14: [0.0061, 0.0854, 0.5554, 2.2217, 6.1096, 12.2192, 18.33289, 20.9473],
+  15: [0.0031, 0.0458, 0.3204, 1.3885, 4.1656, 9.1644, 15.274, 19.6381],
+  16: [0.0015, 0.0244, 0.1831, 0.8545, 2.7771, 6.665, 12.2192, 17.4561, 19.6381],
+};
+
+const getSlotProbabilities = (rows: number) => {
+  const raw = FIXED_SLOT_PROBS_RAW[rows];
+  if (!raw) {
+    const totalPaths = Math.pow(2, rows);
+    const res: number[] = [];
+    for (let i = 0; i < rows + 1; i++) {
+      res.push(comb(rows, i) / totalPaths);
+    }
+    return res;
+  }
+
+  const count = rows + 1;
+  const halfLen = raw.length;
+  const full: number[] = [];
+  for (let i = 0; i < count; i++) {
+    if (i < halfLen) full.push(raw[i]);
+    else full.push(raw[count - 1 - i]);
+  }
+
+  const sum = full.reduce((a, b) => a + b, 0);
+  if (sum <= 0) return full.map(() => 1 / full.length);
+  return full.map((v) => v / sum);
 };
 
 const getMultipliers = (rows: number, risk: RiskLevel): number[] => {
@@ -381,7 +417,6 @@ export default function PlinkoPage() {
     if (bet > balanceRef.current) return;
     if (isAuto && isDroppingRef.current) return;
 
-    // start dropping (manual calls allowed even if already dropping)
     isDroppingRef.current = true;
     setIsDroppingState(true);
 
@@ -391,9 +426,29 @@ export default function PlinkoPage() {
     setResultFx("rolling");
     setResultKey((k) => k + 1);
 
-    const path: number[] = [];
-    for (let i = 0; i < rows; i++) {
-      path.push(Math.random() < 0.5 ? 0 : 1);
+    // choose a final slot according to fixed probabilities (if available)
+    const slotProbs = getSlotProbabilities(rows);
+    let r = Math.random();
+    let acc = 0;
+    let chosenSlot = 0;
+    for (let i = 0; i < slotProbs.length; i++) {
+      acc += slotProbs[i];
+      if (r <= acc) {
+        chosenSlot = i;
+        break;
+      }
+    }
+    if (chosenSlot < 0 || chosenSlot >= slotProbs.length) chosenSlot = slotProbs.length - 1;
+
+    // build a path with exactly `chosenSlot` rights (1) and shuffle it
+    const ones = chosenSlot;
+    const zeros = Math.max(0, rows - ones);
+    const path: number[] = [...Array(ones).fill(1), ...Array(zeros).fill(0)];
+    for (let i = path.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = path[i];
+      path[i] = path[j];
+      path[j] = tmp;
     }
 
     const startCol = 1;
@@ -435,6 +490,8 @@ export default function PlinkoPage() {
 
       const multipliers = getMultipliers(rows, risk);
       const slotsCount = multipliers.length;
+      const slotProbs = getSlotProbabilities(rows);
+      const usingFixedSlotProbs = !!FIXED_SLOT_PROBS_RAW[rows];
 
       const paddingTop = Math.max(24, Math.min(64, height * 0.08));
       const paddingBottom = Math.max(30, Math.min(72, height * 0.09));
@@ -514,9 +571,7 @@ export default function PlinkoPage() {
         ctx.textBaseline = "middle";
         ctx.fillText(`${val}x`, x, drawY + drawH * 0.36);
 
-        const favourable = comb(rows, i);
-        const totalPaths = Math.pow(2, rows);
-        const prob = totalPaths > 0 ? favourable / totalPaths : 0;
+        const prob = slotProbs[i] ?? (Math.pow(2, rows) > 0 ? comb(rows, i) / Math.pow(2, rows) : 0);
         const probText = formatPercentTwoNonZero(prob);
 
         ctx.fillStyle = "#071826";
@@ -742,7 +797,6 @@ export default function PlinkoPage() {
 
       ballsRef.current = nextBalls;
 
-      // mark dropping finished only when no balls remain
       if (nextBalls.length === 0) {
         isDroppingRef.current = false;
         setIsDroppingState(false);
