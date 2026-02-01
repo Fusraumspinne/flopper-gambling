@@ -38,7 +38,7 @@ function formatNumber(value: number | undefined | null, digits = 2): string {
   return v.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
-export default function GameRecordsPanel({ gameId, refreshSignal }: { gameId: string; refreshSignal?: number }) {
+export default function GameRecordsPanel({ gameId }: { gameId: string }) {
   const [data, setData] = useState<HighscoreResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -46,7 +46,7 @@ export default function GameRecordsPanel({ gameId, refreshSignal }: { gameId: st
     let cancelled = false;
     setLoading(true);
 
-    const cacheKey = `highscores:${gameId}:${typeof refreshSignal === "number" ? refreshSignal : ""}`;
+    const cacheKey = `highscores:${gameId}`;
 
     (async () => {
       try {
@@ -71,7 +71,7 @@ export default function GameRecordsPanel({ gameId, refreshSignal }: { gameId: st
     return () => {
       cancelled = true;
     };
-  }, [gameId, refreshSignal]);
+  }, [gameId]);
 
   if (loading) {
     return <div className="text-white/50">Loading records…</div>;

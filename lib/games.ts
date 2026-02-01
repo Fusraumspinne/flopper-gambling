@@ -11,6 +11,7 @@ export const games = [
   { name: "Roulette", href: "/roulette", tagline: "Spin the wheel, hit your bets", image: "/images/Roulette.png" },
   { name: "Tarot", href: "/tarot", tagline: "Draw 3 multipliers and multiply them", image: "/images/Tarot.png" },
   { name: "Chicken", href: "/chicken", tagline: "Cross safely for rewards", image: "/images/Chicken.png" },
+  { name: "Horse Race", href: "/horserace", tagline: "Choose your horse and sprint", image: "/images/HorseRacing.png" },
   { name: "Cases", href: "/cases", tagline: "Open and reveal rewards", image: "/images/Cases.png" },
   { name: "Crash", href: "/crash", tagline: "Ride the curve and cash out", image: "/images/Crash.png" },
   { name: "Plinko", href: "/plinko", tagline: "Drop and win", image: "/images/Plinko.png" },

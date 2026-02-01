@@ -52,6 +52,22 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
 
   const prevOpenRef = useRef<boolean>(open);
 
+
+  const availableOptions = useMemo(() => {
+    return DROPDOWN_GAME_OPTIONS.filter((opt) => {
+      if (opt.id === "all") return true;
+      const s = (liveStatsByGame as any)[opt.id];
+      return typeof s?.wagered === "number" && s.wagered > 0;
+    });
+  }, [liveStatsByGame]);
+
+  useEffect(() => {
+    if (!availableOptions || availableOptions.length === 0) return;
+    if (!availableOptions.find((o) => o.id === selectedGameId)) {
+      setSelectedGameId(availableOptions[0].id);
+    }
+  }, [availableOptions, selectedGameId]);
+
   useEffect(() => {
     let x = Math.max(24, Math.floor(window.innerWidth * 0.22));
     let y = 80;
@@ -186,10 +202,10 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
             <div className="w-full">
               <select
                 value={selectedGameId}
-                onChange={(e) => handleGameChange(e.target.value as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"])}
+                onChange={(e) => handleGameChange(e.target.value as (typeof DROPDOWN_GAME_OPTIONS)[number]["id"]) }
                 className="w-full rounded-md bg-[#0f212e] border border-[#2f4553] px-1 py-0.5 text-xs xl:text-sm text-white focus:outline-none focus:border-[#00e701]"
               >
-                {DROPDOWN_GAME_OPTIONS.map((game) => (
+                {availableOptions.map((game) => (
                   <option key={game.id} value={game.id}>
                     {game.label}
                   </option>

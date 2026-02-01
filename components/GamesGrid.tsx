@@ -24,7 +24,6 @@ export default function GamesGrid({ initialAllowed }: { initialAllowed: string[]
           .map(g => g.href);
         setAllowed(allowedNow);
       } catch (e) {
-        // ignore errors
       } finally {
         if (mounted) setLoading(false);
       }
@@ -34,7 +33,6 @@ export default function GamesGrid({ initialAllowed }: { initialAllowed: string[]
 
     const onStorage = (e: StorageEvent) => {
       if (e.key === 'flopper_admin_authorized') {
-        // if admin state changed, re-fetch status to reflect admin view
         load();
       }
     };
@@ -59,7 +57,6 @@ export default function GamesGrid({ initialAllowed }: { initialAllowed: string[]
         >
           <div className="relative aspect-square bg-[#0f212e]">
             {game.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={game.image}
                 alt={`${game.name} preview`}
