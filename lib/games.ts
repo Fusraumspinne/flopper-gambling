@@ -13,6 +13,7 @@ export const games = [
   { name: "Chicken", href: "/chicken", tagline: "Cross safely for rewards", image: "/images/Chicken.png" },
   { name: "Horse Race", href: "/horserace", tagline: "Choose your horse and sprint", image: "/images/HorseRacing.png" },
   { name: "Cases", href: "/cases", tagline: "Open and reveal rewards", image: "/images/Cases.png" },
+  { name: "Diamonds", href: "/diamonds", tagline: "Draw 5 diamonds, hit combos", image: "/images/Diamonds.png" },
   { name: "Crash", href: "/crash", tagline: "Ride the curve and cash out", image: "/images/Crash.png" },
   { name: "Plinko", href: "/plinko", tagline: "Drop and win", image: "/images/Plinko.png" },
   { name: "Bars", href: "/bars", tagline: "Pick 1-5 tiles and sum multipliers", image: "/images/Bars.png" },

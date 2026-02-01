@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 
 export default function UpdatesPanel() {
   const [items] = useState<string[]>([
-    "Diamonds (game)",
     "One-month seasons: the first three are getting badges and the last one and the badge will displaced behind the name in the leaderboard",
     "Live modes (poker, crash, roulette, horse racing, blackjack) where you can play against or with other players",
     "Live chat to chat with other players while playing games"

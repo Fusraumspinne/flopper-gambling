@@ -101,9 +101,9 @@ const HorseRow = React.memo(
           className={`absolute top-1/2 -translate-y-1/2 ${
             isHighlighted ? "drop-shadow-[0_0_10px_rgba(0,231,1,0.6)]" : ""
           } transition-[filter] duration-300 ease-in-out`}
-          style={{ 
+          style={{
             left: leftValue,
-            willChange: 'left'
+            willChange: "left",
           }}
         >
           <div className="relative flex items-center group">
@@ -146,8 +146,10 @@ const generateOdds = (count: number): Horse[] => {
     weights.push(base);
   }
   const totalWeight = weights.reduce((acc, v) => acc + v, 0);
-  
-  let points = weights.map((w) => Math.max(1, Math.round((w / totalWeight) * 100)));
+
+  let points = weights.map((w) =>
+    Math.max(1, Math.round((w / totalWeight) * 100)),
+  );
   let currentTotal = points.reduce((a, b) => a + b, 0);
 
   while (currentTotal !== 100) {
@@ -619,20 +621,26 @@ export default function HorseRacePage() {
                 disabled={betAmount <= 0 || raceState !== "idle"}
                 className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 cf-press"
               >
-                <PlayArrow />
-                Bet
+                {raceState === "running" ? (
+                  "Playing"
+                ) : (
+                  <>
+                    <PlayArrow />
+                    Bet
+                  </>
+                )}
               </button>
             </div>
           </div>
 
-            {lastResult.winAmount > 0 && (
-                <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
-                    <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
-                    <div className="text-2xl font-bold text-[#00e701]">
-                        ${lastResult.winAmount.toFixed(2)}
-                    </div>
-                </div>
-            )}
+          {lastResult.winAmount > 0 && (
+            <div className="p-4 bg-[#213743] border border-[#00e701] rounded-md text-center">
+              <div className="text-xs text-[#b1bad3] uppercase">You Won</div>
+              <div className="text-2xl font-bold text-[#00e701]">
+                ${lastResult.winAmount.toFixed(2)}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 w-full">
@@ -669,7 +677,7 @@ export default function HorseRacePage() {
           </div>
 
           <div className="mt-4 lg:mt-8">
-            <GameRecordsPanel gameId="horserace"/>
+            <GameRecordsPanel gameId="horserace" />
           </div>
         </div>
       </div>

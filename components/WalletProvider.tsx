@@ -41,6 +41,7 @@ export const GAME_OPTIONS = [
   { id: "chicken", label: "Chicken" },
   { id: "horserace", label: "Horse Race" },
   { id: "cases", label: "Cases" },
+  { id: "diamonds", label: "Diamonds" },
   { id: "crash", label: "Crash" },
   { id: "plinko", label: "Plinko" },
   { id: "bars", label: "Bars" },
