@@ -664,7 +664,6 @@ export default function CasesPage() {
 
       subtractFromBalance(bet);
       playAudio(audioRef.current.bet);
-      // play spin sound when a spin starts
       setTimeout(() => playAudio(audioRef.current.spin), 40);
 
       setIsSpinning(true);

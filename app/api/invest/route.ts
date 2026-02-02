@@ -63,24 +63,41 @@ export async function POST(req: Request) {
       }
 
       const nextPrincipal = normalizeMoney(currentValue + rawAmount);
-      const updated = await User.findOneAndUpdate(
-        { _id: user._id, balance: user.balance, invest: user.invest, lastCheckedInvest: user.lastCheckedInvest },
-        { $inc: { balance: -rawAmount }, $set: { invest: nextPrincipal, lastCheckedInvest: nowMs } },
-        { new: true }
-      );
+      try {
+        user.balance = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) - rawAmount) as any;
+        user.invest = nextPrincipal as any;
+        user.lastCheckedInvest = nowMs as any;
+        const updated = await user.save();
 
-      if (!updated) {
-        return NextResponse.json({ message: "Investment changed, retry." }, { status: 409 });
+        const res = NextResponse.json({
+          success: true,
+          amount: rawAmount,
+          balanceDelta: -rawAmount,
+          investment: { principal: nextPrincipal, startedAtMs: nowMs },
+        });
+        res.headers.set("Cache-Control", "private, no-store");
+        return res;
+      } catch (err) {
+        console.error('Deposit save failed, falling back to atomic update:', err);
+        const updated = await User.findOneAndUpdate(
+          { _id: user._id, balance: user.balance, invest: user.invest, lastCheckedInvest: user.lastCheckedInvest },
+          { $inc: { balance: -rawAmount }, $set: { invest: nextPrincipal, lastCheckedInvest: nowMs } },
+          { new: true }
+        );
+
+        if (!updated) {
+          return NextResponse.json({ message: "Investment changed, retry." }, { status: 409 });
+        }
+
+        const res = NextResponse.json({
+          success: true,
+          amount: rawAmount,
+          balanceDelta: -rawAmount,
+          investment: { principal: nextPrincipal, startedAtMs: nowMs },
+        });
+        res.headers.set("Cache-Control", "private, no-store");
+        return res;
       }
-
-      const res = NextResponse.json({
-        success: true,
-        amount: rawAmount,
-        balanceDelta: -rawAmount,
-        investment: { principal: nextPrincipal, startedAtMs: nowMs },
-      });
-      res.headers.set("Cache-Control", "private, no-store");
-      return res;
     }
 
     if (rawAmount > currentValue) {
@@ -88,24 +105,51 @@ export async function POST(req: Request) {
     }
 
     const nextPrincipal = normalizeMoney(currentValue - rawAmount);
-    const updated = await User.findOneAndUpdate(
-      { _id: user._id, invest: user.invest, lastCheckedInvest: user.lastCheckedInvest },
-      { $inc: { balance: rawAmount }, $set: { invest: nextPrincipal, lastCheckedInvest: nowMs } },
-      { new: true }
-    );
+    const isWithdrawAll = Math.abs(rawAmount - currentValue) <= 0.005 || nextPrincipal === 0;
 
-    if (!updated) {
-      return NextResponse.json({ message: "Investment changed, retry." }, { status: 409 });
+    try {
+      if (isWithdrawAll) {
+        const amountToAdd = normalizeMoney(currentValue);
+        user.balance = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) + amountToAdd) as any;
+        user.invest = 0 as any;
+        user.lastCheckedInvest = nowMs as any;
+      } else {
+        user.balance = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) + rawAmount) as any;
+        user.invest = nextPrincipal as any;
+        user.lastCheckedInvest = nowMs as any;
+      }
+
+      const saved = await user.save();
+
+      const res = NextResponse.json({
+        success: true,
+        amount: rawAmount,
+        balanceDelta: rawAmount,
+        investment: { principal: saved.invest as number, startedAtMs: nowMs },
+      });
+      res.headers.set("Cache-Control", "private, no-store");
+      return res;
+    } catch (err) {
+      console.error('Withdraw save failed, falling back to atomic update:', err);
+      const amountToApply = isWithdrawAll ? normalizeMoney(currentValue) : rawAmount;
+      const nextInvest = isWithdrawAll ? 0 : nextPrincipal;
+      const updated2 = await User.findOneAndUpdate(
+        { _id: user._id, invest: user.invest, lastCheckedInvest: user.lastCheckedInvest },
+        { $inc: { balance: amountToApply }, $set: { invest: nextInvest, lastCheckedInvest: nowMs } },
+        { new: true }
+      );
+
+      if (!updated2) return NextResponse.json({ message: "Investment changed, retry." }, { status: 409 });
+
+      const res = NextResponse.json({
+        success: true,
+        amount: rawAmount,
+        balanceDelta: rawAmount,
+        investment: { principal: updated2.invest as number, startedAtMs: nowMs },
+      });
+      res.headers.set("Cache-Control", "private, no-store");
+      return res;
     }
-
-    const res = NextResponse.json({
-      success: true,
-      amount: rawAmount,
-      balanceDelta: rawAmount,
-      investment: { principal: nextPrincipal, startedAtMs: nowMs },
-    });
-    res.headers.set("Cache-Control", "private, no-store");
-    return res;
   } catch (error) {
     console.error("Error updating investment:", error);
     return NextResponse.json({ message: "Error updating investment" }, { status: 500 });

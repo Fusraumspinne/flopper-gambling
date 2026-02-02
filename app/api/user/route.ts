@@ -47,10 +47,18 @@ export async function GET(req: Request) {
     const computedInvestment = computeInvestmentValue(rawPrincipal, rawStartedAtMs, nowMs);
 
     if (computedInvestment !== rawPrincipal || rawStartedAtMs !== nowMs) {
-      const investmentDelta = normalizeMoney(computedInvestment - rawPrincipal);
-      const update: Record<string, any> = { $set: { lastCheckedInvest: nowMs } };
-      if (investmentDelta !== 0) update.$inc = { invest: investmentDelta };
-      await User.updateOne({ name: user.name }, update);
+      try {
+        user.lastCheckedInvest = nowMs as any;
+        user.invest = computedInvestment as any;
+        await user.save();
+      } catch (err) {
+        const investmentDelta = normalizeMoney(computedInvestment - rawPrincipal);
+        try {
+          await User.updateOne({ name: user.name }, { $set: { lastCheckedInvest: nowMs }, $inc: investmentDelta !== 0 ? { invest: investmentDelta } : {} });
+        } catch (err2) {
+          console.error('Failed to update investment (both save and updateOne fallback):', err2);
+        }
+      }
     }
 
     const res = NextResponse.json({
@@ -253,7 +261,21 @@ export async function POST(req: Request) {
           const current = typeof existing[field] === "number" ? existing[field] : 0;
           if (value > current) {
             try {
-              await model.updateOne({ _id: existing._id }, { $set: { username: name, [field]: value } });
+              const doc = await model.findById(existing._id);
+              if (doc) {
+                doc.username = name;
+                doc[field] = value;
+                try {
+                  await doc.save();
+                } catch (errSave: any) {
+                  if (errSave.code !== 11000) console.error(`Save ${model.modelName} error:`, errSave);
+                  try {
+                    await model.updateOne({ _id: existing._id }, { $set: { username: name, [field]: value } });
+                  } catch (err2: any) {
+                    if (err2.code !== 11000) console.error(`Fallback update ${model.modelName} error:`, err2);
+                  }
+                }
+              }
             } catch (err: any) {
               if (err.code !== 11000) console.error(`Update ${model.modelName} error:`, err);
             }

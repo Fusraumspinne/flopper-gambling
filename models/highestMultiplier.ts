@@ -17,6 +17,7 @@ const highestMultiplierSchema = new Schema(
       type: Number,
       required: true,
       min: 0,
+      set: (v: number) => Math.round((v + Number.EPSILON) * 100) / 100,
     },
   },
   { timestamps: true }

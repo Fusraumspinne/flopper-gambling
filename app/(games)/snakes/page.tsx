@@ -123,7 +123,6 @@ function formatMultiplierShort(mult: number) {
   return rounded.toString();
 }
 
-// probability helpers for two dice sums (2..12)
 function waysForSum(s: number) {
   const map: Record<number, number> = {
     2: 1,
@@ -395,7 +394,6 @@ export default function SnakesPage() {
 
       playAudio(audioRef.current.bet);
 
-      // reset round state
       gameStateRef.current = "playing";
       setGameState("playing");
       setCurrentPos(-1);
@@ -490,7 +488,6 @@ export default function SnakesPage() {
   const rollDice = useCallback(async () => {
     if (isAnimatingRef.current) return;
 
-    // Keep the ref in sync immediately (effects are async)
     isAnimatingRef.current = true;
 
     let wasPlaying = gameStateRef.current === "playing";
@@ -528,9 +525,7 @@ export default function SnakesPage() {
     for (let s = 1; s <= steps; s++) {
       const idx = (s - 1) % board.length;
       setCurrentPos(idx);
-      // reveal sound for each highlighted tile
       playAudio(audioRef.current.kenoReveal);
-      // step animation delay
       await sleep(120);
     }
 
@@ -549,7 +544,6 @@ export default function SnakesPage() {
     totalMultiplierRef.current = nextMult;
     setTotalMultiplier(nextMult);
 
-    // play tick when multiplier increases compared to base
     if (nextMult > baseMult) {
       playAudio(audioRef.current.tick);
     }

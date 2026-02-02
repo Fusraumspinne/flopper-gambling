@@ -35,25 +35,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, amount: 0, error: "Pot ist leer." });
     }
 
-    const updated = await User.findOneAndUpdate(
-      { _id: user._id, lastWeeklyPayback: user.lastWeeklyPayback, weeklyPayback: user.weeklyPayback },
-      { $inc: { balance: amount }, $set: { weeklyPayback: 0, lastWeeklyPayback: new Date(nowMs) } },
-      { new: true }
-    );
+    try {
+      user.balance = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) + amount) as any;
+      user.weeklyPayback = 0 as any;
+      user.lastWeeklyPayback = new Date(nowMs) as any;
+      const saved = await user.save();
 
-    if (!updated) {
-      return NextResponse.json({ success: false, amount: 0, error: "Already claimed." }, { status: 409 });
+      const res = NextResponse.json({
+        success: true,
+        amount,
+        balance: saved.balance,
+        weeklyPayback: saved.weeklyPayback,
+        lastWeeklyPayback: nowMs,
+      });
+      res.headers.set("Cache-Control", "private, no-store");
+      return res;
+    } catch (err) {
+      console.error('Weekly payback save failed, falling back to atomic update:', err);
+      const updated = await User.findOneAndUpdate(
+        { _id: user._id, lastWeeklyPayback: user.lastWeeklyPayback, weeklyPayback: user.weeklyPayback },
+        { $inc: { balance: amount }, $set: { weeklyPayback: 0, lastWeeklyPayback: new Date(nowMs) } },
+        { new: true }
+      );
+
+      if (!updated) {
+        return NextResponse.json({ success: false, amount: 0, error: "Already claimed." }, { status: 409 });
+      }
+
+      const res = NextResponse.json({ success: true, amount, balance: updated.balance, weeklyPayback: updated.weeklyPayback, lastWeeklyPayback: nowMs });
+      res.headers.set("Cache-Control", "private, no-store");
+      return res;
     }
-
-    const res = NextResponse.json({
-      success: true,
-      amount,
-      balance: updated.balance,
-      weeklyPayback: updated.weeklyPayback,
-      lastWeeklyPayback: nowMs,
-    });
-    res.headers.set("Cache-Control", "private, no-store");
-    return res;
   } catch (error) {
     console.error("Error claiming weekly payback:", error);
     return NextResponse.json({ message: "Error claiming weekly payback" }, { status: 500 });

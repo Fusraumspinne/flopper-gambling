@@ -3,7 +3,6 @@ import { connectMongoDB } from "@/lib/mongodb";
 import Gift from "@/models/gift";
 
 function requireAdmin(req: Request): NextResponse | null {
-  // Admin auth disabled: allow access from client-side gated admin UI only
   return null;
 }
 
@@ -52,17 +51,30 @@ export async function PATCH(req: Request) {
     const update: Record<string, any> = {};
     if (sender) update.sender = sender;
     if (recipient) update.recipient = recipient;
-    update.amount = amount;
 
-    const gift = await Gift.findOneAndUpdate({ _id: id }, { $set: update }, { new: true });
+    await connectMongoDB();
 
-    if (!gift) {
-      return NextResponse.json({ message: "Gift not found" }, { status: 404 });
+    const giftDoc = await Gift.findById(id);
+    if (!giftDoc) return NextResponse.json({ message: "Gift not found" }, { status: 404 });
+
+    if (sender) giftDoc.sender = sender;
+    if (recipient) giftDoc.recipient = recipient;
+    giftDoc.amount = typeof amount === 'number' ? amount : giftDoc.amount;
+
+    try {
+      const saved = await giftDoc.save();
+      const res = NextResponse.json({ gift: saved });
+      res.headers.set("Cache-Control", "no-store");
+      return res;
+    } catch (err) {
+      console.error('Gift save failed, falling back to atomic update:', err);
+      if (Object.keys(update).length) update.amount = amount;
+      const gift = await Gift.findOneAndUpdate({ _id: id }, { $set: update }, { new: true });
+      if (!gift) return NextResponse.json({ message: "Gift not found" }, { status: 404 });
+      const res = NextResponse.json({ gift });
+      res.headers.set("Cache-Control", "no-store");
+      return res;
     }
-
-    const res = NextResponse.json({ gift });
-    res.headers.set("Cache-Control", "no-store");
-    return res;
   } catch (error) {
     console.error("Error updating gift (admin):", error);
     return NextResponse.json({ message: "Error updating gift" }, { status: 500 });

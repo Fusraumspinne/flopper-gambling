@@ -324,7 +324,6 @@ function generateCarWave(args: {
       id: Date.now() + i,
       stepIndex,
       lane: Math.floor(Math.random() * LANES),
-      // increased base duration for a slower, smoother spawn
       duration: 1600 + Math.random() * 900,
       delay: Math.random() * 900,
       size: 28 + Math.random() * 12,
@@ -646,7 +645,6 @@ export default function ChickenPage() {
         carBaseDurationMs,
         carDelayMs,
       });
-      // play appropriate death sound
       if (type === "fire") {
         playAudio(audioRef.current.chickenFire);
       } else {
@@ -656,7 +654,6 @@ export default function ChickenPage() {
         window.clearTimeout(resultTimeoutRef.current);
       }
       setResultFx("lose");
-      // keep the crash-block active until the lose FX timeout finishes
       setIsCrashBlocking(true);
       isCrashBlockingRef.current = true;
       setGameState("crashed");
@@ -777,7 +774,6 @@ export default function ChickenPage() {
         }
 
         setCurrentStep(next);
-        // step sound + barricade placement sound
         playAudio(audioRef.current.chickenJump);
         playAudio(audioRef.current.barricade);
         currentStepRef.current = next;
@@ -974,7 +970,6 @@ export default function ChickenPage() {
     }
 
     setCurrentStep(nextStep);
-    // play jump + barricade sound for the step
     playAudio(audioRef.current.chickenJump);
     playAudio(audioRef.current.barricade);
     setIsAnimatingStep(false);
@@ -1139,7 +1134,6 @@ export default function ChickenPage() {
 
     if (idsToCrash.length === 0) return;
 
-    // play car->barricade crash sound
     playAudio(audioRef.current.chickenCarCrash);
 
     const computeCurrentY = (car: CarAnim) => {

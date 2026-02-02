@@ -476,7 +476,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           setInvestment({ principal: 0, startedAtMs: Date.now() });
         }
-        // load btc holdings + cost basis
         if (typeof data.btcHoldings === "number" && Number.isFinite(data.btcHoldings)) {
           setBtcHoldings(Number(data.btcHoldings));
         } else {

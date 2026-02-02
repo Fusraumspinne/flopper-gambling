@@ -136,7 +136,6 @@ export default function RussianRoulettePage() {
     const safeCount = CHAMBER_COUNT - displayCount;
 
     for (let i = 0; i < safeCount; i++) {
-      // P(safe) = (safe - i) / (total - i)
       const pSafe = (safeCount - i) / (CHAMBER_COUNT - i);
       currentMulti = currentMulti * (1 / pSafe);
       multis.push(Math.round(currentMulti * HOUSE_EDGE * 100) / 100);
@@ -256,17 +255,14 @@ export default function RussianRoulettePage() {
     setGameState("resolved");
     setReloadPending(false);
   };
-  // prepareReload: user clicks Reload to change bullets and confirm with Continue
   const prepareReload = () => {
     if (gameState !== "playing" || isFiring) return;
     setReloadPending(true);
   };
 
-  // commit reload / continue: actually create new cylinder and carry multiplier
   const handleNextCylinder = () => {
     if (gameState !== "playing" || isFiring) return;
 
-    // Play bet sound on reload as well
     playAudio(audioRef.current.bet);
 
     setAccumulatedMultiplier(totalMultiplier);

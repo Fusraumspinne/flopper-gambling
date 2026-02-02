@@ -81,7 +81,6 @@ export default function AdminBypass({ isMaintenance, isPause, children }: AdminB
           }
         }
       } catch (e) {
-        // ignore
       }
     })();
 

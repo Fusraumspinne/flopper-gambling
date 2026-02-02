@@ -1,4 +1,3 @@
-// Deprecated: weekly pot is computed in-memory; no persistence layer.
 export async function getWeeklyPot(): Promise<number> {
   return 0;
 }

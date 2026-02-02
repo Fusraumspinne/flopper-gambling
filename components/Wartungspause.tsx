@@ -2,7 +2,7 @@
 import React, { useState } from 'react'
 
 function Wartungspause() {
-  const [changes, setChanges] = useState<string>("We're making some exciting updates to enhance your experience!");
+  const [changes, setChanges] = useState<string>("I am making some exciting updates to enhance your experience!");
 
   return (
     <div className="min-h-screen bg-[#0f212e] flex flex-col items-center justify-center p-8 text-center">

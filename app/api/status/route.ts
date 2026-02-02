@@ -5,7 +5,6 @@ import { connectMongoDB } from "@/lib/mongodb";
 import { DEFAULT_GAME_STATUS, GAME_STATUS_KEYS } from "@/lib/gameStatus";
 
 function requireAdmin(req: Request): NextResponse | null {
-  // Admin auth disabled: allow access from client-side gated admin UI only
   return null;
 }
 

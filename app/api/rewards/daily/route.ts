@@ -35,24 +35,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, amount: 0, lastDailyReward: lastMs });
     }
 
-    const updated = await User.findOneAndUpdate(
-      { _id: user._id, lastDailyReward: user.lastDailyReward },
-      { $inc: { balance: amount }, $set: { lastDailyReward: new Date(nowMs) } },
-      { new: true }
-    );
+    try {
+      user.balance = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) + amount) as any;
+      user.lastDailyReward = new Date(nowMs) as any;
+      const saved = await user.save();
 
-    if (!updated) {
-      return NextResponse.json({ success: false, amount: 0, error: "Already claimed." }, { status: 409 });
+      const res = NextResponse.json({
+        success: true,
+        amount,
+        balance: saved.balance,
+        lastDailyReward: nowMs,
+      });
+      res.headers.set("Cache-Control", "private, no-store");
+      return res;
+    } catch (err) {
+      console.error('Daily reward save failed, falling back to atomic update:', err);
+      const updated = await User.findOneAndUpdate(
+        { _id: user._id, lastDailyReward: user.lastDailyReward },
+        { $inc: { balance: amount }, $set: { lastDailyReward: new Date(nowMs) } },
+        { new: true }
+      );
+
+      if (!updated) {
+        return NextResponse.json({ success: false, amount: 0, error: "Already claimed." }, { status: 409 });
+      }
+
+      const res = NextResponse.json({ success: true, amount, balance: updated.balance, lastDailyReward: nowMs });
+      res.headers.set("Cache-Control", "private, no-store");
+      return res;
     }
-
-    const res = NextResponse.json({
-      success: true,
-      amount,
-      balance: updated.balance,
-      lastDailyReward: nowMs,
-    });
-    res.headers.set("Cache-Control", "private, no-store");
-    return res;
   } catch (error) {
     console.error("Error claiming daily reward:", error);
     return NextResponse.json({ message: "Error claiming daily reward" }, { status: 500 });

@@ -242,7 +242,6 @@ export default function RPSPage() {
         setIsLocked(false);
       }, 600);
     } else if (result === "draw") {
-      // Do not advance and do not commit to history; flip back to covered and allow retry.
       setIsLocked(true);
       if (resultTimeoutRef.current) {
         clearTimeout(resultTimeoutRef.current);
@@ -265,7 +264,7 @@ export default function RPSPage() {
       setResultFx("lose");
       resultTimeoutRef.current = window.setTimeout(() => {
         setResultFx(null);
-        setGameState("idle"); // Reset to idle to slide back to start
+        setGameState("idle"); 
         setStreak(0);
         setHistory([]);
         setComputerChoice(null);

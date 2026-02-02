@@ -17,8 +17,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Invalid sender/recipient" }, { status: 400 });
     }
 
-    const senderName = sender; // 1:1 match
-    const recipientName = recipient; // 1:1 match
+    const senderName = sender;
+    const recipientName = recipient;
     const amt = normalizeMoney(Number(amount));
 
     if (!senderName.trim() || !recipientName.trim()) {
@@ -46,11 +46,20 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: "Sender not found" }, { status: 404 });
       }
 
-      updatedSender = await User.findOneAndUpdate(
-        { _id: senderUser._id, balance: { $gte: amt } },
-        { $inc: { balance: -amt } },
-        { new: true }
-      );
+      try {
+        if ((typeof senderUser.balance !== 'number' ? 0 : senderUser.balance) < amt) {
+          return NextResponse.json({ message: "Not enough funds" }, { status: 400 });
+        }
+        senderUser.balance = normalizeMoney((typeof senderUser.balance === 'number' ? senderUser.balance : 0) - amt) as any;
+        updatedSender = await senderUser.save();
+      } catch (err) {
+        console.error('Gift sender save failed, falling back to atomic update:', err);
+        updatedSender = await User.findOneAndUpdate(
+          { _id: senderUser._id, balance: { $gte: amt } },
+          { $inc: { balance: -amt } },
+          { new: true }
+        );
+      }
 
       if (!updatedSender) {
         return NextResponse.json({ message: "Not enough funds" }, { status: 400 });

@@ -426,7 +426,6 @@ export default function PlinkoPage() {
     setResultFx("rolling");
     setResultKey((k) => k + 1);
 
-    // choose a final slot according to fixed probabilities (if available)
     const slotProbs = getSlotProbabilities(rows);
     let r = Math.random();
     let acc = 0;
@@ -440,7 +439,6 @@ export default function PlinkoPage() {
     }
     if (chosenSlot < 0 || chosenSlot >= slotProbs.length) chosenSlot = slotProbs.length - 1;
 
-    // build a path with exactly `chosenSlot` rights (1) and shuffle it
     const ones = chosenSlot;
     const zeros = Math.max(0, rows - ones);
     const path: number[] = [...Array(ones).fill(1), ...Array(zeros).fill(0)];
@@ -692,7 +690,6 @@ export default function PlinkoPage() {
               resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
             }
 
-            // Resolve awaited autobet round (if any) AFTER showing result FX
                 if (pendingRoundResolveRef.current) {
                   const resolver = pendingRoundResolveRef.current;
                   pendingRoundResolveRef.current = null;

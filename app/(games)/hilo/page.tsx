@@ -103,7 +103,6 @@ export default function HiloPage() {
         ? (window as any).__flopper_sound_volume__
         : 1;
     if (!v) return;
-    // Do not attempt to play before the user has unlocked audio
     if (!audioUnlockedRef.current) return;
     try {
       a.volume = v;
@@ -113,7 +112,6 @@ export default function HiloPage() {
         (p as Promise<void>).catch(() => {});
       }
     } catch (e) {
-      // ignore sync errors
     }
   };
 

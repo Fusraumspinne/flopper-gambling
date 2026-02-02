@@ -42,25 +42,38 @@ export async function POST(req: Request) {
       if (rawAmount > balance) return NextResponse.json({ message: "Not enough balance" }, { status: 400 });
 
       const btcToAdd = rawAmount / price;
-
       const prevCostUsd = typeof user.btcCostUsd === 'number' ? user.btcCostUsd : 0;
       const newCostUsd = normalizeMoney(prevCostUsd + rawAmount);
 
-      const updated = await User.findOneAndUpdate(
-        { _id: user._id, balance: user.balance },
-        { $inc: { balance: -rawAmount, btcHoldings: btcToAdd }, $set: { btcCostUsd: newCostUsd } },
-        { new: true }
-      );
+      try {
+        user.balance = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) - rawAmount) as any;
+        user.btcHoldings = (Number(user.btcHoldings) || 0) + btcToAdd as any;
+        user.btcCostUsd = newCostUsd as any;
+        const saved = await user.save();
 
-      if (!updated) return NextResponse.json({ message: "State changed, retry" }, { status: 409 });
+        const newPortfolio = normalizeMoney(Number(saved.btcHoldings || 0) * price);
+        const finalUpdated = await User.findByIdAndUpdate(saved._id, { $set: { portfolioUsd: newPortfolio } }, { new: true });
 
-      // update portfolioUsd (cached) based on new holdings and client price
-      const newPortfolio = normalizeMoney(Number(updated.btcHoldings || 0) * price);
-      const finalUpdated = await User.findByIdAndUpdate(updated._id, { $set: { portfolioUsd: newPortfolio } }, { new: true });
+        const res = NextResponse.json({ success: true, amount: rawAmount, price, balanceDelta: -rawAmount, btcHoldings: finalUpdated.btcHoldings, btcCostUsd: finalUpdated.btcCostUsd, portfolioUsd: finalUpdated.portfolioUsd });
+        res.headers.set("Cache-Control", "private, no-store");
+        return res;
+      } catch (err) {
+        console.error('Buy save failed, falling back to atomic update:', err);
+        const updated = await User.findOneAndUpdate(
+          { _id: user._id, balance: user.balance },
+          { $inc: { balance: -rawAmount, btcHoldings: btcToAdd }, $set: { btcCostUsd: newCostUsd } },
+          { new: true }
+        );
 
-      const res = NextResponse.json({ success: true, amount: rawAmount, price, balanceDelta: -rawAmount, btcHoldings: finalUpdated.btcHoldings, btcCostUsd: finalUpdated.btcCostUsd, portfolioUsd: finalUpdated.portfolioUsd });
-      res.headers.set("Cache-Control", "private, no-store");
-      return res;
+        if (!updated) return NextResponse.json({ message: "State changed, retry" }, { status: 409 });
+
+        const newPortfolio = normalizeMoney(Number(updated.btcHoldings || 0) * price);
+        const finalUpdated = await User.findByIdAndUpdate(updated._id, { $set: { portfolioUsd: newPortfolio } }, { new: true });
+
+        const res = NextResponse.json({ success: true, amount: rawAmount, price, balanceDelta: -rawAmount, btcHoldings: finalUpdated.btcHoldings, btcCostUsd: finalUpdated.btcCostUsd, portfolioUsd: finalUpdated.portfolioUsd });
+        res.headers.set("Cache-Control", "private, no-store");
+        return res;
+      }
     }
     
 
@@ -72,20 +85,35 @@ export async function POST(req: Request) {
       const prevCostUsd = typeof user.btcCostUsd === 'number' ? user.btcCostUsd : 0;
       const newCostUsd = normalizeMoney(prevCostUsd + balance);
 
-      const updatedAll = await User.findOneAndUpdate(
-        { _id: user._id, balance: user.balance },
-        { $set: { balance: 0, btcCostUsd: newCostUsd }, $inc: { btcHoldings: btcToAdd } },
-        { new: true }
-      );
+      try {
+        user.btcHoldings = (Number(user.btcHoldings) || 0) + btcToAdd as any;
+        user.btcCostUsd = newCostUsd as any;
+        user.balance = 0 as any;
+        const savedAll = await user.save();
 
-      if (!updatedAll) return NextResponse.json({ message: "State changed, retry" }, { status: 409 });
+        const newPortfolioAll = normalizeMoney(Number(savedAll.btcHoldings || 0) * price);
+        const finalUpdatedAll = await User.findByIdAndUpdate(savedAll._id, { $set: { portfolioUsd: newPortfolioAll } }, { new: true });
 
-      const newPortfolioAll = normalizeMoney(Number(updatedAll.btcHoldings || 0) * price);
-      const finalUpdatedAll = await User.findByIdAndUpdate(updatedAll._id, { $set: { portfolioUsd: newPortfolioAll } }, { new: true });
+        const res = NextResponse.json({ success: true, action: 'buy_all', price, amountUsd: -normalizeMoney(balance), balanceDelta: -normalizeMoney(balance), btcHoldings: finalUpdatedAll.btcHoldings, btcCostUsd: finalUpdatedAll.btcCostUsd, portfolioUsd: finalUpdatedAll.portfolioUsd });
+        res.headers.set("Cache-Control", "private, no-store");
+        return res;
+      } catch (err) {
+        console.error('Buy_all save failed, falling back to atomic update:', err);
+        const updatedAll = await User.findOneAndUpdate(
+          { _id: user._id, balance: user.balance },
+          { $set: { balance: 0, btcCostUsd: newCostUsd }, $inc: { btcHoldings: btcToAdd } },
+          { new: true }
+        );
 
-      const res = NextResponse.json({ success: true, action: 'buy_all', price, amountUsd: -normalizeMoney(balance), balanceDelta: -normalizeMoney(balance), btcHoldings: finalUpdatedAll.btcHoldings, btcCostUsd: finalUpdatedAll.btcCostUsd, portfolioUsd: finalUpdatedAll.portfolioUsd });
-      res.headers.set("Cache-Control", "private, no-store");
-      return res;
+        if (!updatedAll) return NextResponse.json({ message: "State changed, retry" }, { status: 409 });
+
+        const newPortfolioAll = normalizeMoney(Number(updatedAll.btcHoldings || 0) * price);
+        const finalUpdatedAll = await User.findByIdAndUpdate(updatedAll._id, { $set: { portfolioUsd: newPortfolioAll } }, { new: true });
+
+        const res = NextResponse.json({ success: true, action: 'buy_all', price, amountUsd: -normalizeMoney(balance), balanceDelta: -normalizeMoney(balance), btcHoldings: finalUpdatedAll.btcHoldings, btcCostUsd: finalUpdatedAll.btcCostUsd, portfolioUsd: finalUpdatedAll.portfolioUsd });
+        res.headers.set("Cache-Control", "private, no-store");
+        return res;
+      }
     }
 
     if (action === "sell_all") {
@@ -95,20 +123,33 @@ export async function POST(req: Request) {
       const proceeds = btcHoldings * price;
       const normalizedProceeds = normalizeMoney(proceeds);
 
-      const updatedAll = await User.findOneAndUpdate(
-        { _id: user._id, btcHoldings: user.btcHoldings },
-        { $inc: { balance: normalizedProceeds }, $set: { btcHoldings: 0, btcCostUsd: 0 } },
-        { new: true }
-      );
+      try {
+        user.balance = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) + normalizedProceeds) as any;
+        user.btcHoldings = 0 as any;
+        user.btcCostUsd = 0 as any;
+        const savedAll = await user.save();
 
-      if (!updatedAll) return NextResponse.json({ message: "State changed, retry" }, { status: 409 });
+        const finalUpdatedSellAll = await User.findByIdAndUpdate(savedAll._id, { $set: { portfolioUsd: 0 } }, { new: true });
 
-      // portfolio is now zero
-      const finalUpdatedSellAll = await User.findByIdAndUpdate(updatedAll._id, { $set: { portfolioUsd: 0 } }, { new: true });
+        const res = NextResponse.json({ success: true, action: 'sell_all', price, amountUsd: normalizedProceeds, balanceDelta: normalizedProceeds, btcHoldings: finalUpdatedSellAll.btcHoldings, btcCostUsd: finalUpdatedSellAll.btcCostUsd, portfolioUsd: finalUpdatedSellAll.portfolioUsd });
+        res.headers.set("Cache-Control", "private, no-store");
+        return res;
+      } catch (err) {
+        console.error('Sell_all save failed, falling back to atomic update:', err);
+        const updatedAll = await User.findOneAndUpdate(
+          { _id: user._id, btcHoldings: user.btcHoldings },
+          { $inc: { balance: normalizedProceeds }, $set: { btcHoldings: 0, btcCostUsd: 0 } },
+          { new: true }
+        );
 
-      const res = NextResponse.json({ success: true, action: 'sell_all', price, amountUsd: normalizedProceeds, balanceDelta: normalizedProceeds, btcHoldings: finalUpdatedSellAll.btcHoldings, btcCostUsd: finalUpdatedSellAll.btcCostUsd, portfolioUsd: finalUpdatedSellAll.portfolioUsd });
-      res.headers.set("Cache-Control", "private, no-store");
-      return res;
+        if (!updatedAll) return NextResponse.json({ message: "State changed, retry" }, { status: 409 });
+
+        const finalUpdatedSellAll = await User.findByIdAndUpdate(updatedAll._id, { $set: { portfolioUsd: 0 } }, { new: true });
+
+        const res = NextResponse.json({ success: true, action: 'sell_all', price, amountUsd: normalizedProceeds, balanceDelta: normalizedProceeds, btcHoldings: finalUpdatedSellAll.btcHoldings, btcCostUsd: finalUpdatedSellAll.btcCostUsd, portfolioUsd: finalUpdatedSellAll.portfolioUsd });
+        res.headers.set("Cache-Control", "private, no-store");
+        return res;
+      }
     }
 
     const btcHoldings = typeof user.btcHoldings === "number" ? user.btcHoldings : 0;
@@ -123,20 +164,35 @@ export async function POST(req: Request) {
       newCostUsd = normalizeMoney(Math.max(0, prevCostUsd - costRemoved));
     }
 
-    const updated = await User.findOneAndUpdate(
-      { _id: user._id, btcHoldings: user.btcHoldings },
-      { $inc: { balance: rawAmount, btcHoldings: -btcNeeded }, $set: { btcCostUsd: newCostUsd } },
-      { new: true }
-    );
+    try {
+      user.balance = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) + rawAmount) as any;
+      user.btcHoldings = (Number(user.btcHoldings) || 0) - btcNeeded as any;
+      user.btcCostUsd = newCostUsd as any;
+      const saved = await user.save();
 
-    if (!updated) return NextResponse.json({ message: "State changed, retry" }, { status: 409 });
+      const newPortfolioSell = normalizeMoney(Number(saved.btcHoldings || 0) * price);
+      const finalUpdatedSell = await User.findByIdAndUpdate(saved._id, { $set: { portfolioUsd: newPortfolioSell } }, { new: true });
 
-    const newPortfolioSell = normalizeMoney(Number(updated.btcHoldings || 0) * price);
-    const finalUpdatedSell = await User.findByIdAndUpdate(updated._id, { $set: { portfolioUsd: newPortfolioSell } }, { new: true });
+      const res = NextResponse.json({ success: true, amount: rawAmount, price, balanceDelta: rawAmount, btcHoldings: finalUpdatedSell.btcHoldings, btcCostUsd: finalUpdatedSell.btcCostUsd, portfolioUsd: finalUpdatedSell.portfolioUsd });
+      res.headers.set("Cache-Control", "private, no-store");
+      return res;
+    } catch (err) {
+      console.error('Sell save failed, falling back to atomic update:', err);
+      const updated = await User.findOneAndUpdate(
+        { _id: user._id, btcHoldings: user.btcHoldings },
+        { $inc: { balance: rawAmount, btcHoldings: -btcNeeded }, $set: { btcCostUsd: newCostUsd } },
+        { new: true }
+      );
 
-    const res = NextResponse.json({ success: true, amount: rawAmount, price, balanceDelta: rawAmount, btcHoldings: finalUpdatedSell.btcHoldings, btcCostUsd: finalUpdatedSell.btcCostUsd, portfolioUsd: finalUpdatedSell.portfolioUsd });
-    res.headers.set("Cache-Control", "private, no-store");
-    return res;
+      if (!updated) return NextResponse.json({ message: "State changed, retry" }, { status: 409 });
+
+      const newPortfolioSell = normalizeMoney(Number(updated.btcHoldings || 0) * price);
+      const finalUpdatedSell = await User.findByIdAndUpdate(updated._id, { $set: { portfolioUsd: newPortfolioSell } }, { new: true });
+
+      const res = NextResponse.json({ success: true, amount: rawAmount, price, balanceDelta: rawAmount, btcHoldings: finalUpdatedSell.btcHoldings, btcCostUsd: finalUpdatedSell.btcCostUsd, portfolioUsd: finalUpdatedSell.portfolioUsd });
+      res.headers.set("Cache-Control", "private, no-store");
+      return res;
+    }
   } catch (error) {
     console.error("/api/crypto/trade error", error);
     return NextResponse.json({ message: "Internal error" }, { status: 500 });

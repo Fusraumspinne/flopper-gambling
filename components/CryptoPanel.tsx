@@ -68,7 +68,6 @@ export default function CryptoPanel() {
           if (!Number.isFinite(live) || live <= 0) return;
           setPrice(live);
 
-          // one-shot portfolio sync: set the flag immediately to prevent races
           if (!portfolioSyncedRef.current && username) {
             portfolioSyncedRef.current = true;
             void (async () => {
@@ -83,7 +82,6 @@ export default function CryptoPanel() {
             })();
           }
         } catch (e) {
-          // ignore
         }
       });
       ws.addEventListener('error', (e) => {
@@ -115,7 +113,6 @@ export default function CryptoPanel() {
     };
   }, []);
 
-  // fallback: if username becomes available after first price, ensure one-time sync
   useEffect(() => {
     if (portfolioSyncedRef.current) return;
     if (!username) return;

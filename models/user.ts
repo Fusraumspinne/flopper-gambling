@@ -14,10 +14,12 @@ const userSchema = new Schema(
     balance: {
       type: Number,
       required: true,
+      set: (v: number) => Math.round((v + Number.EPSILON) * 100) / 100,
     },
     invest: {
       type: Number,
       required: true,
+      set: (v: number) => Math.round((v + Number.EPSILON) * 100) / 100,
     },
     lastCheckedInvest: {
       type: Number,
@@ -30,6 +32,7 @@ const userSchema = new Schema(
     weeklyPayback: {
       type: Number,
       required: true,
+      set: (v: number) => Math.round((v + Number.EPSILON) * 100) / 100,
     },
     lastWeeklyPayback: {
       type: Date,
@@ -50,12 +53,14 @@ const userSchema = new Schema(
       type: Number,
       required: true,
       default: 0,
+      set: (v: number) => Math.round((v + Number.EPSILON) * 100) / 100,
     }
     ,
     portfolioUsd: {
       type: Number,
       required: true,
       default: 0,
+      set: (v: number) => Math.round((v + Number.EPSILON) * 100) / 100,
     }
     ,
     seasons: {

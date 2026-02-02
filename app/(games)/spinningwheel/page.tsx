@@ -600,7 +600,6 @@ export default function SpinningWheelPage() {
             finalizePendingLoss();
           }
 
-          // Play sounds: Win only for multis >= 1x, otherwise Limbo lose
           if (chosen.multiplier >= 1) {
             playAudio(audioRef.current.win);
           } else {

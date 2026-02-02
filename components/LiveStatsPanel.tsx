@@ -126,7 +126,7 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
       if (prevSign !== 0 && currSign !== 0 && prevSign !== currSign) {
         const denom = currNet - prevNet;
         if (denom !== 0) {
-          const ratio = (0 - prevNet) / denom; // 0..1
+          const ratio = (0 - prevNet) / denom;
           const xCross = prevX + (currX - prevX) * ratio;
           out.push({ x: xCross, net: 0 });
         }
