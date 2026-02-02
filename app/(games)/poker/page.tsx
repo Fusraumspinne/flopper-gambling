@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { PlayArrow } from "@mui/icons-material";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
@@ -631,6 +631,30 @@ export default function PokerPage() {
   const [playerHasActed, setPlayerHasActed] = useState<boolean>(false);
   const [winners, setWinners] = useState<number[]>([]);
   const [showdownShowSeats, setShowdownShowSeats] = useState<number[]>([]);
+
+  const currentPlayerCategory = useMemo(() => {
+    if (
+      stage === "setup" ||
+      stage === "dealing" ||
+      playerFolded ||
+      playerHole.length < 2
+    ) {
+      return null;
+    }
+    const currentBoard = board.slice(0, boardRevealCount);
+    if (currentBoard.length === 0) {
+      if (playerHole[0].rank === playerHole[1].rank) return "Pair";
+      return "High Card";
+    }
+    if (currentBoard.length < 3) return null;
+
+    const bestScore = evaluateSeven(playerHole, currentBoard);
+    if (bestScore.cat === "Straight Flush" && bestScore.kickers[0] === 14) {
+      return "Royal Flush";
+    }
+    return bestScore.cat;
+  }, [stage, playerFolded, playerHole, board, boardRevealCount]);
+
   const [actionHistoryBySeat, setActionHistoryBySeat] = useState<
     Record<number, string[]>
   >({});
@@ -1101,20 +1125,24 @@ export default function PokerPage() {
       }
 
       const share = Math.floor(potTier / bestIdxs.length);
-      let remainder = potTier - share * bestIdxs.length;
+      let remainder = potTier % bestIdxs.length;
+
       for (const w of bestIdxs) {
         const bonus = remainder > 0 ? 1 : 0;
-        if (remainder > 0) remainder -= 1;
+        if (remainder > 0) remainder--;
         const payout = share + bonus;
+
         moneyWinners.add(w);
-        if (w === 0) playerPayout += payout;
-        else {
+        if (w === 0) {
+          playerPayout += payout;
+        } else {
           const bi = w - 1;
-          if (nextBots[bi])
+          if (nextBots[bi]) {
             nextBots[bi] = {
               ...nextBots[bi],
               stack: nextBots[bi].stack + payout,
             };
+          }
         }
       }
     }
@@ -2390,35 +2418,44 @@ export default function PokerPage() {
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-              {HAND_EXAMPLES.map((hand, idx) => (
-                <div
-                  key={hand.name}
-                  className="bg-[#1a2c38] p-2 rounded border border-[#2f4553] flex flex-col items-center gap-2"
-                >
-                  <div className="text-[10px] uppercase font-bold text-[#b1bad3]">
-                    {idx + 1}. {hand.name}
-                  </div>
-                  <div className="flex justify-center -space-x-1">
-                    {hand.cards.map((c, i) => (
-                      <div
-                        key={i}
-                        style={{ zIndex: i }}
-                        className={`w-6 h-8 rounded bg-white ${getCardColor(
-                          c.suit
-                        )} flex flex-col items-center justify-center p-0.5 shadow-sm border border-gray-300 relative`}
-                        title={`${c.rank} of ${c.suit}`}
-                      >
-                        <div className="text-[8px] font-bold leading-none">
-                          {c.rank}
+              {HAND_EXAMPLES.map((hand, idx) => {
+                const isActive = hand.name === currentPlayerCategory;
+                return (
+                  <div
+                    key={hand.name}
+                    className={`p-2 rounded border flex flex-col items-center gap-2 transition-all duration-300 ${
+                      isActive
+                        ? "bg-[#1d353f] border-[#00e701]"
+                        : "bg-[#1a2c38] border-[#2f4553]"
+                    }`}
+                  >
+                    <div
+                      className="text-[10px] uppercase font-bold transition-colors text-[#b1bad3] "
+                    >
+                      {idx + 1}. {hand.name}
+                    </div>
+                    <div className="flex justify-center -space-x-1">
+                      {hand.cards.map((c, i) => (
+                        <div
+                          key={i}
+                          style={{ zIndex: i }}
+                          className={`w-6 h-8 rounded bg-white ${getCardColor(
+                            c.suit
+                          )} flex flex-col items-center justify-center p-0.5 shadow-sm border border-gray-300 relative`}
+                          title={`${c.rank} of ${c.suit}`}
+                        >
+                          <div className="text-[8px] font-bold leading-none">
+                            {c.rank}
+                          </div>
+                          <div className="text-[10px] leading-none">
+                            {getSuitIcon(c.suit)}
+                          </div>
                         </div>
-                        <div className="text-[10px] leading-none">
-                          {getSuitIcon(c.suit)}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

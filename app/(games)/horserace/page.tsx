@@ -85,13 +85,10 @@ const HorseRow = React.memo(
     const isHighlighted = isLeader || isWinner;
     const leftPct = Math.min(100, Math.max(0, progress * 100));
 
-    const badgeBufferPx = 83;
-    const offsetPx = 10;
-    const nearFinishThreshold = 90;
-    const leftValue =
-      leftPct >= nearFinishThreshold
-        ? `calc(100% - ${badgeBufferPx}px)`
-        : `calc(${leftPct}% + ${offsetPx}px)`;
+    const startOffset = 10;
+    const finishBuffer = 83;
+
+    const leftValue = `calc(${startOffset}px + ${leftPct}% - ${((leftPct / 100) * (startOffset + finishBuffer)).toFixed(2)}px)`;
 
     return (
       <div className="relative h-12 rounded-md">
