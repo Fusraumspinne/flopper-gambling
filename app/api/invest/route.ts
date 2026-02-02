@@ -79,9 +79,10 @@ export async function POST(req: Request) {
         return res;
       } catch (err) {
         console.error('Deposit save failed, falling back to atomic update:', err);
+        const newBalance = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) - rawAmount);
         const updated = await User.findOneAndUpdate(
           { _id: user._id, balance: user.balance, invest: user.invest, lastCheckedInvest: user.lastCheckedInvest },
-          { $inc: { balance: -rawAmount }, $set: { invest: nextPrincipal, lastCheckedInvest: nowMs } },
+          { $set: { balance: newBalance, invest: nextPrincipal, lastCheckedInvest: nowMs } },
           { new: true }
         );
 
@@ -133,9 +134,10 @@ export async function POST(req: Request) {
       console.error('Withdraw save failed, falling back to atomic update:', err);
       const amountToApply = isWithdrawAll ? normalizeMoney(currentValue) : rawAmount;
       const nextInvest = isWithdrawAll ? 0 : nextPrincipal;
+      const newBalance2 = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) + amountToApply);
       const updated2 = await User.findOneAndUpdate(
         { _id: user._id, invest: user.invest, lastCheckedInvest: user.lastCheckedInvest },
-        { $inc: { balance: amountToApply }, $set: { invest: nextInvest, lastCheckedInvest: nowMs } },
+        { $set: { balance: newBalance2, invest: nextInvest, lastCheckedInvest: nowMs } },
         { new: true }
       );
 

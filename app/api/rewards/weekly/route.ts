@@ -52,9 +52,10 @@ export async function POST(req: Request) {
       return res;
     } catch (err) {
       console.error('Weekly payback save failed, falling back to atomic update:', err);
+      const newBalance = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) + amount);
       const updated = await User.findOneAndUpdate(
         { _id: user._id, lastWeeklyPayback: user.lastWeeklyPayback, weeklyPayback: user.weeklyPayback },
-        { $inc: { balance: amount }, $set: { weeklyPayback: 0, lastWeeklyPayback: new Date(nowMs) } },
+        { $set: { balance: newBalance, weeklyPayback: 0, lastWeeklyPayback: new Date(nowMs) } },
         { new: true }
       );
 

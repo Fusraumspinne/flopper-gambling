@@ -59,9 +59,11 @@ export async function POST(req: Request) {
         return res;
       } catch (err) {
         console.error('Buy save failed, falling back to atomic update:', err);
+        const newBalance = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) - rawAmount);
+        const newBtcHoldings = normalizeMoney((Number(user.btcHoldings) || 0) + btcToAdd);
         const updated = await User.findOneAndUpdate(
           { _id: user._id, balance: user.balance },
-          { $inc: { balance: -rawAmount, btcHoldings: btcToAdd }, $set: { btcCostUsd: newCostUsd } },
+          { $set: { balance: newBalance, btcHoldings: newBtcHoldings, btcCostUsd: newCostUsd } },
           { new: true }
         );
 
@@ -99,9 +101,10 @@ export async function POST(req: Request) {
         return res;
       } catch (err) {
         console.error('Buy_all save failed, falling back to atomic update:', err);
+        const newBtcHoldingsAll = normalizeMoney((Number(user.btcHoldings) || 0) + btcToAdd);
         const updatedAll = await User.findOneAndUpdate(
           { _id: user._id, balance: user.balance },
-          { $set: { balance: 0, btcCostUsd: newCostUsd }, $inc: { btcHoldings: btcToAdd } },
+          { $set: { balance: 0, btcCostUsd: newCostUsd, btcHoldings: newBtcHoldingsAll } },
           { new: true }
         );
 
@@ -136,9 +139,10 @@ export async function POST(req: Request) {
         return res;
       } catch (err) {
         console.error('Sell_all save failed, falling back to atomic update:', err);
+        const newBalanceSellAll = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) + normalizedProceeds);
         const updatedAll = await User.findOneAndUpdate(
           { _id: user._id, btcHoldings: user.btcHoldings },
-          { $inc: { balance: normalizedProceeds }, $set: { btcHoldings: 0, btcCostUsd: 0 } },
+          { $set: { balance: newBalanceSellAll, btcHoldings: 0, btcCostUsd: 0 } },
           { new: true }
         );
 
@@ -178,9 +182,11 @@ export async function POST(req: Request) {
       return res;
     } catch (err) {
       console.error('Sell save failed, falling back to atomic update:', err);
+      const newBalanceSell = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) + rawAmount);
+      const newBtcHoldingsSell = normalizeMoney((Number(user.btcHoldings) || 0) - btcNeeded);
       const updated = await User.findOneAndUpdate(
         { _id: user._id, btcHoldings: user.btcHoldings },
-        { $inc: { balance: rawAmount, btcHoldings: -btcNeeded }, $set: { btcCostUsd: newCostUsd } },
+        { $set: { balance: newBalanceSell, btcHoldings: newBtcHoldingsSell, btcCostUsd: newCostUsd } },
         { new: true }
       );
 

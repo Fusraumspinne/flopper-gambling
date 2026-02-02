@@ -54,9 +54,10 @@ export async function POST(req: Request) {
         updatedSender = await senderUser.save();
       } catch (err) {
         console.error('Gift sender save failed, falling back to atomic update:', err);
+        const newBalance = normalizeMoney((typeof senderUser.balance === 'number' ? senderUser.balance : 0) - amt);
         updatedSender = await User.findOneAndUpdate(
           { _id: senderUser._id, balance: { $gte: amt } },
-          { $inc: { balance: -amt } },
+          { $set: { balance: newBalance } },
           { new: true }
         );
       }

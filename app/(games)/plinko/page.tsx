@@ -518,8 +518,7 @@ export default function PlinkoPage() {
         const y = paddingTop + r * rowSpacing;
         for (let c = 0; c < pegsInRow; c++) {
           const x = startX + c * pegSpacing;
-          const pulse = 1 + 0.06 * Math.sin(time * 0.006 + r * 0.9 + c * 0.7);
-          const pr = Math.max(1, Math.round(pegRadius * pulse));
+          const pr = Math.max(1, Math.round(pegRadius));
           const alpha = 0.9 - (r / rows) * 0.35;
           ctx.beginPath();
           ctx.fillStyle = `rgba(255,255,255,${alpha.toFixed(3)})`;

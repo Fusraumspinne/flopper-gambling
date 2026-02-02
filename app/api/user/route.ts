@@ -54,7 +54,8 @@ export async function GET(req: Request) {
       } catch (err) {
         const investmentDelta = normalizeMoney(computedInvestment - rawPrincipal);
         try {
-          await User.updateOne({ name: user.name }, { $set: { lastCheckedInvest: nowMs }, $inc: investmentDelta !== 0 ? { invest: investmentDelta } : {} });
+          const newInvest = normalizeMoney((typeof user.invest === 'number' ? user.invest : 0) + investmentDelta);
+          await User.updateOne({ name: user.name }, { $set: { lastCheckedInvest: nowMs, invest: newInvest } });
         } catch (err2) {
           console.error('Failed to update investment (both save and updateOne fallback):', err2);
         }
@@ -201,7 +202,21 @@ export async function POST(req: Request) {
       set.lastWeeklyPayback = new Date(lastPot);
     }
 
-    if (Object.keys(inc).length) update.$inc = inc;
+    if (Object.keys(inc).length) {
+      const base = userBefore || null;
+      if (typeof inc.balance === 'number') {
+        const baseBal = base && typeof base.balance === 'number' ? base.balance : 0;
+        set.balance = normalizeMoney(baseBal + inc.balance);
+      }
+      if (typeof inc.weeklyPayback === 'number') {
+        const baseWp = base && typeof base.weeklyPayback === 'number' ? base.weeklyPayback : 0;
+        set.weeklyPayback = normalizeMoney(baseWp + inc.weeklyPayback);
+      }
+      if (typeof inc.invest === 'number') {
+        const baseInv = base && typeof base.invest === 'number' ? base.invest : 0;
+        set.invest = normalizeMoney(baseInv + inc.invest);
+      }
+    }
     if (Object.keys(set).length) update.$set = set;
 
     const updates: Array<{ game: unknown; profit?: unknown; multi?: unknown; loss?: unknown }> =

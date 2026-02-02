@@ -50,9 +50,10 @@ export async function POST(req: Request) {
       return res;
     } catch (err) {
       console.error('Daily reward save failed, falling back to atomic update:', err);
+      const newBalance = normalizeMoney((typeof user.balance === 'number' ? user.balance : 0) + amount);
       const updated = await User.findOneAndUpdate(
         { _id: user._id, lastDailyReward: user.lastDailyReward },
-        { $inc: { balance: amount }, $set: { lastDailyReward: new Date(nowMs) } },
+        { $set: { balance: newBalance, lastDailyReward: new Date(nowMs) } },
         { new: true }
       );
 
