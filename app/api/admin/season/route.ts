@@ -54,6 +54,7 @@ export async function POST() {
       await User.findByIdAndUpdate(last._id, { $push: { seasons: "last" } });
     }
 
+    const resetTimestamp = new Date();
     await User.updateMany(
       {},
       {
@@ -61,9 +62,9 @@ export async function POST() {
           balance: 10000,
           invest: 0,
           lastCheckedInvest: Date.now(),
-          lastDailyReward: new Date(0),
+          lastDailyReward: resetTimestamp,
           weeklyPayback: 0,
-          lastWeeklyPayback: new Date(0),
+          lastWeeklyPayback: resetTimestamp,
           btcHoldings: 0,
           btcCostUsd: 0,
           portfolioUsd: 0,

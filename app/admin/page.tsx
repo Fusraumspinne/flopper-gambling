@@ -41,6 +41,7 @@ type GiftRow = {
 type WebsiteStatus = {
   isMaintenance: boolean;
   isPaused: boolean;
+  isSeasonBreak: boolean;
   games: Record<string, boolean>;
 };
 
@@ -66,6 +67,7 @@ export default function AdminPage() {
   const [status, setStatus] = useState<WebsiteStatus>({
     isMaintenance: false,
     isPaused: false,
+    isSeasonBreak: false,
     games: DEFAULT_GAME_STATUS,
   });
 
@@ -215,6 +217,7 @@ export default function AdminPage() {
       setStatus({
         isMaintenance: !!data?.isMaintenance,
         isPaused: !!data?.isPaused,
+        isSeasonBreak: !!data?.isSeasonBreak,
         games: { ...DEFAULT_GAME_STATUS, ...(data?.games ?? {}) },
       });
     } catch (e: any) {
@@ -784,6 +787,14 @@ export default function AdminPage() {
                 onChange={(e) => setStatus((prev) => ({ ...prev, isPaused: e.target.checked }))}
               />
               Pause Mode
+            </label>
+            <label className="flex items-center gap-2 text-white">
+              <input
+                type="checkbox"
+                checked={status.isSeasonBreak}
+                onChange={(e) => setStatus((prev) => ({ ...prev, isSeasonBreak: e.target.checked }))}
+              />
+              Season Break
             </label>
             <button
               onClick={() => setAllGames(true)}

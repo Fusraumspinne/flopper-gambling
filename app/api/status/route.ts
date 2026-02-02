@@ -39,6 +39,7 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const nextMaintenance = typeof body?.isMaintenance === "boolean" ? body.isMaintenance : undefined;
     const nextPaused = typeof body?.isPaused === "boolean" ? body.isPaused : undefined;
+    const nextSeasonBreak = typeof body?.isSeasonBreak === "boolean" ? body.isSeasonBreak : undefined;
     const nextGames = sanitizeGames(body?.games ?? null);
 
     await connectMongoDB();
@@ -51,6 +52,7 @@ export async function PATCH(req: Request) {
 
     if (typeof nextMaintenance === "boolean") update.$set.isMaintenance = nextMaintenance;
     if (typeof nextPaused === "boolean") update.$set.isPaused = nextPaused;
+    if (typeof nextSeasonBreak === "boolean") update.$set.isSeasonBreak = nextSeasonBreak;
 
     const status = await WebsiteStatus.findOneAndUpdate({}, update, {
       new: true,
@@ -60,6 +62,7 @@ export async function PATCH(req: Request) {
     const res = NextResponse.json({
       isMaintenance: !!status.isMaintenance,
       isPaused: !!status.isPaused,
+      isSeasonBreak: !!status.isSeasonBreak,
       games: status.games?.toObject?.() ?? status.games ?? nextGames,
     });
     res.headers.set("Cache-Control", "no-store");

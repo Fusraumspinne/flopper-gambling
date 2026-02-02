@@ -8,17 +8,21 @@ import LayoutWrapper from "@/components/LayoutWrapper";
 import { AuthProvider } from "@/app/providers";
 import Wartungspause from "@/components/Wartungspause";
 import Pause from "@/components/Pause";
+import NewSeason from "@/components/NewSeason";
 
 interface AdminBypassProps {
   isMaintenance?: boolean;
   isPause?: boolean;
+  isSeasonBreak?: boolean;
   children: React.ReactNode;
 }
 
-export default function AdminBypass({ isMaintenance, isPause, children }: AdminBypassProps) {
+export default function AdminBypass({ isMaintenance, isPause, isSeasonBreak, children }: AdminBypassProps) {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [status, setStatus] = useState<{ isMaintenance: boolean; isPaused: boolean } | null>(
-    isMaintenance !== undefined || isPause !== undefined ? { isMaintenance: !!isMaintenance, isPaused: !!isPause } : null
+  const [status, setStatus] = useState<{ isMaintenance: boolean; isPaused: boolean; isSeasonBreak: boolean } | null>(
+    isMaintenance !== undefined || isPause !== undefined || isSeasonBreak !== undefined
+      ? { isMaintenance: !!isMaintenance, isPaused: !!isPause, isSeasonBreak: !!isSeasonBreak }
+      : null
   );
 
   useEffect(() => {
@@ -38,15 +42,19 @@ export default function AdminBypass({ isMaintenance, isPause, children }: AdminB
         const res = await fetch('/api/status', { cache: 'no-store' });
         if (!mounted) return;
         if (!res.ok) {
-          setStatus({ isMaintenance: false, isPaused: false });
+          setStatus({ isMaintenance: false, isPaused: false, isSeasonBreak: false });
           return;
         }
         const data = await res.json();
         if (!mounted) return;
-        setStatus({ isMaintenance: !!data?.isMaintenance, isPaused: !!data?.isPaused });
+        setStatus({
+          isMaintenance: !!data?.isMaintenance,
+          isPaused: !!data?.isPaused,
+          isSeasonBreak: !!data?.isSeasonBreak,
+        });
       } catch (e) {
         if (!mounted) return;
-        setStatus({ isMaintenance: false, isPaused: false });
+        setStatus({ isMaintenance: false, isPaused: false, isSeasonBreak: false });
       }
     })();
     return () => {
@@ -73,7 +81,11 @@ export default function AdminBypass({ isMaintenance, isPause, children }: AdminB
         if (!res.ok) return;
         const data = await res.json();
         if (!mounted) return;
-        setStatus({ isMaintenance: !!data?.isMaintenance, isPaused: !!data?.isPaused });
+        setStatus({
+          isMaintenance: !!data?.isMaintenance,
+          isPaused: !!data?.isPaused,
+          isSeasonBreak: !!data?.isSeasonBreak,
+        });
 
         if (data?.games && data.games[gameKey] === false) {
           if (isAdmin === false) {
@@ -97,9 +109,9 @@ export default function AdminBypass({ isMaintenance, isPause, children }: AdminB
     );
   }
 
-  const { isMaintenance: sm, isPaused: sp } = status;
+  const { isMaintenance: sm, isPaused: sp, isSeasonBreak: ss } = status;
 
-  if (sm || sp) {
+  if (sm || sp || ss) {
     if (isAdmin) {
       return (
         <AccessGate>
@@ -112,6 +124,7 @@ export default function AdminBypass({ isMaintenance, isPause, children }: AdminB
 
     if (sm) return <Wartungspause />;
     if (sp) return <Pause />;
+    if (ss) return <NewSeason />;
   }
 
   return (

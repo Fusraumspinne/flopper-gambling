@@ -5,6 +5,7 @@ import { DEFAULT_GAME_STATUS, GAME_STATUS_KEYS } from "@/lib/gameStatus";
 export type WebsiteStatusPayload = {
   isMaintenance: boolean;
   isPaused: boolean;
+  isSeasonBreak: boolean;
   games: Record<string, boolean>;
 };
 
@@ -20,6 +21,7 @@ export async function getWebsiteStatus(): Promise<WebsiteStatusPayload> {
     status = await WebsiteStatus.create({
       isMaintenance: false,
       isPaused: false,
+      isSeasonBreak: false,
       games: DEFAULT_GAME_STATUS,
     });
   }
@@ -32,10 +34,12 @@ export async function getWebsiteStatus(): Promise<WebsiteStatusPayload> {
 
   const isMaintenance = coerceBoolean(status.isMaintenance, false);
   const isPaused = coerceBoolean(status.isPaused, false);
+  const isSeasonBreak = coerceBoolean(status.isSeasonBreak, false);
 
   return {
     isMaintenance,
     isPaused,
+    isSeasonBreak,
     games,
   };
 }

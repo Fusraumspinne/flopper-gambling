@@ -18,6 +18,10 @@ const websiteStatusSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    isSeasonBreak: {
+      type: Boolean,
+      default: false,
+    },
     games: {
       type: gamesSchema,
       default: () => ({}),
