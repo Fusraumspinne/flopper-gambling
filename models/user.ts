@@ -57,6 +57,11 @@ const userSchema = new Schema(
       required: true,
       default: 0,
     }
+    ,
+    seasons: {
+      type: [String],
+      default: [],
+    }
   },
   { timestamps: true }
 )

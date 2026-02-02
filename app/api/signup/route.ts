@@ -21,7 +21,7 @@ export async function POST(req: any){
         await User.create({
             name,
             password: hashedPassword,
-            balance: normalizeMoney(1000),
+            balance: normalizeMoney(10000),
             invest: normalizeMoney(0),
             lastCheckedInvest: Date.now(),
             lastDailyReward: now,

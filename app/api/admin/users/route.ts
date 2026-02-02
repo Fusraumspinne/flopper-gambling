@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
     const users = await User.find(filter)
       .sort({ updatedAt: -1 })
-      .select("name balance invest lastCheckedInvest lastDailyReward weeklyPayback lastWeeklyPayback btcHoldings btcCostUsd portfolioUsd createdAt updatedAt")
+      .select("name balance invest lastCheckedInvest lastDailyReward weeklyPayback lastWeeklyPayback btcHoldings btcCostUsd portfolioUsd seasons createdAt updatedAt")
       .lean();
 
     const res = NextResponse.json({ users });

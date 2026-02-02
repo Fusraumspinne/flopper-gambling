@@ -15,6 +15,7 @@ type UserRow = {
   btcHoldings: number;
   btcCostUsd: number;
   portfolioUsd?: number;
+  seasons?: string[];
   createdAt?: string;
   updatedAt?: string;
 };
@@ -43,7 +44,7 @@ type WebsiteStatus = {
   games: Record<string, boolean>;
 };
 
-const tabs = ["Users", "Records", "Gifts", "Website Status"] as const;
+const tabs = ["Users", "Records", "Gifts", "Season", "Website Status"] as const;
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>("Users");
@@ -99,7 +100,7 @@ export default function AdminPage() {
     }
   };
 
-    const saveGift = async () => {
+  const saveGift = async () => {
       if (!giftForm || !selectedGiftId) return;
       setLoading(true);
       setError(null);
@@ -119,6 +120,25 @@ export default function AdminPage() {
         await fetchGifts();
       } catch (e: any) {
         setError(e?.message ?? "Failed to save gift");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const processSeason = async () => {
+      if (!confirm("Are you sure you want to end the season, distribute rewards and reset all accounts?")) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/admin/season", {
+          method: "POST",
+          headers,
+        });
+        if (!res.ok) throw new Error("Failed to process season rewards");
+        alert("Season rewards processed successfully!");
+        if (activeTab === "Users") fetchUsers();
+      } catch (e: any) {
+        setError(e?.message ?? "Failed to process season");
       } finally {
         setLoading(false);
       }
@@ -225,6 +245,7 @@ export default function AdminPage() {
       btcHoldings: user.btcHoldings,
       btcCostUsd: user.btcCostUsd,
       portfolioUsd: user.portfolioUsd ?? 0,
+      seasons: user.seasons ?? [],
     });
   };
 
@@ -490,6 +511,20 @@ export default function AdminPage() {
                     className="mt-1 w-full bg-[#213743] border border-[#2f4553] rounded-lg px-3 py-2 text-white"
                   />
                 </label>
+                <div className="md:col-span-2">
+                  <span className="text-sm text-[#b1bad3]">Season Placements</span>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {userForm.seasons && userForm.seasons.length > 0 ? (
+                      userForm.seasons.map((s, i) => (
+                        <span key={i} className="px-2 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded text-xs font-bold">
+                          {s}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[#8399aa] text-xs">No season placements yet</span>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -704,6 +739,30 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === "Season" && (
+        <div className="bg-[#0f212e] border border-[#213743] rounded-xl p-6 text-center">
+          <h2 className="text-2xl text-white font-bold mb-4">Season Management</h2>
+          <p className="text-[#b1bad3] mb-8 max-w-md mx-auto">
+            Clicking the button below will calculate the current leaderboard rankings. 
+            The top 3 users and the last user on the leaderboard will receive a permanent entry 
+            in their profile history. All users will have their balances reset to $10000,
+          </p>
+          <button
+            onClick={processSeason}
+            disabled={loading}
+            className="bg-linear-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-extrabold px-8 py-4 rounded-xl shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 flex items-center gap-2 mx-auto"
+          >
+            {loading && (
+              <svg className="h-5 w-5 animate-spin text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+            )}
+            END CURRENT SEASON & DISTRIBUTE REWARDS
+          </button>
         </div>
       )}
 

@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { connectMongoDB } from "@/lib/mongodb";
 import User from "@/models/user";
+import Gift from "@/models/gift";
 
-export const dynamic = 'force-dynamic';
-
-export async function GET() {
+export async function POST() {
   try {
     await connectMongoDB();
     const users = await User.find();
@@ -27,8 +26,6 @@ export async function GET() {
       return normalizeMoney(interestValue + nonInterestPrincipal);
     };
 
-    const btcPrice = 0;
-
     const mapped = users
       .map((user) => {
         const principal = Number(user?.invest ?? 0);
@@ -39,16 +36,46 @@ export async function GET() {
         return {
           _id: user._id,
           name: user.name,
-          balance: normalizeMoney(balance + investmentValue + (btcUsdValue || 0)),
-          seasons: user.seasons || [],
+          totalBalance: balance + investmentValue + (btcUsdValue || 0),
         };
       })
-      .sort((a, b) => b.balance - a.balance);
+      .sort((a, b) => b.totalBalance - a.totalBalance);
 
-    const res = NextResponse.json(mapped);
-    res.headers.set("Cache-Control", "no-store, max-age=0");
-    return res;
+    if (mapped.length === 0) {
+      return NextResponse.json({ message: "No users found" }, { status: 400 });
+    }
+
+    if (mapped[0]) await User.findByIdAndUpdate(mapped[0]._id, { $push: { seasons: "first" } });
+    if (mapped[1]) await User.findByIdAndUpdate(mapped[1]._id, { $push: { seasons: "second" } });
+    if (mapped[2]) await User.findByIdAndUpdate(mapped[2]._id, { $push: { seasons: "third" } });
+
+    if (mapped.length > 3) {
+      const last = mapped[mapped.length - 1];
+      await User.findByIdAndUpdate(last._id, { $push: { seasons: "last" } });
+    }
+
+    await User.updateMany(
+      {},
+      {
+        $set: {
+          balance: 10000,
+          invest: 0,
+          lastCheckedInvest: Date.now(),
+          lastDailyReward: new Date(0),
+          weeklyPayback: 0,
+          lastWeeklyPayback: new Date(0),
+          btcHoldings: 0,
+          btcCostUsd: 0,
+          portfolioUsd: 0,
+        },
+      }
+    );
+
+    await Gift.deleteMany({});
+
+    return NextResponse.json({ message: "Season rewards processed and accounts reset successfully" });
   } catch (error) {
-    return NextResponse.json({ message: "Error fetching leaderboard" }, { status: 500 });
+    console.error("Season Error:", error);
+    return NextResponse.json({ message: "Error processing season rewards" }, { status: 500 });
   }
 }

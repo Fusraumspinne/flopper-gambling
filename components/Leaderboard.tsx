@@ -9,6 +9,26 @@ type LeaderboardUser = {
   _id: string;
   name: string;
   balance: number;
+  seasons?: string[];
+};
+
+const Badge = ({ rank, index }: { rank: string; index: number }) => {
+  const label: Record<string, string> = {
+    first: "🥇",
+    second: "🥈",
+    third: "🥉",
+    last: "💩",
+  };
+
+  return (
+    <div
+      title={rank.charAt(0).toUpperCase() + rank.slice(1)}
+      className="relative flex items-center justify-center w-5 h-5 text-xl transition-transform hover:scale-120 hover:z-50 cursor-help"
+      style={{ marginLeft: index === 0 ? 0 : "-10px", zIndex: 50 - index }}
+    >
+      {label[rank.toLowerCase()] || "🏅"}
+    </div>
+  );
 };
 
 export default function Leaderboard() {
@@ -168,7 +188,18 @@ export default function Leaderboard() {
                 >
                   {absoluteIndex + 1}
                 </span>
-                <span className="text-white font-medium">{user.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-medium">{user.name}</span>
+                  <div className="flex items-center">
+                    {(() => {
+                      const rankOrder: Record<string, number> = { first: 1, second: 2, third: 3, last: 4 };
+                      const sortedSeasons = [...(user.seasons || [])].sort(
+                        (a, b) => (rankOrder[a.toLowerCase()] || 99) - (rankOrder[b.toLowerCase()] || 99)
+                      );
+                      return sortedSeasons.map((rank, i) => <Badge key={i} rank={rank} index={i} />);
+                    })()}
+                  </div>
+                </div>
               </div>
               <span className="text-[#00e701] font-mono">
                 $
@@ -239,6 +270,9 @@ export default function Leaderboard() {
             Last »
           </button>
         </div>
+      </div>
+      <div className="mt-3 text-sm text-[#b1bad3]">
+        Note: From now on, each season will restart on the first server restart, after the restart, all accounts will be reset to $10,000 and the top 3 and last place will receive season badges
       </div>
     </div>
   );
