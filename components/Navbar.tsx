@@ -3,9 +3,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment, PrivacyTip, Speed, Category } from "@mui/icons-material";
+import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment, PrivacyTip, Speed, Category, Logout } from "@mui/icons-material";
 import { useWallet } from "./WalletProvider";
 import LiveStatsPanel from "./LiveStatsPanel";
+import { signOut } from "next-auth/react";
 import { useSidebar } from "./Shell";
 import { useHourlyReward } from "./useHourlyReward";
 import { useSoundVolume } from "./SoundVolumeProvider";
@@ -222,6 +223,24 @@ export default function Navbar() {
               {!collapsed && <span>Admin</span>}
             </Link>
           )}
+          <button
+            onClick={async () => {
+              try {
+                await signOut();
+
+                try {
+                  localStorage.clear();
+                } catch (e) {}
+              } catch (e) {
+                console.error("Logout error:", e);
+              }
+            }}
+            title="Logout"
+            className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} w-full text-left text-xs text-[#8399aa] hover:text-white cursor-pointer`}
+          >
+            <Logout sx={{ fontSize: 18 }} />
+            {!collapsed && <span>Logout</span>}
+          </button>
           <Link
             href="/privacy"
             prefetch={false}

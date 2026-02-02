@@ -272,7 +272,7 @@ export default function Leaderboard() {
         </div>
       </div>
       <div className="mt-3 text-sm text-[#b1bad3]">
-        Note: From now on, each season will restart on the first server restart, after the restart, all accounts will be reset to $10,000 and the top 3 and last place will receive season badges
+        Note: Each season will restart on the first server restart, after the restart, all accounts will be reset to $10,000 and the top 3 and last place will receive season badges
       </div>
     </div>
   );
