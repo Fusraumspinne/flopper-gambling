@@ -248,7 +248,7 @@ export default function AdminPage() {
       btcHoldings: user.btcHoldings,
       btcCostUsd: user.btcCostUsd,
       portfolioUsd: user.portfolioUsd ?? 0,
-      seasons: user.seasons ?? [],
+      updatedAt: user.updatedAt,
     });
   };
 
@@ -405,8 +405,8 @@ export default function AdminPage() {
                 <button
                   key={user._id}
                   onClick={() => selectUser(user)}
-                  className={`w-full text-left px-3 py-2 rounded-lg border ${
-                    selectedUserId === user._id ? "border-indigo-400 bg-[#1a2c38]" : "border-[#2f4553] bg-[#101a22]"
+                  className={`w-full text-left px-3 py-2 rounded-lg bg-[#1a2c38] border ${
+                    selectedUserId === user._id ? "border-indigo-400" : "border-[#2f4553]"
                   }`}
                 >
                   <div className="text-white font-semibold">{user.name}</div>
@@ -515,18 +515,10 @@ export default function AdminPage() {
                   />
                 </label>
                 <div className="md:col-span-2">
-                  <span className="text-sm text-[#b1bad3]">Season Placements</span>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {userForm.seasons && userForm.seasons.length > 0 ? (
-                      userForm.seasons.map((s, i) => (
-                        <span key={i} className="px-2 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded text-xs font-bold">
-                          {s}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-[#8399aa] text-xs">No season placements yet</span>
-                    )}
-                  </div>
+                  <span className="text-sm text-[#b1bad3]">Last Update (Account)</span>
+                  <div className="mt-1 w-full bg-[#213743] border border-[#2f4553] rounded-lg px-3 py-2 text-white font-mono text-xs">
+                      {userForm.updatedAt ? new Date(userForm.updatedAt).toLocaleString() : "Never"}
+                    </div>
                 </div>
               </div>
             )}
@@ -565,8 +557,8 @@ export default function AdminPage() {
 
       {activeTab === "Records" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 items-start gap-6">
-          {(["profit", "multiplier", "loss"] as const).map((type) => (
-            <div key={type} className="bg-[#0f212e] border border-[#213743] rounded-xl p-4">
+            {(["profit", "multiplier", "loss"] as const).map((type) => (
+            <div key={type} className="bg-[#0f212e] border border-[#2f4553] rounded-xl p-4">
               <h3 className="text-white font-bold mb-3 capitalize">{type} Records</h3>
               <div className="space-y-2 max-h-105 overflow-auto">
                 {records[type].length === 0 && (
@@ -578,8 +570,8 @@ export default function AdminPage() {
                     <button
                       key={`${type}-${rec.game}`}
                       onClick={() => setRecordForm({ type, game: rec.game, username: rec.username, value: Number(value ?? 0) })}
-                      className={`w-full text-left px-3 py-2 rounded-lg border ${
-                        recordForm?.type === type && recordForm?.game === rec.game ? "border-indigo-400 bg-[#1a2c38]" : "border-[#2f4553] bg-[#101a22]"
+                      className={`w-full text-left px-3 py-2 rounded-lg bg-[#1a2c38] border ${
+                        recordForm?.type === type && recordForm?.game === rec.game ? "border-indigo-400" : "border-[#2f4553]"
                       }`}
                     >
                       <div className="text-white font-semibold">{rec.game}</div>
@@ -659,7 +651,7 @@ export default function AdminPage() {
 
       {activeTab === "Gifts" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 items-start gap-6">
-          <div className="lg:col-span-1 bg-[#0f212e] border border-[#213743] rounded-xl p-4">
+          <div className="lg:col-span-1 bg-[#0f212e] border border-[#2f4553] rounded-xl p-4">
             <div className="space-y-2 max-h-120 overflow-auto">
               {gifts.length === 0 && (
                 <div className="text-[#8399aa]">No gifts found</div>
@@ -668,8 +660,8 @@ export default function AdminPage() {
                 <button
                   key={g._id}
                   onClick={() => { setSelectedGiftId(g._id); setGiftForm(g); }}
-                  className={`w-full text-left px-3 py-2 rounded-lg border ${
-                    selectedGiftId === g._id ? "border-indigo-400 bg-[#1a2c38]" : "border-[#2f4553] bg-[#101a22]"
+                  className={`w-full text-left px-3 py-2 rounded-lg bg-[#1a2c38] border ${
+                    selectedGiftId === g._id ? "border-indigo-400" : "border-[#2f4553]"
                   }`}
                 >
                   <div className="text-white font-semibold">{g.sender} → {g.recipient}</div>
@@ -812,7 +804,7 @@ export default function AdminPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {GAME_STATUS_KEYS.map((key) => (
-              <label key={key} className="flex items-center gap-2 bg-[#101a22] border border-[#2f4553] rounded-lg px-3 py-2 text-white">
+              <label key={key} className="flex items-center gap-2 bg-[#1a2c38] border border-[#2f4553] rounded-lg px-3 py-2 text-white">
                 <input
                   type="checkbox"
                   checked={status.games[key] !== false}

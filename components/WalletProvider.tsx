@@ -73,6 +73,7 @@ interface WalletContextType {
   lastDailyReward: number;
   btcHoldings: number;
   btcCostUsd: number;
+  accountMissing: boolean;
   addToBalance: (amount: number) => void;
   subtractFromBalance: (amount: number) => void;
   creditBalance: (amount: number) => void;
@@ -148,6 +149,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const [lastDailyReward, setLastDailyRewardState] = useState<number>(0);
   const [weeklyPayback, setWeeklyPayback] = useState<number>(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [accountMissing, setAccountMissing] = useState(false);
   const balanceRef = useRef<number>(0);
   const lastClaimRef = useRef<number>(0);
   const lastDailyRewardRef = useRef<number>(0);
@@ -172,6 +174,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const investmentDirtyRef = useRef(false);
   const lastClaimDirtyRef = useRef(false);
   const lastDailyRewardDirtyRef = useRef(false);
+  const accountMissingRef = useRef(false);
   const usernameRef = useRef<string | null>(null);
   const pathname = usePathname();
   const currentGameId = useMemo(() => deriveGameId(pathname ?? "/"), [pathname]);
@@ -210,7 +213,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     snapLastDaily: number
   ) => {
     const activeUsername = usernameRef.current;
-    if (!activeUsername) return null;
+    if (!activeUsername || accountMissingRef.current) return null;
 
     const payload: Record<string, any> = { 
       name: activeUsername,
@@ -324,6 +327,10 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        if (res.status === 404) {
+          setAccountMissing(true);
+          return;
+        }
         if (!res.ok) return;
 
         const data = await res.json().catch(() => null);
@@ -401,6 +408,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       const baseStats = createEmptyLiveStatsByGame();
 
       if (!username) {
+        setAccountMissing(false);
         balanceRef.current = 0.0;
         setBalance(0.0);
         setLastClaim(Date.now());
@@ -416,15 +424,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         const res = await fetch(`/api/user?name=${encodeURIComponent(username)}`);
         if (res.status === 404) {
           const now = Date.now();
-          await fetch("/api/user", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: username,
-              createOnly: true,
-              lastPot: now,
-            }),
-          });
+          setAccountMissing(true);
           balanceRef.current = 0.0;
           setBalance(0.0);
           setLastClaim(now);
@@ -438,6 +438,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
+
+        setAccountMissing(false);
 
         const nextBalance = typeof data.balance === "number" ? normalizeMoney(data.balance) : 0;
         balanceRef.current = nextBalance;
@@ -489,6 +491,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         setLiveStatsByGame(baseStats);
       } catch (error) {
         console.error("Failed to load user data", error);
+        setAccountMissing(false);
         balanceRef.current = 0.0;
         setBalance(0.0);
         setLastClaim(Date.now());
@@ -539,6 +542,10 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     usernameRef.current = username;
   }, [username]);
+
+  useEffect(() => {
+    accountMissingRef.current = accountMissing;
+  }, [accountMissing]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
@@ -734,6 +741,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const claimWeeklyPot = async () => {
     const activeUsername = usernameRef.current;
     if (!activeUsername) return { success: false, error: "Nicht eingeloggt." };
+    if (accountMissingRef.current) return { success: false, error: "Account existiert nicht." };
 
     await flushSync();
 
@@ -783,7 +791,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <WalletContext.Provider
       value={{
-        balance, weeklyPot, lastClaim, lastDailyReward, addToBalance, subtractFromBalance, creditBalance, debitBalance,
+        balance, weeklyPot, lastClaim, lastDailyReward, accountMissing, addToBalance, subtractFromBalance, creditBalance, debitBalance,
         investment, updateInvestment, setLastDailyReward,
         applyServerBalanceDelta, applyServerLastDailyReward, applyServerInvestment, applyServerBtcHoldings, applyServerBtcCostUsd,
         btcHoldings,

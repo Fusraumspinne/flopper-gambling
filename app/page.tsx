@@ -9,6 +9,7 @@ import { getWebsiteStatus } from "@/lib/websiteStatus";
 import { getGameKeyFromHref } from "@/lib/gameStatus";
 import GamesGrid from "@/components/GamesGrid";
 import { games as gamesList } from "@/lib/games";
+import AccountMissingBanner from "@/components/AccountMissingBanner";
 
 export default async function Home() {
   const status = await getWebsiteStatus();
@@ -32,6 +33,7 @@ export default async function Home() {
         </p>
       </div>
 
+      <AccountMissingBanner />
       <UpdatesPanel />
       <InvestmentPanel />
       <CryptoPanel/>

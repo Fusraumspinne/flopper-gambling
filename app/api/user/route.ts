@@ -236,8 +236,12 @@ export async function POST(req: Request) {
     }
 
     const user = Object.keys(update).length
-      ? await User.findOneAndUpdate({ name }, update, { new: true, upsert: true })
+      ? await User.findOneAndUpdate({ name }, update, { new: true })
       : await User.findOne({ name });
+
+    if (!user && !createOnly) {
+      return NextResponse.json({ message: "User not found" }, { status: 404 });
+    }
 
     for (const rawUpd of updates) {
       const gameRaw = typeof rawUpd?.game === "string" ? rawUpd.game.trim() : "";
