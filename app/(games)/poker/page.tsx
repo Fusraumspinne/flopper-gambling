@@ -366,6 +366,77 @@ const evaluateSeven = (hole: Card[], board: Card[]) => {
   return best!;
 };
 
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+const buildRemainingDeck = (known: Card[]): Card[] => {
+  const knownKeys = new Set(known.map((c) => `${c.rank}-${c.suit}`));
+  const deck: Card[] = [];
+  let id = 0;
+  for (const suit of SUITS) {
+    for (const rank of RANKS) {
+      const key = `${rank}-${suit}`;
+      if (knownKeys.has(key)) continue;
+      deck.push({ id: `sim-${rank}-${suit}-${id++}`, suit, rank });
+    }
+  }
+  return deck;
+};
+
+const drawRandom = (deck: Card[]): Card => {
+  const idx = Math.floor(Math.random() * deck.length);
+  return deck.splice(idx, 1)[0];
+};
+
+const estimateEquityMonteCarlo = (
+  hole: Card[],
+  board: Card[],
+  opponents: number,
+  iterations = 250
+): number => {
+  if (opponents <= 0) return 1;
+  if (hole.length < 2) return 0;
+
+  let equity = 0;
+  const known = [...hole, ...board];
+
+  for (let i = 0; i < iterations; i++) {
+    const deck = buildRemainingDeck(known);
+    const simBoard = [...board];
+
+    while (simBoard.length < 5) {
+      simBoard.push(drawRandom(deck));
+    }
+
+    const oppHoles: Card[][] = [];
+    for (let o = 0; o < opponents; o++) {
+      oppHoles.push([drawRandom(deck), drawRandom(deck)]);
+    }
+
+    const playerScore = evaluateSeven(hole, simBoard);
+    let bestScore = playerScore;
+    let bestCount = 1;
+    let playerIsBest = true;
+
+    for (const opp of oppHoles) {
+      const s = evaluateSeven(opp, simBoard);
+      const cmp = compareScores(s, bestScore);
+      if (cmp > 0) {
+        bestScore = s;
+        bestCount = 1;
+        playerIsBest = false;
+      } else if (cmp === 0) {
+        bestCount += 1;
+      }
+    }
+
+    if (playerIsBest && compareScores(playerScore, bestScore) === 0) {
+      equity += 1 / bestCount;
+    }
+  }
+
+  return clamp01(equity / iterations);
+};
+
 const winStrength = (score: HandScore): number => {
   const catPart = (score.catRank - 1) / 8;
   const weights = [0.42, 0.22, 0.14, 0.12, 0.1];
@@ -1220,7 +1291,7 @@ export default function PokerPage() {
       persona: p,
       hole: [freshDeck.pop()!, freshDeck.pop()!],
       stack: Math.floor(
-        Math.max(1, Math.floor(betAmount)) * (10 + Math.random() * 15)
+        Math.max(1, Math.floor(betAmount)) * (40 + Math.random() * 60)
       ),
       contribution: 0,
       roundContribution: 0,
@@ -1721,85 +1792,54 @@ export default function PokerPage() {
 
       const revealed = boardRevealCount;
       const boardNow = board.slice(0, revealed);
-      const strength =
-        revealed >= 3
-          ? winStrength(evaluateSeven(bot.hole, boardNow))
-          : estimatePreflopStrength(bot.hole);
+      const opponents = Math.max(
+        0,
+        bots.filter((b) => !b.folded).length + (playerFolded ? 0 : 1) - 1
+      );
+      const equity = estimateEquityMonteCarlo(
+        bot.hole,
+        boardNow,
+        opponents,
+        220
+      );
 
       const toCall = Math.max(
         0,
         Math.floor(currentBet - bot.roundContribution)
       );
 
-      const memoryHands = Math.max(1, playerMemory.hands || 1);
-      const playerVpip =
-        memoryHands > 0 ? playerMemory.preflopVoluntary / memoryHands : 0.35;
-      const aggressionDenom = playerMemory.totalRaises + playerMemory.totalCalls;
-      const playerAggression =
-        aggressionDenom > 0 ? playerMemory.totalRaises / aggressionDenom : 0.4;
-
-      const pc = 1 + bots.length;
-      const dist = (bi + 1 - dealerPos + pc) % pc;
-      const positionFactor = 1 - dist / pc;
-
-      const activeOpponents =
-        bots.filter((b) => !b.folded).length + (playerFolded ? 0 : 1);
-      const crowdFactor = Math.max(0, (activeOpponents - 2) * 0.04);
-
+      const bigBlind = Math.max(1, Math.floor(betAmount));
       const potOdds = toCall > 0 ? toCall / Math.max(1, pot + toCall) : 0;
+      const committed =
+        bot.contribution / Math.max(1, bot.contribution + bot.stack) >= 0.25;
 
-      const bluffAdjust = playerVpip < 0.25 ? 0.14 : playerVpip > 0.55 ? -0.08 : 0;
-      const tightCallAdjust =
-        playerAggression > 0.6 ? 0.08 : playerAggression < 0.3 ? -0.05 : 0;
-
-      const tiltBoost = bot.frustration >= 3 ? 0.12 : 0;
-      const bluffDecay = bot.bluffCaught >= 3 ? -0.12 : 0;
-      const noise =
-        (Math.random() - 0.5) * (0.12 - bot.persona.consistency * 0.08);
-
-      const effective =
-        strength +
-        (bot.persona.aggression - 0.5) * 0.2 +
-        positionFactor * 0.15 -
-        crowdFactor +
-        tiltBoost +
-        bluffDecay +
-        noise;
+      const opponentTighten = Math.min(0.08, opponents * 0.015);
+      const multiwayLoosen = Math.min(0.08, opponents * 0.02);
+      const callThreshold = clamp01(
+        Math.max(0.08, potOdds - 0.18 - multiwayLoosen) + opponentTighten * 0.15
+      );
+      const strongRaiseThreshold = clamp01(
+        Math.max(0.48, potOdds + 0.1) + opponentTighten * 0.45
+      );
 
       let action: "fold" | "call" | "raise" = "call";
 
-      const committed =
-        bot.contribution / Math.max(1, bot.contribution + bot.stack) >= 0.4;
-
       if (toCall > 0) {
-        const requiredStrength = Math.max(0.15, potOdds) + tightCallAdjust;
+        const cheapCall = toCall <= Math.max(1, Math.floor(bigBlind * 1.0));
+        const veryCheap = toCall <= Math.max(1, Math.floor(bigBlind * 0.4));
+        const softFoldThreshold = clamp01(callThreshold - 0.08);
 
-        if (
-          !committed &&
-          effective < requiredStrength * 0.8 &&
-          Math.random() < bot.persona.consistency
-        ) {
+        if (!committed && !cheapCall && equity < softFoldThreshold) {
           action = "fold";
+        } else if (!committed && !veryCheap && equity < callThreshold) {
+          action = "fold";
+        } else if (equity >= strongRaiseThreshold) {
+          action = "raise";
+        } else {
+          action = "call";
         }
-      }
-
-      const wantsValueRaise =
-        effective > 0.75 + (playerFolded ? 0.1 : 0) &&
-        Math.random() < 0.6 + bot.persona.aggression * 0.4;
-      
-      const wantsBluff =
-        !wantsValueRaise &&
-        effective < 0.4 && 
-        strength < 0.4 && 
-        Math.random() < (bot.persona.bluff + bluffAdjust) * 0.5 + positionFactor * 0.2;
-
-      const shouldTrap =
-        toCall === 0 &&
-        strength > 0.85 &&
-        Math.random() < 0.4;
-
-      if ((wantsValueRaise || wantsBluff) && !shouldTrap) {
-         action = "raise";
+      } else {
+        action = equity >= strongRaiseThreshold ? "raise" : "call";
       }
 
       let nextBots = [...bots];
@@ -1868,7 +1908,6 @@ export default function PokerPage() {
         return;
       }
 
-      const bigBlind = Math.max(1, Math.floor(betAmount));
       const minR = Math.max(nextMinR || bigBlind, bigBlind);
       let raiseAmt = minR;
 
@@ -1877,16 +1916,11 @@ export default function PokerPage() {
         playerRoundContribution;
       const totalPot = pot + currentStreetPot;
 
-      const rand = Math.random();
-      if (rand < 0.45) {
-        raiseAmt = Math.max(minR, Math.floor(totalPot * 0.4));
-      } else if (rand < 0.8) {
-        raiseAmt = Math.max(minR, Math.floor(totalPot * 0.6));
-      } else if (rand < 0.95) {
-        raiseAmt = Math.max(minR, Math.floor(totalPot * 0.8));
-      } else {
-        raiseAmt = Math.max(minR, Math.floor(totalPot));
-      }
+      const potFactor =
+        equity >= 0.88 ? 1 :
+        equity >= 0.8 ? 0.8 :
+        equity >= 0.72 ? 0.6 : 0.45;
+      raiseAmt = Math.max(minR, Math.floor(totalPot * potFactor));
 
       const playerEffective = Math.max(
         1,
@@ -1903,7 +1937,7 @@ export default function PokerPage() {
       raiseAmt = Math.min(raiseAmt, maxRaiseByBet, maxRaiseByPlayer, potCap);
 
       const shortStack = nextBots[bi].stack <= bigBlind * 8;
-      if (shortStack && Math.random() < 0.6) {
+      if (shortStack && equity >= 0.78) {
         raiseAmt = Math.max(raiseAmt, nextBots[bi].stack);
       }
 
@@ -1975,7 +2009,6 @@ export default function PokerPage() {
     playerRoundContribution,
     playerFolded,
     playerAllIn,
-    playerMemory,
   ]);
 
   useEffect(() => {
@@ -2006,6 +2039,7 @@ export default function PokerPage() {
     active: boolean;
     actions: string[];
     roundContribution: number;
+    stack?: number;
   };
 
   const buildSeats = (): SeatUi[] => {
@@ -2027,6 +2061,7 @@ export default function PokerPage() {
       active: isBettingStage(stage) && activePlayerIndex === 0,
       actions: actionHistoryBySeat[0] ?? [],
       roundContribution: playerRoundContribution,
+      stack: Math.max(0, Math.floor(balance)),
     };
 
     const botSeats: SeatUi[] = bots.map((b, idx) => ({
@@ -2041,6 +2076,7 @@ export default function PokerPage() {
       active: isBettingStage(stage) && activePlayerIndex === idx + 1,
       actions: actionHistoryBySeat[idx + 1] ?? [],
       roundContribution: b.roundContribution,
+      stack: Math.max(0, Math.floor(b.stack)),
     }));
 
     return [...botSeats, playerSeat];
@@ -2110,13 +2146,20 @@ export default function PokerPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-left mb-1 z-20">
-                {s.active && (
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#00e701] shadow-[0_0_6px_#00e701] animate-pulse me-1" />
-                )}
-                <div className="text-white text-[9px] sm:text-[10px] font-bold py-0.5 rounded-full">
-                  {s.name}
+              <div className="flex flex-col items-start z-20">
+                <div className="flex items-center">
+                  {s.active && (
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#00e701] shadow-[0_0_6px_#00e701] animate-pulse me-1" />
+                  )}
+                  <div className="text-white text-[9px] sm:text-[10px] font-bold rounded-full">
+                    {s.name}
+                  </div>
                 </div>
+                {typeof s.stack === "number" && (
+                  <div className="text-[10px] text-[#b1bad3] lowercase">
+                    ${Math.max(0, Math.floor(s.stack)).toFixed(0)}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-center z-10">
