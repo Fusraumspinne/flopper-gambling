@@ -1291,7 +1291,7 @@ export default function PokerPage() {
       persona: p,
       hole: [freshDeck.pop()!, freshDeck.pop()!],
       stack: Math.floor(
-        Math.max(1, Math.floor(betAmount)) * (10 + Math.random() * 15)
+        Math.max(1, Math.floor(betAmount)) * (10 + Math.random() * 10) 
       ),
       contribution: 0,
       roundContribution: 0,
@@ -1816,7 +1816,7 @@ export default function PokerPage() {
       const opponentTighten = Math.min(0.08, opponents * 0.015);
       const multiwayLoosen = Math.min(0.08, opponents * 0.02);
       const callThreshold = clamp01(
-        Math.max(0.08, potOdds - 0.18 - multiwayLoosen) + opponentTighten * 0.15
+        Math.max(0.08, potOdds - 0.18 - multiwayLoosen) + opponentTighten * 0.15 + 0.05
       );
       const strongRaiseThreshold = clamp01(
         Math.max(0.48, potOdds + 0.1) + opponentTighten * 0.45
