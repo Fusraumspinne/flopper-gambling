@@ -126,6 +126,10 @@ export default function Leaderboard() {
 
   if (loading)
     return <div className="text-white/50">Loading leaderboard...</div>;
+
+  const totalBadges = users.reduce((acc, user) => acc + (user.seasons?.length || 0), 0);
+  const currentSeason = Math.floor(totalBadges / 4) + 1;
+
   const totalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
   const start = (page - 1) * PAGE_SIZE;
   const pageUsers = users.slice(start, start + PAGE_SIZE);
@@ -272,7 +276,7 @@ export default function Leaderboard() {
         </div>
       </div>
       <div className="mt-3 text-sm text-[#b1bad3]">
-        Note: Each season will restart on the first server restart, after the restart, all accounts will be reset to $10,000 and the top 3 and last place will receive season badges
+        Season {currentSeason}: Each season will restart on the first day of a month, after the restart, all accounts will be reset to $10,000 and the top 3 and last place will receive season badges
       </div>
     </div>
   );

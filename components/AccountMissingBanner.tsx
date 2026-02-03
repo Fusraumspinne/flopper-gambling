@@ -25,7 +25,7 @@ return (
             Your account no longer exists
         </h2>
         <p className="text-red-100 text-base sm:text-lg">
-            This user was not found. Please create a new account to continue playing.
+            This user was not found, please create a new account to continue playing
         </p>
         <div className="mt-4">
             <Link

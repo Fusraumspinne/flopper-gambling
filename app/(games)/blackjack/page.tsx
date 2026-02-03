@@ -88,7 +88,7 @@ const calculateHandValue = (cards: Card[]): number => {
 };
 
 export default function BlackjackPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
+  const { balance, subtractFromBalance, increaseBet, addToBalance, finalizePendingLoss } = useWallet();
   const { volume } = useSoundVolume();
 
   const [betAmount, setBetAmount] = useState<number>(100);
@@ -272,7 +272,7 @@ export default function BlackjackPage() {
     const currentHand = playerHands[currentHandIndex];
     if (balance < currentHand.bet) return;
 
-    subtractFromBalance(currentHand.bet);
+    increaseBet(currentHand.bet);
 
     const newDeck = [...deck];
     const card = newDeck.pop()!;

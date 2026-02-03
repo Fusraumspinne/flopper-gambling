@@ -76,6 +76,7 @@ interface WalletContextType {
   accountMissing: boolean;
   addToBalance: (amount: number) => void;
   subtractFromBalance: (amount: number) => void;
+  increaseBet: (amount: number) => void;
   creditBalance: (amount: number) => void;
   debitBalance: (amount: number) => boolean;
   investment: InvestmentState;
@@ -159,7 +160,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   const [liveStatsByGame, setLiveStatsByGame] = useState<LiveStatsByGame>(() => createEmptyLiveStatsByGame());
 
-  const pendingBetsRef = useRef<number[]>([]);
+  const pendingBetsRef = useRef<{ amount: number; gameId: GameKey }[]>([]);
   const lastBetPushTsRef = useRef<number | null>(null);
   const lastFinalizeLossAtRef = useRef<number | null>(null);
   const betCountRef = useRef<number>(0);
@@ -576,20 +577,20 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const updateCurrentAndAll = (updater: (prev: LiveStatsState, now: number) => LiveStatsState) => {
+  const updateCurrentAndAll = (updater: (prev: LiveStatsState, now: number) => LiveStatsState, targetGameId: GameKey = currentGameId) => {
     const now = Date.now();
     setLiveStatsByGame((prev) => {
       const apply = (key: GameKey) => updater(prev[key] || createEmptyLiveStats(), now);
-      return { ...prev, [currentGameId]: apply(currentGameId), all: apply("all") };
+      return { ...prev, [targetGameId]: apply(targetGameId), all: apply("all") };
     });
   };
 
-  const applyNetChange = (roundNet: number) => {
+  const applyNetChange = (roundNet: number, targetGameId: GameKey = currentGameId) => {
     const delta = normalizeMoney(roundNet);
     updateCurrentAndAll((prev, now) => {
       const nextNet = normalizeMoney(prev.net + delta);
       return { ...prev, net: nextNet, history: [...prev.history, { t: now, net: nextNet }] };
-    });
+    }, targetGameId);
   };
 
   const recordBalanceDelta = (delta: number) => {
@@ -598,19 +599,20 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   const addToBalance = (amount: number) => {
     const payout = normalizeMoney(amount);
-    const rawBet = pendingBetsRef.current.shift();
-    const hasBet = typeof rawBet === "number" && Number.isFinite(rawBet);
-    const bet = hasBet ? rawBet : 0;
+    const pending = pendingBetsRef.current.shift();
+    const hasBet = !!pending;
+    const bet = pending ? pending.amount : 0;
+    const gameId = pending ? pending.gameId : currentGameId;
 
     if (!hasBet) {
       const lastPush = lastBetPushTsRef.current;
       const lastLoss = lastFinalizeLossAtRef.current;
       if (lastPush && lastLoss && lastLoss >= lastPush) {
-        console.warn("addToBalance called after finalizePendingLoss for the same bet; ignoring suspicious payout", { payout, rawBet, lastPush, lastLoss });
+        console.warn("addToBalance called after finalizePendingLoss for the same bet; ignoring suspicious payout", { payout, pending, lastPush, lastLoss });
         return;
       }
 
-      console.warn("addToBalance called without matching pending bet; crediting payout anyway", { payout, rawBet });
+      console.warn("addToBalance called without matching pending bet; crediting payout anyway", { payout, pending });
     }
 
     const next = normalizeMoney(balanceRef.current + payout);
@@ -619,15 +621,15 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     recordBalanceDelta(payout);
 
     const roundNet = normalizeMoney(payout - bet);
-    applyNetChange(roundNet);
+    applyNetChange(roundNet, gameId);
 
     if (hasBet) {
       if (roundNet > 0) {
-        updateCurrentAndAll((s) => ({ ...s, wins: s.wins + 1 }));
-        queueUpdate({ game: currentGameId, profit: roundNet, multi: normalizeMoney(payout / bet) });
+        updateCurrentAndAll((s) => ({ ...s, wins: s.wins + 1 }), gameId);
+        queueUpdate({ game: gameId, profit: roundNet, multi: normalizeMoney(payout / bet) });
       } else if (roundNet < 0) {
-        updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
-        queueUpdate({ game: currentGameId, loss: Math.abs(roundNet) });
+        updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }), gameId);
+        queueUpdate({ game: gameId, loss: Math.abs(roundNet) });
         addWeeklyPayback(roundNet);
       }
     }
@@ -638,7 +640,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const subtractFromBalance = (amount: number) => {
     const a = normalizeMoney(amount);
     if (a <= 0 || a > balanceRef.current) return;
-    pendingBetsRef.current.push(a);
+    pendingBetsRef.current.push({ amount: a, gameId: currentGameId });
     lastBetPushTsRef.current = Date.now();
     betCountRef.current += 1;
     setLastBetAt(Date.now());
@@ -652,13 +654,39 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     void flushSync();
   };
 
+  const increaseBet = (amount: number) => {
+    const a = normalizeMoney(amount);
+    if (a <= 0 || a > balanceRef.current) return;
+
+    if (pendingBetsRef.current.length > 0) {
+      pendingBetsRef.current[pendingBetsRef.current.length - 1].amount = normalizeMoney(
+        pendingBetsRef.current[pendingBetsRef.current.length - 1].amount + a
+      );
+    } else {
+      subtractFromBalance(a);
+      return;
+    }
+
+    lastBetPushTsRef.current = Date.now();
+    setLastBetAt(Date.now());
+    updateCurrentAndAll((s) => ({ ...s, wagered: normalizeMoney(s.wagered + a) }));
+
+    const next = normalizeMoney(balanceRef.current - a);
+    balanceRef.current = next;
+    setBalance(next);
+    recordBalanceDelta(-a);
+
+    void flushSync();
+  };
+
   const finalizePendingLoss = () => {
-    const bet = pendingBetsRef.current.shift();
-    if (typeof bet !== "number") return;
+    const pending = pendingBetsRef.current.shift();
+    if (!pending) return;
+    const { amount: bet, gameId } = pending;
     lastFinalizeLossAtRef.current = Date.now();
-    updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }));
-    applyNetChange(-normalizeMoney(bet));
-    queueUpdate({ game: currentGameId, loss: normalizeMoney(bet) });
+    updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }), gameId);
+    applyNetChange(-normalizeMoney(bet), gameId);
+    queueUpdate({ game: gameId, loss: normalizeMoney(bet) });
     addWeeklyPayback(bet);
     scheduleSync();
   };
@@ -791,7 +819,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <WalletContext.Provider
       value={{
-        balance, weeklyPot, lastClaim, lastDailyReward, accountMissing, addToBalance, subtractFromBalance, creditBalance, debitBalance,
+        balance, weeklyPot, lastClaim, lastDailyReward, accountMissing, addToBalance, subtractFromBalance, increaseBet, creditBalance, debitBalance,
         investment, updateInvestment, setLastDailyReward,
         applyServerBalanceDelta, applyServerLastDailyReward, applyServerInvestment, applyServerBtcHoldings, applyServerBtcCostUsd,
         btcHoldings,
