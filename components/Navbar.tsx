@@ -172,22 +172,25 @@ export default function Navbar() {
           <div className={`${collapsed ? "hidden" : "mb-2 px-4"} text-xs font-bold uppercase tracking-wider text-[#557086]`}>Games</div>
         )}
         
-        {visibleGames.map((game, index) => (
-          <Link
-            key={index}
-            href={game.href}
-              prefetch={false}
-            title={game.name}
-            className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} ${collapsed ? "px-2 py-3" : "px-4 py-3"} rounded-md transition-colors ${
-              pathname === game.href
-                ? "bg-[#213743] text-white"
-                : "hover:bg-[#1a2c38] hover:text-white"
-            }`}
-          >
-            {game.icon}
-            {!collapsed && <span>{game.name}</span>}
-          </Link>
-        ))}
+        {visibleGames.map((game, index) => {
+          const isActive = pathname === game.href || (pathname === "/livepoker" && game.href === "/poker");
+          return (
+            <Link
+              key={index}
+              href={game.href}
+                prefetch={false}
+              title={game.name}
+              className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} ${collapsed ? "px-2 py-3" : "px-4 py-3"} rounded-md transition-colors ${
+                isActive
+                  ? "bg-[#213743] text-white"
+                  : "hover:bg-[#1a2c38] hover:text-white"
+              }`}
+            >
+              {game.icon}
+              {!collapsed && <span>{game.name}</span>}
+            </Link>
+          );
+        })}
       </nav>
 
       {!collapsed && (

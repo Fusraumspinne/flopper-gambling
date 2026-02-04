@@ -57,6 +57,7 @@ export const GAME_LABELS: Record<string, string> = {
 export const GAME_ROUTE_TO_KEY: Record<string, string> = {
   "/blackjack": "blackjack",
   "/poker": "poker",
+  "/livepoker": "poker",
   "/mines": "mines",
   "/keno": "keno",
   "/dragontower": "dragontower",

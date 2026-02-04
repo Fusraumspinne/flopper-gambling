@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { PlayArrow } from "@mui/icons-material";
 import { io, Socket } from "socket.io-client";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
@@ -333,7 +334,7 @@ export default function LivePokerPage() {
   const prevStageRef = useRef<Stage | null>(null);
   const prevRevealRef = useRef<number>(0);
   const { data: session } = useSession();
-  const { balance, creditBalance, debitBalance } = useWallet();
+  const { balance, increaseBet, addToBalance, finalizePendingLoss } = useWallet();
   const { volume } = useSoundVolume();
 
   const [connected, setConnected] = useState(false);
@@ -485,10 +486,9 @@ export default function LivePokerPage() {
       return;
     }
     const delta = currentStack - lastStackRef.current;
-    if (delta > 0) creditBalance(delta);
-    if (delta < 0) debitBalance(Math.abs(delta));
+    if (delta < 0) increaseBet(Math.abs(delta));
     lastStackRef.current = currentStack;
-  }, [gameState, playerIndex, creditBalance, debitBalance]);
+  }, [gameState, playerIndex, increaseBet]);
 
   useEffect(() => {
     if (!gameState) return;
@@ -499,6 +499,11 @@ export default function LivePokerPage() {
         playAudio(audioRef.current.deal, true);
       }
       if (gameState.stage === "finished" && prevStage !== "finished" && player) {
+        if ((player.payout ?? 0) > 0) {
+          addToBalance(player.payout ?? 0);
+        } else {
+          finalizePendingLoss();
+        }
         playAudio((player.payout ?? 0) > 0 ? audioRef.current.win : audioRef.current.Lose);
       }
       prevStageRef.current = gameState.stage;
@@ -517,7 +522,7 @@ export default function LivePokerPage() {
       }
       prevRevealRef.current = gameState.boardRevealCount;
     }
-  }, [gameState, player]);
+  }, [gameState, player, addToBalance, finalizePendingLoss]);
 
   const playerCanAct =
     !!gameState &&
@@ -620,12 +625,14 @@ export default function LivePokerPage() {
   const handlePlayerFold = () => {
     if (!playerCanAct || !gameState) return;
     playAudio(audioRef.current.bet);
+    setCustomRaiseAmount(0);
     socketRef.current?.emit("action", { roomId: gameState.roomId, action: "fold" });
   };
 
   const handlePlayerCall = () => {
     if (!playerCanAct || !gameState) return;
     playAudio(audioRef.current.bet);
+    setCustomRaiseAmount(0);
     socketRef.current?.emit("action", { roomId: gameState.roomId, action: "call" });
   };
 
@@ -641,6 +648,7 @@ export default function LivePokerPage() {
     if (targetBet < minRaiseTotal) targetBet = minRaiseTotal;
     const clamped = clampRaiseTotal(targetBet);
     playAudio(audioRef.current.bet);
+    setCustomRaiseAmount(0);
     socketRef.current?.emit("action", { roomId: gameState.roomId, action: "raise", amount: clamped });
   };
 
@@ -754,6 +762,25 @@ export default function LivePokerPage() {
     <>
       <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
         <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+          <div className="space-y-2 mb-2">
+            <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+              Mode
+            </label>
+            <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+              <Link
+                href="/poker"
+                className="flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors text-[#b1bad3] hover:text-white flex items-center justify-center"
+              >
+                Manual
+              </Link>
+              <button
+                className="flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors bg-[#213743] text-white shadow-sm"
+              >
+                Live
+              </button>
+            </div>
+          </div>
+
           {!roomId ? (
             <div className="space-y-3">
               <div className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Live Poker Lobby</div>

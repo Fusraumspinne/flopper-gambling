@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useMemo } from "react";
+import Link from "next/link";
 import { PlayArrow } from "@mui/icons-material";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
@@ -1291,7 +1292,7 @@ export default function PokerPage() {
       persona: p,
       hole: [freshDeck.pop()!, freshDeck.pop()!],
       stack: Math.floor(
-        Math.max(1, Math.floor(betAmount)) * (5 + Math.random() * 5) 
+        Math.max(1, Math.floor(betAmount)) * (2 + Math.random() * 5) 
       ),
       contribution: 0,
       roundContribution: 0,
@@ -2251,6 +2252,25 @@ export default function PokerPage() {
     <>
       <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
         <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+              Mode
+            </label>
+            <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+              <button
+                className="flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors bg-[#213743] text-white shadow-sm"
+              >
+                Manual
+              </button>
+              <Link
+                href="/livepoker"
+                className="flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors text-[#b1bad3] hover:text-white flex items-center justify-center"
+              >
+                Live
+              </Link>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
               Bet Amount

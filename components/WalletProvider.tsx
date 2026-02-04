@@ -52,6 +52,7 @@ export const GAME_OPTIONS = [
   { id: "coinflip", label: "Coinflip" },
   { id: "rps", label: "Rock Paper Scissors" },
   { id: "hilo", label: "Hi-Lo" },
+  { id: "livepoker", label: "Live Poker" },
 ] as const;
 
 const ALL_OPTION = { id: "all", label: "All Games" } as const;
