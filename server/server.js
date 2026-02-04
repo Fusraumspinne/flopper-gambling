@@ -488,10 +488,13 @@ const startHand = (room, buyIn, bigBlind) => {
 };
 
 const server = http.createServer();
-const io = require("socket.io")(process.env.PORT || 4000, {
-    cors: {
-        origin: "*",
-    }
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ["websocket", "polling"]
 });
 
 const rooms = new Map();
