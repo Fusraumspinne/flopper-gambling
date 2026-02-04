@@ -23,7 +23,7 @@ function Wartungspause() {
         </h1>
 
         <p className="text-[#b1bad3] text-xl mb-6">
-          Flopper Gambling is currently undergoing a quick maintenance break.
+          Flopper Gambling is currently undergoing a quick maintenance break
         </p>
 
         <div className="bg-[#213743] border border-[#2f4553]/60 rounded-xl p-6 mb-8">
@@ -33,7 +33,7 @@ function Wartungspause() {
           <p className="text-white text-lg">
             {changes}
             <br />
-            <span className="text-yellow-300/80 italic">Don't worry, your balance is safe.</span>
+            <span className="text-yellow-300/80 italic">Don't worry, your balance is safe</span>
           </p>
         </div>
 
