@@ -179,12 +179,13 @@ const recomputePendingToAct = (room) => {
   room.pendingToAct = Math.max(0, room.players.filter((p) => needsAction(p, room.currentBet)).length);
 };
 
-const nextActorIndex = (from, players) => {
+const nextActionIndex = (from, room) => {
+  const players = room.players;
   const pc = players.length;
   if (pc <= 0) return -1;
   for (let step = 1; step <= pc; step++) {
     const idx = (from + step) % pc;
-    if (isActor(players[idx])) return idx;
+    if (needsAction(players[idx], room.currentBet)) return idx;
   }
   return -1;
 };
@@ -333,6 +334,12 @@ const resolveShowdown = (room) => {
 const advanceStage = (room) => {
   const nextStreetPlayers = resetStreet(room.players);
 
+  if (room.stage === "river") {
+    room.stage = "showdown";
+    resolveShowdown(room);
+    return;
+  }
+
   let nextStage = "flop";
   let reveal = 3;
 
@@ -345,10 +352,6 @@ const advanceStage = (room) => {
   } else if (room.stage === "turn") {
     nextStage = "river";
     reveal = 5;
-  } else if (room.stage === "river") {
-    room.stage = "showdown";
-    resolveShowdown(room);
-    return;
   }
 
   room.boardRevealCount = reveal;
@@ -360,10 +363,18 @@ const advanceStage = (room) => {
 
   recomputePendingToAct(room);
 
-  const postFlopStart = (room.dealerPos + 1) % room.players.length;
-  const startActor = isActor(room.players[postFlopStart])
+  if (countActors(room.players) < 2) {
+    advanceStage(room);
+    return;
+  }
+
+  const postFlopStart =
+    room.players.length === 2
+      ? room.dealerPos
+      : (room.dealerPos + 1) % room.players.length;
+  const startActor = needsAction(room.players[postFlopStart], room.currentBet)
     ? postFlopStart
-    : nextActorIndex(postFlopStart, room.players);
+    : nextActionIndex(postFlopStart, room);
   room.activePlayerIndex = startActor === -1 ? 0 : startActor;
 };
 
@@ -384,7 +395,7 @@ const applyActionAndAdvance = (room, actorIdx, actionLabel, isRaise) => {
 
   const roundOver = room.pendingToAct <= 0;
   if (!roundOver) {
-    const nextIdx = nextActorIndex(actorIdx, room.players);
+    const nextIdx = nextActionIndex(actorIdx, room);
     room.activePlayerIndex = nextIdx === -1 ? 0 : nextIdx;
   } else {
     advanceStage(room);
@@ -464,9 +475,9 @@ const startHand = (room, buyIn, bigBlind) => {
   room.lastAggressor = -1;
 
   const startIdxRequest = (bbIndex + 1) % playerCount;
-  const firstActor = isActor(room.players[startIdxRequest])
+  const firstActor = needsAction(room.players[startIdxRequest], room.currentBet)
     ? startIdxRequest
-    : nextActorIndex(startIdxRequest, room.players);
+    : nextActionIndex(startIdxRequest, room);
 
   room.activePlayerIndex = firstActor === -1 ? 0 : firstActor;
   recomputePendingToAct(room);

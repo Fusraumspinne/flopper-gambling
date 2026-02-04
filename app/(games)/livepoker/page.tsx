@@ -6,6 +6,7 @@ import { io, Socket } from "socket.io-client";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
 import { useSession } from "next-auth/react";
 import { useWallet } from "@/components/WalletProvider";
+import { useSoundVolume } from "@/components/SoundVolumeProvider";
 
 type Suit = "hearts" | "diamonds" | "clubs" | "spades";
 type Rank = "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "J" | "Q" | "K" | "A";
@@ -329,19 +330,71 @@ const seatPositionClasses: Record<number, string> = {
 export default function LivePokerPage() {
   const socketRef = useRef<Socket | null>(null);
   const lastStackRef = useRef<number | null>(null);
+  const prevStageRef = useRef<Stage | null>(null);
+  const prevRevealRef = useRef<number>(0);
   const { data: session } = useSession();
   const { balance, creditBalance, debitBalance } = useWallet();
+  const { volume } = useSoundVolume();
 
   const [connected, setConnected] = useState(false);
   const [roomId, setRoomId] = useState<string>("");
   const [playerId, setPlayerId] = useState<string>("");
   const [name, setName] = useState<string>("");
-  const [betAmount, setBetAmount] = useState<number>(100);
-  const [betInput, setBetInput] = useState<string>("100");
   const [customRaiseAmount, setCustomRaiseAmount] = useState<number>(0);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [error, setError] = useState<string>("");
   const [rooms, setRooms] = useState<{ roomId: string; hostName: string; playerCount: number; stage: Stage }[]>([]);
+
+  const serverOnline = connected;
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(""), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  const audioRef = useRef<{
+    bet: HTMLAudioElement | null;
+    deal: HTMLAudioElement | null;
+    flip: HTMLAudioElement | null;
+    remove: HTMLAudioElement | null;
+    win: HTMLAudioElement | null;
+    Lose: HTMLAudioElement | null;
+  }>({ bet: null, deal: null, flip: null, remove: null, win: null, Lose: null });
+
+  const ensureAudio = () => {
+    if (audioRef.current.bet) return;
+    audioRef.current = {
+      bet: new Audio("/sounds/Bet.mp3"),
+      deal: new Audio("/sounds/DealCards.mp3"),
+      flip: new Audio("/sounds/FlipCards.mp3"),
+      remove: new Audio("/sounds/RemoveCards.mp3"),
+      win: new Audio("/sounds/Win.mp3"),
+      Lose: new Audio("/sounds/LimboLose.mp3"),
+    };
+  };
+
+  const playAudio = (a?: HTMLAudioElement | null, overlap = false) => {
+    if (!a) return;
+    const v =
+      typeof window !== "undefined" &&
+      typeof (window as any).__flopper_sound_volume__ === "number"
+        ? (window as any).__flopper_sound_volume__
+        : 1;
+    if (!v) return;
+    try {
+      if (overlap) {
+        const c = a.cloneNode(true) as HTMLAudioElement;
+        c.volume = v;
+        void c.play();
+      } else {
+        a.volume = v;
+        a.currentTime = 0;
+        void a.play();
+      }
+    } catch (e) {}
+  };
 
   const effectiveName = session?.user?.name?.trim() || name || "Player";
   const nameEditable = !session?.user?.name;
@@ -377,6 +430,33 @@ export default function LivePokerPage() {
   }, []);
 
   useEffect(() => {
+    ensureAudio();
+  }, []);
+
+  useEffect(() => {
+    if (volume <= 0) return;
+    const prime = async () => {
+      try {
+        ensureAudio();
+        const items = Object.values(audioRef.current).filter(Boolean) as HTMLAudioElement[];
+        for (const a of items) {
+          try {
+            a.muted = true;
+            await a.play();
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+          } catch (e) {
+            a.muted = false;
+          }
+        }
+      } catch (e) {}
+    };
+    document.addEventListener("pointerdown", prime, { once: true });
+    return () => document.removeEventListener("pointerdown", prime);
+  }, [volume]);
+
+  useEffect(() => {
     if (!roomId) lastStackRef.current = null;
   }, [roomId]);
 
@@ -410,6 +490,35 @@ export default function LivePokerPage() {
     lastStackRef.current = currentStack;
   }, [gameState, playerIndex, creditBalance, debitBalance]);
 
+  useEffect(() => {
+    if (!gameState) return;
+
+    const prevStage = prevStageRef.current;
+    if (prevStage !== gameState.stage) {
+      if ((prevStage === "setup" || prevStage === "finished") && gameState.stage === "preflop") {
+        playAudio(audioRef.current.deal, true);
+      }
+      if (gameState.stage === "finished" && prevStage !== "finished" && player) {
+        playAudio((player.payout ?? 0) > 0 ? audioRef.current.win : audioRef.current.Lose);
+      }
+      prevStageRef.current = gameState.stage;
+    }
+
+    if (gameState.stage === "setup") {
+      prevRevealRef.current = 0;
+      return;
+    }
+
+    const prevReveal = prevRevealRef.current;
+    if (gameState.boardRevealCount > prevReveal) {
+      const diff = gameState.boardRevealCount - prevReveal;
+      for (let i = 0; i < diff; i++) {
+        window.setTimeout(() => playAudio(audioRef.current.flip, true), i * 120);
+      }
+      prevRevealRef.current = gameState.boardRevealCount;
+    }
+  }, [gameState, player]);
+
   const playerCanAct =
     !!gameState &&
     isBettingStage(gameState.stage) &&
@@ -418,7 +527,7 @@ export default function LivePokerPage() {
     !player.folded &&
     !player.allIn;
 
-  const bigBlindValue = Math.max(1, Math.floor(betAmount));
+  const bigBlindValue = 100;
   const minRaiseSize = Math.max(gameState?.minRaise || bigBlindValue, bigBlindValue);
   const minRaiseTotal = (gameState?.currentBet || 0) + minRaiseSize;
   const maxRaiseTotal = Math.floor((player?.stack || 0) + (player?.roundContribution || 0));
@@ -444,6 +553,10 @@ export default function LivePokerPage() {
 
   const createRoom = () => {
     setError("");
+    if (!serverOnline) {
+      setError("Server startet noch, bitte kurz warten...");
+      return;
+    }
     if (buyIn <= 0) {
       setError("Your balance is too low.");
       return;
@@ -462,6 +575,10 @@ export default function LivePokerPage() {
   const joinRoom = (targetRoomId: string) => {
     setError("");
     if (!targetRoomId) return;
+    if (!serverOnline) {
+      setError("Server startet noch, bitte kurz warten...");
+      return;
+    }
     if (buyIn <= 0) {
       setError("Your balance is too low.");
       return;
@@ -493,18 +610,22 @@ export default function LivePokerPage() {
     if (gameState.stage !== "setup" && gameState.stage !== "finished") return;
     const socket = socketRef.current;
     if (!socket) return;
-    socket.emit("start_hand", { roomId: gameState.roomId, buyIn, bigBlind: betAmount }, (res: any) => {
-      if (!res?.ok) setError(res?.error || "Start fehlgeschlagen");
+    ensureAudio();
+    playAudio(audioRef.current.bet);
+    socket.emit("start_hand", { roomId: gameState.roomId, buyIn, bigBlind: 100 }, (res: any) => {
+      if (!res?.ok) setError(res?.error || "Start failed");
     });
   };
 
   const handlePlayerFold = () => {
     if (!playerCanAct || !gameState) return;
+    playAudio(audioRef.current.bet);
     socketRef.current?.emit("action", { roomId: gameState.roomId, action: "fold" });
   };
 
   const handlePlayerCall = () => {
     if (!playerCanAct || !gameState) return;
+    playAudio(audioRef.current.bet);
     socketRef.current?.emit("action", { roomId: gameState.roomId, action: "call" });
   };
 
@@ -519,7 +640,7 @@ export default function LivePokerPage() {
 
     if (targetBet < minRaiseTotal) targetBet = minRaiseTotal;
     const clamped = clampRaiseTotal(targetBet);
-
+    playAudio(audioRef.current.bet);
     socketRef.current?.emit("action", { roomId: gameState.roomId, action: "raise", amount: clamped });
   };
 
@@ -638,13 +759,16 @@ export default function LivePokerPage() {
               <div className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Live Poker Lobby</div>
               <button
                 onClick={createRoom}
-                disabled={buyIn <= 0}
+                disabled={buyIn <= 0 || !serverOnline}
                 className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-sm shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95"
               >
                 Create room
               </button>
 
               {error && <div className="text-red-400 text-[10px]">{error}</div>}
+              {!serverOnline && !error && (
+                <div className="text-[#fbbf24] text-[10px]">Server is starting... please wait a moment</div>
+              )}
               <div className="text-[10px] text-[#b1bad3]">Max 6 players per room</div>
 
               <div className="space-y-2 pt-2 border-t border-[#2f4553]">
@@ -669,7 +793,7 @@ export default function LivePokerPage() {
                           onClick={() => {
                             joinRoom(room.roomId);
                           }}
-                          disabled={room.playerCount >= 6 || buyIn <= 0}
+                          disabled={room.playerCount >= 6 || buyIn <= 0 || !serverOnline}
                           className="bg-[#2f4553] hover:bg-[#3e5666] text-white py-1.5 px-2 rounded-md text-[10px] font-bold disabled:opacity-50"
                         >
                           Join
@@ -682,50 +806,29 @@ export default function LivePokerPage() {
             </div>
           ) : (
             <>
-              <div className="space-y-2">
-                <div className="text-[10px] text-[#b1bad3] uppercase">Room</div>
-                <div className="text-white font-mono text-xs break-all">{roomId}</div>
+              <div>
+                <div className="flex items-center">
+                  <div className="text-[10px] text-[#b1bad3] uppercase">Room: </div>
+                  <div className="text-white font-mono text-[10px] break-all ms-1">{roomId}</div>
+                </div>
                 <div className="text-[10px] text-[#b1bad3]">{connected ? "Connected" : "Offline"}</div>
                 <button
                   onClick={leaveRoom}
-                  className="w-full bg-[#2f4553] hover:bg-[#3e5666] text-white py-2 rounded-md font-bold text-xs"
+                  className="w-full bg-[#2f4553] hover:bg-[#3e5666] text-white py-2 rounded-md font-bold text-xs mt-2"
                 >
                   Leave room
                 </button>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3]">$</div>
-                  <input
-                    type="number"
-                    value={betInput}
-                    onChange={(e) => {
-                      let v = e.target.value;
-                      if (parseFloat(v) < 0) v = "0";
-                      setBetInput(v);
-                    }}
-                    onBlur={() => {
-                      const raw = betInput.trim();
-                      const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
-                      const num = Number(sanitized);
-                      setBetAmount(num);
-                      setBetInput(sanitized);
-                    }}
-                    className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
-                  />
-                </div>
-              </div>
-
               {gameState?.hostId === playerId ? (
-                <button
-                  onClick={startHand}
-                  disabled={gameState.stage !== "setup" && gameState.stage !== "finished"}
-                  className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <PlayArrow /> Start Hand
-                </button>
+                (gameState.stage === "setup" || gameState.stage === "finished") && (
+                  <button
+                    onClick={startHand}
+                    className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <PlayArrow /> Start Game
+                  </button>
+                )
               ) : (gameState?.stage === "setup" || gameState?.stage === "finished") ? (
                 <div className="text-[#b1bad3] text-xs text-center border border-dashed border-[#2f4553] p-4 rounded-md">
                   Waiting for host to start game...
@@ -814,7 +917,7 @@ export default function LivePokerPage() {
               </div>
 
               <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2">
-                {gameState?.stage !== "setup" && (
+                {gameState?.stage !== "setup" && (gameState?.pot || 0) > 0 && (
                   <div className="flex flex-col items-center gap-1">
                     <div className="text-white font-black text-2xl">${(gameState?.pot || 0).toFixed(0)}</div>
                   </div>
