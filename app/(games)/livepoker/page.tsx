@@ -402,7 +402,7 @@ export default function LivePokerPage() {
 
   const connectSocket = () => {
     if (socketRef.current) return socketRef.current;
-    const url = process.env.NEXT_PUBLIC_POKER_WS_URL || "http://localhost:4000";
+    const url = "https://flopper-gambling.onrender.com";
     const socket = io(url, { transports: ["websocket"] });
     socketRef.current = socket;
 

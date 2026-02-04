@@ -491,7 +491,10 @@ const server = http.createServer();
 const io = new Server(server, {
   cors: {
     origin: "*",
+    methods: ["GET", "POST"],
+    credentials: true
   },
+  transports: ["websocket", "polling"]
 });
 
 const rooms = new Map();
@@ -723,6 +726,6 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Live poker server running on :${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Live poker server running on port ${PORT}`);
 });
