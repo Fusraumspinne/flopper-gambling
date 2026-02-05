@@ -788,7 +788,7 @@ export default function PumpPage() {
                   </button>
                   <button
                     onClick={() => cashOut()}
-                    disabled={isPumping || !hasPumped}
+                    disabled={isPumping || !(hasPumped || currentStepIndex > 0)}
                     className="bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     Cashout

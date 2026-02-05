@@ -998,23 +998,19 @@ export default function PokerPage() {
     botList: BotState[],
     pFolded: boolean,
     pAllIn: boolean,
-    pContribution: number,
+    pRoundContribution: number,
     pActed: boolean,
     currentBet: number
   ) => {
-    if (!pFolded) {
-      if (!pAllIn) {
-        if (pContribution < currentBet) return false;
-        if (!pActed) return false;
-      }
+    if (!pFolded && !pAllIn) {
+      if (pRoundContribution < currentBet) return false;
+      if (!pActed) return false;
     }
 
     for (const b of botList) {
-      if (!b.folded) {
-        if (!b.allIn) {
-          if (b.roundContribution < currentBet) return false;
-          if (!b.hasActed) return false;
-        }
+      if (!b.folded && !b.allIn) {
+        if (b.roundContribution < currentBet) return false;
+        if (!b.hasActed) return false;
       }
     }
     return true;
@@ -1292,7 +1288,7 @@ export default function PokerPage() {
       persona: p,
       hole: [freshDeck.pop()!, freshDeck.pop()!],
       stack: Math.floor(
-        Math.max(1, Math.floor(betAmount)) * (5 + Math.random() * 5) 
+        Math.max(1, Math.floor(betAmount)) * (3 + Math.random() * 4) 
       ),
       contribution: 0,
       roundContribution: 0,
@@ -1348,7 +1344,7 @@ export default function PokerPage() {
     let pAllIn0 = false;
     let playerStack = Math.max(0, Math.floor(balance));
 
-    const postChips = (idx: number, amount: number) => {
+    const postChips = (idx: number, amount: number, label: string) => {
       const a = Math.max(0, Math.floor(amount));
       if (a <= 0) return;
       if (idx === 0) {
@@ -1361,6 +1357,7 @@ export default function PokerPage() {
           playerStack -= pay;
         }
         if (pay < a || playerStack <= 0) pAllIn0 = pay > 0 ? true : pAllIn0;
+        setPlayerLastAction(label);
       } else {
         const bi = idx - 1;
         const b = nextBots[bi];
@@ -1372,13 +1369,13 @@ export default function PokerPage() {
           contribution: b.contribution + pay,
           roundContribution: b.roundContribution + pay,
           allIn: b.stack - pay <= 0,
-          lastAction: "",
+          lastAction: label,
         };
       }
     };
 
-    postChips(sbIndex, smallBlind);
-    postChips(bbIndex, bigBlind);
+    postChips(sbIndex, smallBlind, `SB $${smallBlind}`);
+    postChips(bbIndex, bigBlind, `BB $${bigBlind}`);
     pushSeatAction(sbIndex, `SB $${smallBlind}`);
     pushSeatAction(bbIndex, `BB $${bigBlind}`);
 
@@ -1462,11 +1459,12 @@ export default function PokerPage() {
     setShowdownShowSeats([]);
     setPlayerRoundContribution(0);
     setPlayerHasActed(false);
+    setPlayerLastAction(pFolded ? "Fold" : pAllIn ? "All-In" : "");
     setCurrentBet(0);
     setMinRaise(bigBlind);
     setLastAggressor(-1);
     const nextActors = countActors(nextStreetBots, pFolded, pAllIn);
-    setPendingToAct(Math.max(0, nextActors));
+    setPendingToAct(nextActors < 2 ? 0 : nextActors);
 
     const pc = getPlayerCountForHand(nextStreetBots);
     const postFlopStart = (dealerPos + 1) % pc;
@@ -1545,8 +1543,9 @@ export default function PokerPage() {
 
     if (finishHandEarly(currentNextBots, nextP.folded, nextP.total)) return;
 
+    const betIncreased = nextCurrentBet > currentBet;
     let nextPending = pendingToAct;
-    if (isRaise) {
+    if (betIncreased) {
       const actorCount = countActors(
         currentNextBots,
         nextP.folded,
@@ -1736,7 +1735,7 @@ export default function PokerPage() {
     const actionStr = nextAllIn
       ? "All-In"
       : actualBet > currentBet
-      ? `Raise auf $${actualBet.toFixed(0)}`
+      ? `Raise $${actualBet.toFixed(0)}`
       : need > 0
       ? "Call"
       : "Check";
@@ -1758,12 +1757,12 @@ export default function PokerPage() {
       nextCurrentBet,
       nextMinRaise,
       actionStr === "All-In"
-        ? "You go All-In"
+        ? "You All-In"
         : isValidRaise
-        ? `You raise to $${actualBet.toFixed(0)}`
+        ? `You Raise $${actualBet.toFixed(0)}`
         : need > 0
-        ? "You call"
-        : "You check",
+        ? "You Call"
+        : "You Check",
       isFullRaise
     );
     playAudio(audioRef.current.bet, true);
@@ -1961,7 +1960,7 @@ export default function PokerPage() {
         nextCurrent = actualBet;
         const actionStr = nextBots[bi].allIn
           ? "All-In"
-          : `Raise: $${actualBet.toFixed(0)}`;
+          : `Raise $${actualBet.toFixed(0)}`;
         nextBots[bi] = {
           ...nextBots[bi],
           lastAction: actionStr,
@@ -2021,12 +2020,12 @@ export default function PokerPage() {
 
     const timer = setTimeout(() => {
       const activeCount = countActors(bots, playerFolded, playerAllIn);
-      if (activeCount < 2) {
+      if (activeCount === 0 || (activeCount === 1 && pendingToAct === 0)) {
         advanceStage(bots, playerFolded, playerAllIn, playerContribution);
       }
     }, 1500);
     return () => clearTimeout(timer);
-  }, [stage, bots, playerFolded, playerAllIn, playerContribution]);
+  }, [stage, bots, playerFolded, playerAllIn, playerContribution, pendingToAct]);
 
   type SeatUi = {
     seatIndex: number;
@@ -2039,6 +2038,7 @@ export default function PokerPage() {
     dealer: boolean;
     active: boolean;
     actions: string[];
+    lastAction: string;
     roundContribution: number;
     stack?: number;
   };
@@ -2061,6 +2061,7 @@ export default function PokerPage() {
       dealer: dealerPos === 0,
       active: isBettingStage(stage) && activePlayerIndex === 0,
       actions: actionHistoryBySeat[0] ?? [],
+      lastAction: playerLastAction,
       roundContribution: playerRoundContribution,
       stack: Math.max(0, Math.floor(balance)),
     };
@@ -2076,6 +2077,7 @@ export default function PokerPage() {
       dealer: dealerPos === idx + 1,
       active: isBettingStage(stage) && activePlayerIndex === idx + 1,
       actions: actionHistoryBySeat[idx + 1] ?? [],
+      lastAction: b.lastAction,
       roundContribution: b.roundContribution,
       stack: Math.max(0, Math.floor(b.stack)),
     }));
@@ -2123,20 +2125,12 @@ export default function PokerPage() {
           )}
 
           <div className="flex items-center gap-2">
-            <div className="flex flex-col items-end justify-center min-w-[48px] gap-0.5 z-20 mr-1">
-              {s.actions
-                .slice(-2)
-                .reverse()
-                .map((a, idx) => (
-                  <div
-                    key={`${s.id}-a-${idx}`}
-                    className={`text-[8px] sm:text-[9px] uppercase font-bold text-right whitespace-nowrap ${
-                      idx === 0 ? "text-white" : "text-white/40"
-                    }`}
-                  >
-                    {a}
-                  </div>
-                ))}
+            <div className="flex flex-col items-end justify-center min-w-12 gap-0.5 z-20 mr-1">
+              {s.lastAction && (
+                <div className="text-[8px] sm:text-[9px] uppercase font-bold text-right whitespace-nowrap text-white">
+                  {s.lastAction}
+                </div>
+              )}
             </div>
             <div>
               <div className="flex justify-center">
@@ -2209,7 +2203,7 @@ export default function PokerPage() {
       }`}
     >
       <div className="bj-card-inner" style={{ transitionDelay: `${delay}s` }}>
-        <div className="bj-card-face bj-card-back rounded-lg border-1 border-[#0f212e] bg-[#007bff] relative overflow-hidden">
+        <div className="bj-card-face bj-card-back rounded-lg border border-[#0f212e] bg-[#007bff] relative overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-5 h-9 sm:w-6 sm:h-11 lg:w-7 lg:h-13 border-2 border-white/10 rounded flex items-center justify-center transform rotate-12">
               <span className="text-white/20 font-bold -rotate-12 text-[4px]">
@@ -2451,9 +2445,9 @@ export default function PokerPage() {
           <div className="flex-1 bg-[#0f212e] p-2 sm:p-6 rounded-xl min-h-200 flex flex-col gap-6 relative overflow-hidden">
             <div
               ref={tableRef}
-              className="relative flex-1 rounded-[60px] lg:rounded-[90px] xl:rounded-[120px] border-[12px] lg:border-[18px] xl:border-[26px] border-[#131518] overflow-hidden bg-[#2d5a36]"
+              className="relative flex-1 rounded-[60px] lg:rounded-[90px] xl:rounded-[120px] border-12 lg:border-18 xl:border-26 border-[#131518] overflow-hidden bg-[#2d5a36]"
             >
-              <div className="absolute inset-0 border-[8px] lg:border-[12px] xl:border-[16px] border-[#654321] rounded-[48px] lg:rounded-[72px] xl:rounded-[92px] pointer-events-none opacity-95" />
+              <div className="absolute inset-0 border-8 lg:border-12 xl:border-16 border-[#654321] rounded-[48px] lg:rounded-[72px] xl:rounded-[92px] pointer-events-none opacity-95" />
 
               <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),transparent_70%)] opacity-30" />

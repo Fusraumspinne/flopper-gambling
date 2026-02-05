@@ -82,7 +82,7 @@ const HorseRow = React.memo(
     isLeader: boolean;
     raceState: RaceState;
   }) => {
-    const isHighlighted = isLeader || isWinner;
+    const isHighlighted = isWinner;
     const leftPct = Math.min(100, Math.max(0, progress * 100));
 
     const startOffset = 10;
@@ -220,6 +220,7 @@ export default function HorseRacePage() {
   const [positions, setPositions] = useState<number[]>(() => Array(6).fill(0));
   const [raceState, setRaceState] = useState<RaceState>("idle");
   const [winnerId, setWinnerId] = useState<number | null>(null);
+  const [crossingIndex, setCrossingIndex] = useState<number | null>(null);
   const [lastResult, setLastResult] = useState<LastResult>({
     winnerId: null,
     winAmount: 0,
@@ -241,6 +242,8 @@ export default function HorseRacePage() {
   } | null>(null);
   const resetTimeoutRef = useRef<number | null>(null);
   const startTimeoutRef = useRef<number | null>(null);
+
+  const crossingIndexRef = useRef<number | null>(null);
 
   const selectedHorseRef = useRef<number>(selectedHorse);
   const betAmountRef = useRef<number>(betAmount);
@@ -268,6 +271,10 @@ export default function HorseRacePage() {
   useEffect(() => {
     winnerRef.current = winnerId;
   }, [winnerId]);
+
+  useEffect(() => {
+    crossingIndexRef.current = crossingIndex;
+  }, [crossingIndex]);
 
   useEffect(() => {
     raceStateRef.current = raceState;
@@ -388,6 +395,15 @@ export default function HorseRacePage() {
 
     setPositions(nextPositions);
 
+    // detect first horse that crosses the finish line and mark it immediately
+    if (crossingIndexRef.current == null) {
+      const idx = nextPositions.findIndex((p) => p >= 1);
+      if (idx >= 0) {
+        crossingIndexRef.current = idx;
+        setCrossingIndex(idx);
+      }
+    }
+
     if (elapsed < race.maxFinish + 100) {
       race.rafId = requestAnimationFrame(animateRace);
     } else {
@@ -450,6 +466,8 @@ export default function HorseRacePage() {
 
     const winner = pickWinner(horsesRef.current);
     setWinnerId(winner);
+    setCrossingIndex(null);
+    crossingIndexRef.current = null;
     setLastResult({ winnerId: null, winAmount: 0, multiplier: 0 });
     setPositions(Array(horsesRef.current.length).fill(0));
     setRaceState("running");
@@ -664,7 +682,10 @@ export default function HorseRacePage() {
                     index={index}
                     horse={horse}
                     progress={positions[index] ?? 0}
-                    isWinner={raceState !== "running" && winnerId === horse.id}
+                    isWinner={
+                      (raceState === "running" && crossingIndex === index) ||
+                      (raceState !== "running" && winnerId === horse.id)
+                    }
                     isLeader={raceState === "running" && leaderId === horse.id}
                     raceState={raceState}
                   />

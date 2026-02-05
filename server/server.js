@@ -179,6 +179,31 @@ const recomputePendingToAct = (room) => {
   room.pendingToAct = Math.max(0, room.players.filter((p) => needsAction(p, room.currentBet)).length);
 };
 
+const ensureActivePlayerValid = (room) => {
+  const players = room.players;
+  if (!players || players.length === 0) {
+    room.activePlayerIndex = 0;
+    room.pendingToAct = 0;
+    return;
+  }
+
+  const maxIndex = players.length - 1;
+  if (room.activePlayerIndex > maxIndex) {
+    room.activePlayerIndex = Math.min(maxIndex, Math.max(0, room.activePlayerIndex));
+  }
+
+  if (room.stage === "preflop" || room.stage === "flop" || room.stage === "turn" || room.stage === "river") {
+    if (!needsAction(players[room.activePlayerIndex], room.currentBet)) {
+      const nextIdx = nextActionIndex(room.activePlayerIndex, room);
+      room.activePlayerIndex = nextIdx === -1 ? 0 : nextIdx;
+    }
+    recomputePendingToAct(room);
+    if (room.pendingToAct <= 0) {
+      advanceStage(room);
+    }
+  }
+};
+
 const nextActionIndex = (from, room) => {
   const players = room.players;
   const pc = players.length;
@@ -280,6 +305,12 @@ const resolveShowdown = (room) => {
   room.pot = potValue;
   room.sidePots = computeSidePots(room.players);
 
+  room.players.forEach((p) => {
+    p.payout = 0;
+  });
+
+  let distributed = 0;
+
   const moneyWinners = new Set();
 
   const contribs = room.players.map((p, idx) => ({ idx, amount: p.contribution || 0 }));
@@ -313,8 +344,14 @@ const resolveShowdown = (room) => {
       }
     }
 
-    const share = Math.floor(potTier / bestIdxs.length);
-    let remainder = potTier % bestIdxs.length;
+    let toDistribute = potTier;
+    if (distributed + toDistribute > potValue) {
+      toDistribute = Math.max(0, potValue - distributed);
+    }
+    if (toDistribute <= 0) break;
+
+    const share = Math.floor(toDistribute / bestIdxs.length);
+    let remainder = toDistribute % bestIdxs.length;
 
     for (const w of bestIdxs) {
       const bonus = remainder > 0 ? 1 : 0;
@@ -323,6 +360,7 @@ const resolveShowdown = (room) => {
       room.players[w].stack += payout;
       room.players[w].payout = (room.players[w].payout || 0) + payout;
       moneyWinners.add(w);
+      distributed += payout;
     }
   }
 
@@ -577,11 +615,19 @@ io.on("connection", (socket) => {
       payout: 0,
     };
 
+    const roundActive = room.stage === "preflop" || room.stage === "flop" || room.stage === "turn" || room.stage === "river";
+    if (roundActive) {
+      player.folded = true;
+      player.hasActed = true;
+      player.lastAction = "Fold";
+    }
+
     room.players.push(player);
     room.order.push(socket.id);
     socket.join(roomId);
 
     if (typeof cb === "function") cb({ ok: true, roomId, playerId: socket.id });
+    ensureActivePlayerValid(room);
     broadcastState(io, room);
     broadcastRooms();
   });
@@ -591,6 +637,10 @@ io.on("connection", (socket) => {
     if (!room) return;
     const idx = findPlayerIndex(room, socket.id);
     if (idx >= 0) {
+      if (room.activePlayerIndex === idx) {
+        room.players[idx].folded = true;
+        room.players[idx].hasActed = true;
+      }
       room.players.splice(idx, 1);
       room.order = room.order.filter((id) => id !== socket.id);
       if (room.hostId === socket.id) {
@@ -601,6 +651,7 @@ io.on("connection", (socket) => {
     if (room.players.length === 0) {
       rooms.delete(roomId);
     } else {
+      ensureActivePlayerValid(room);
       broadcastState(io, room);
     }
     if (typeof cb === "function") cb({ ok: true });
@@ -710,6 +761,10 @@ io.on("connection", (socket) => {
     rooms.forEach((room, roomId) => {
       const idx = findPlayerIndex(room, socket.id);
       if (idx >= 0) {
+        if (room.activePlayerIndex === idx) {
+          room.players[idx].folded = true;
+          room.players[idx].hasActed = true;
+        }
         room.players.splice(idx, 1);
         room.order = room.order.filter((id) => id !== socket.id);
         if (room.hostId === socket.id) {
@@ -718,6 +773,7 @@ io.on("connection", (socket) => {
         if (room.players.length === 0) {
           rooms.delete(roomId);
         } else {
+          ensureActivePlayerValid(room);
           broadcastState(io, room);
         }
         broadcastRooms();
