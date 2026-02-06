@@ -556,6 +556,34 @@ export default function LivePokerPage() {
     return bestScore.cat;
   }, [gameState, player]);
 
+  const glowWinners = useMemo(() => {
+    if (!gameState) return [] as number[];
+    if (gameState.stage !== "showdown" && gameState.stage !== "finished") return [] as number[];
+
+    const currentBoard = gameState.board.slice(0, gameState.boardRevealCount);
+    const alive = gameState.players
+      .map((p, idx) => ({ p, idx }))
+      .filter(({ p }) => !p.folded);
+
+    if (alive.length === 0) return gameState.winners || [];
+    const hasAllHoles = alive.every(({ p }) => (p.hole?.length || 0) >= 2);
+    if (!hasAllHoles || currentBoard.length < 5) return gameState.winners || [];
+
+    let bestIdxs: number[] = [alive[0].idx];
+    let bestScore = evaluateSeven(alive[0].p.hole, currentBoard);
+    for (const item of alive.slice(1)) {
+      const s = evaluateSeven(item.p.hole, currentBoard);
+      const cmp = compareScores(s, bestScore);
+      if (cmp > 0) {
+        bestScore = s;
+        bestIdxs = [item.idx];
+      } else if (cmp === 0) {
+        bestIdxs.push(item.idx);
+      }
+    }
+    return bestIdxs;
+  }, [gameState]);
+
   const createRoom = () => {
     setError("");
     if (!serverOnline) {
@@ -688,7 +716,7 @@ export default function LivePokerPage() {
   );
 
   const renderSeatUi = (s: PlayerState, seatIndex: number) => {
-    const isWinner = !!gameState?.winners?.includes(seatIndex);
+    const isWinner = glowWinners.includes(seatIndex);
     const activeGlow = isWinner ? "drop-shadow-[0_0_10px_rgba(0,231,1,0.8)]" : "";
     const faded = s.folded ? "opacity-40 grayscale" : "";
     const renderCardBack = (key: string, delay: number) =>

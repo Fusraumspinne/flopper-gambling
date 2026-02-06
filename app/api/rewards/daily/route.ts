@@ -3,7 +3,7 @@ import { connectMongoDB } from "@/lib/mongodb";
 import User from "@/models/user";
 
 const HOUR_MS = 60 * 60 * 1000;
-const AMOUNT_PER_HOUR = 100;
+const AMOUNT_PER_HOUR = 1000;
 
 function normalizeMoney(value: number): number {
   if (!Number.isFinite(value)) return 0;

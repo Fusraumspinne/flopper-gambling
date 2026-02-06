@@ -1228,11 +1228,26 @@ export default function PokerPage() {
         : "Showdown: You lose"
     );
 
-    setWinners(
-      Array.from(moneyWinners).map((idx) =>
-        idx === 0 ? nextBots.length : idx - 1
-      )
-    );
+    const aliveIdxs = contribs
+      .map((c) => c.idx)
+      .filter((idx) => isAlive(idx, nextBots, pFolded));
+    if (aliveIdxs.length > 0) {
+      let bestIdxs: number[] = [aliveIdxs[0]];
+      let bestScore = getScore(aliveIdxs[0]);
+      for (const idx of aliveIdxs.slice(1)) {
+        const s = getScore(idx);
+        const cmp = compareScores(s, bestScore);
+        if (cmp > 0) {
+          bestScore = s;
+          bestIdxs = [idx];
+        } else if (cmp === 0) {
+          bestIdxs.push(idx);
+        }
+      }
+      setWinners(bestIdxs.map((idx) => (idx === 0 ? nextBots.length : idx - 1)));
+    } else {
+      setWinners([]);
+    }
     const activeLastAggressor =
       lastAggressor >= 0 && isAlive(lastAggressor, nextBots, pFolded)
         ? lastAggressor

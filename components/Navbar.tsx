@@ -52,7 +52,7 @@ export default function Navbar() {
   const { collapsed, toggleCollapsed, sidebarWidth } = useSidebar();
   const { volume, setVolume } = useSoundVolume();
 
-  const { claimableAmount, lastClaimISO, claim } = useHourlyReward({ amountPerHour: 100 });
+  const { claimableAmount, lastClaimISO, claim } = useHourlyReward({ amountPerHour: 1000 });
 
   const [statsOpen, setStatsOpen] = useState(false);
   const [gameStatus, setGameStatus] = useState<Record<string, boolean>>(DEFAULT_GAME_STATUS);
@@ -205,7 +205,7 @@ export default function Navbar() {
             >
               {claimableAmount > 0 ? `Claim $${claimableAmount}` : "Claim Free"}
             </button>
-            <div className="text-xs text-[#557086] mt-2">+ $100 per hour since last claim</div>
+            <div className="text-xs text-[#557086] mt-2">+ $1000 per hour since last claim</div>
             {lastClaimISO && (
               <div className="text-xs text-[#8399aa] mt-1">Last claim: {new Date(lastClaimISO).toLocaleString()}</div>
             )}

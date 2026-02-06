@@ -13,7 +13,7 @@ export type HourlyRewardState = {
 };
 
 export function useHourlyReward(options?: { amountPerHour?: number }) {
-  const amountPerHour = options?.amountPerHour ?? 100;
+  const amountPerHour = options?.amountPerHour ?? 1000;
   const { lastDailyReward, syncBalance, applyServerBalanceDelta, applyServerLastDailyReward } = useWallet();
   const { data: session } = useSession();
   const username = session?.user?.name ?? null;
