@@ -35,7 +35,10 @@ export default function Leaderboard() {
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [username, setUsername] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { syncBalance } = useWallet();
   const { data: session, status, update } = useSession();
@@ -94,6 +97,7 @@ export default function Leaderboard() {
     if (nextName === username) return;
 
     setErrorMsg(null);
+    setSuccessMsg(null);
     try {
       const res = await fetch("/api/user", {
         method: "PATCH",
@@ -116,6 +120,7 @@ export default function Leaderboard() {
 
       setUsername(nextName);
       await update({ name: nextName });
+      setSuccessMsg("Username updated successfully!");
       await syncBalance();
       await fetchLeaderboard({ force: true });
     } catch (error) {
@@ -124,11 +129,42 @@ export default function Leaderboard() {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (!username) return;
+    const nextPassword = newPassword.trim();
+    if (!nextPassword) {
+      setErrorMsg("Please enter a new password.");
+      return;
+    }
+
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await fetch("/api/user", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldName: username, newPassword: nextPassword }),
+      });
+
+      if (res.status === 404) {
+        setErrorMsg("User not found. Please re-join.");
+        return;
+      }
+      if (!res.ok) {
+        setErrorMsg("Could not change password. Please try again later.");
+        return;
+      }
+
+      setNewPassword("");
+      setSuccessMsg("Password updated successfully!");
+    } catch (error) {
+      console.error("Failed to change password", error);
+      setErrorMsg("Could not change password. Check the console.");
+    }
+  };
+
   if (loading)
     return <div className="text-white/50">Loading leaderboard...</div>;
-
-  const totalBadges = users.reduce((acc, user) => acc + (user.seasons?.length || 0), 0);
-  const currentSeason = Math.floor(totalBadges / 4) + 1;
 
   const totalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
   const start = (page - 1) * PAGE_SIZE;
@@ -144,25 +180,57 @@ export default function Leaderboard() {
       <h2 className="text-2xl font-bold text-white mb-4">Leaderboard</h2>
 
       {username && (
-        <div className="mb-6 p-4 bg-[#0f212e] rounded-lg">
-          {errorMsg && (
-            <div className="text-sm text-rose-400 mb-2">{errorMsg}</div>
+        <div className="mb-3">
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className="flex items-center gap-2 text-[#b1bad3] hover:text-white transition-colors mb-2 text-sm font-medium cursor-pointer"
+          >
+            <span className={`transition-transform duration-200 ${showSettings ? "rotate-90" : ""}`}>
+              ▶
+            </span>
+            {showSettings ? "Hide Account Settings" : "Show Account Settings"}
+          </button>
+
+          {showSettings && (
+            <div className="p-4 bg-[#0f212e] rounded-lg space-y-3 border border-[#2f4553]/50">
+              {errorMsg && (
+                <div className="text-sm text-rose-400">{errorMsg}</div>
+              )}
+              {successMsg && (
+                <div className="text-sm text-[#00e701]">{successMsg}</div>
+              )}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="bg-[#0f212e] border border-[#2f4553] text-white px-3 py-2 rounded flex-1 focus:outline-none focus:border-[#00e701] text-sm"
+                  placeholder="Username"
+                />
+                <button
+                  onClick={handleChangeUsername}
+                  className="bg-[#00e701] hover:bg-[#00c701] text-black font-bold px-4 py-2 rounded transition-colors whitespace-nowrap text-sm"
+                >
+                  Change username
+                </button>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 border-t border-[#2f4553] pt-3">
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="bg-[#0f212e] border border-[#2f4553] text-white px-3 py-2 rounded flex-1 focus:outline-none focus:border-[#00e701] text-sm"
+                  placeholder="New Password"
+                />
+                <button
+                  onClick={handleChangePassword}
+                  className="bg-[#00e701] hover:bg-[#00c701] text-black font-bold px-4 py-2 rounded transition-colors whitespace-nowrap text-sm"
+                >
+                  Change password
+                </button>
+              </div>
+            </div>
           )}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              className="bg-[#0f212e] border border-[#2f4553] text-white px-3 py-2 rounded flex-1 focus:outline-none focus:border-[#00e701]"
-              placeholder="Username"
-            />
-            <button
-              onClick={handleChangeUsername}
-              className="bg-[#00e701] hover:bg-[#00c701] text-black font-bold px-4 py-2 rounded transition-colors whitespace-nowrap"
-            >
-              Change username
-            </button>
-          </div>
         </div>
       )}
 
@@ -276,7 +344,7 @@ export default function Leaderboard() {
         </div>
       </div>
       <div className="mt-3 text-sm text-[#b1bad3]">
-        Season {currentSeason}: Each season will restart on the first day of a month, after the restart, all accounts will be reset to $10,000 and the top 3 and last place will receive season badges
+        Each season will restart on the first day of a month, after the restart, all accounts will be reset to $10,000 and the top 3 and last place will receive season badges
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import HighestProfit from "@/models/highestProfit";
 import HighestMultiplier from "@/models/highestMultiplier";
 import HighestLoss from "@/models/highestLoss";
 import Gift from "@/models/gift";
+import bcrypt from "bcryptjs";
 
 function normalizeMoney(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -320,30 +321,49 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const { oldName, newName } = await req.json();
-    if (typeof oldName !== "string" || typeof newName !== "string") {
+    const { oldName, newName, newPassword } = await req.json();
+    if (typeof oldName !== "string") {
       return NextResponse.json({ message: "Invalid name" }, { status: 400 });
     }
 
     const from = oldName.trim();
-    const to = newName.trim();
-    if (!from || !to) {
+    if (!from) {
       return NextResponse.json({ message: "Invalid name" }, { status: 400 });
-    }
-    if (from === to) {
-      return NextResponse.json({ message: "No changes" }, { status: 200 });
     }
 
     await connectMongoDB();
+    const user = await User.findOne({ name: from });
+    if (!user) {
+      return NextResponse.json({ message: "User not found" }, { status: 404 });
+    }
 
-    const existing = await User.findOne({ name: to });
-    if (existing) {
-      return NextResponse.json({ message: "Name already exists" }, { status: 409 });
+    const updateData: Record<string, any> = {};
+
+    // Handle Name Change
+    if (typeof newName === "string") {
+      const to = newName.trim();
+      if (to && to !== from) {
+        const existing = await User.findOne({ name: to });
+        if (existing) {
+          return NextResponse.json({ message: "Name already exists" }, { status: 409 });
+        }
+        updateData.name = to;
+      }
+    }
+
+    // Handle Password Change
+    if (typeof newPassword === "string" && newPassword.length > 0) {
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      updateData.password = hashedPassword;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ message: "No changes" }, { status: 200 });
     }
 
     const updated = await User.findOneAndUpdate(
       { name: from },
-      { name: to },
+      updateData,
       { new: true }
     );
 
@@ -351,13 +371,16 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    await Promise.all([
-      HighestProfit.updateMany({ name: from }, { name: to }),
-      HighestMultiplier.updateMany({ name: from }, { name: to }),
-      HighestLoss.updateMany({ name: from }, { name: to }),
-      Gift.updateMany({ sender: from }, { sender: to }),
-      Gift.updateMany({ recipient: from }, { recipient: to }),
-    ]);
+    if (updateData.name) {
+      const to = updateData.name;
+      await Promise.all([
+        HighestProfit.updateMany({ username: from }, { username: to }),
+        HighestMultiplier.updateMany({ username: from }, { username: to }),
+        HighestLoss.updateMany({ username: from }, { username: to }),
+        Gift.updateMany({ sender: from }, { sender: to }),
+        Gift.updateMany({ recipient: from }, { recipient: to }),
+      ]);
+    }
 
     const res = NextResponse.json(updated);
     res.headers.set("Cache-Control", "private, no-store");
@@ -366,7 +389,7 @@ export async function PATCH(req: Request) {
     if (error?.code === 11000) {
       return NextResponse.json({ message: "Name already exists" }, { status: 409 });
     }
-    console.error("Error renaming user:", error);
-    return NextResponse.json({ message: "Error renaming user" }, { status: 500 });
+    console.error("Error updating user:", error);
+    return NextResponse.json({ message: "Error updating user" }, { status: 500 });
   }
 }
