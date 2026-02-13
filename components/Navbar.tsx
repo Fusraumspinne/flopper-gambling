@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment, PrivacyTip, Speed, Category, Logout } from "@mui/icons-material";
+import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment, PrivacyTip, Speed, Category, Logout, Phishing } from "@mui/icons-material";
 import { useWallet } from "./WalletProvider";
 import LiveStatsPanel from "./LiveStatsPanel";
 import { signOut } from "next-auth/react";
@@ -19,6 +19,7 @@ interface Game {
 }
 
 const games: Game[] = [
+  { name: "Slot", icon: <Phishing className="w-5 h-5" />, href: "/slot" },
   { name: "Blackjack", icon: <Casino className="w-5 h-5" />, href: "/blackjack" },
   { name: "Poker", icon: <Toll className="w-5 h-5" />, href: "/poker" },
   { name: "Mines", icon: <Diamond className="w-5 h-5" />, href: "/mines" },

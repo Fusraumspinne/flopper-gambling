@@ -27,6 +27,7 @@ export type LiveStatsState = {
 };
 
 export const GAME_OPTIONS = [
+  { id: "slot", label: "Slot" },
   { id: "blackjack", label: "Blackjack" },
   { id: "poker", label: "Poker" },
   { id: "mines", label: "Mines" },
@@ -53,7 +54,6 @@ export const GAME_OPTIONS = [
   { id: "rps", label: "Rock Paper Scissors" },
   { id: "hilo", label: "Hi-Lo" },
   { id: "livepoker", label: "Live Poker" },
-  { id: "slots", label: "Slots" },
 ] as const;
 
 const ALL_OPTION = { id: "all", label: "All Games" } as const;

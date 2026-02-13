@@ -5,7 +5,7 @@ import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
 
-type GamePhase = "idle" | "spinning" | "pick" | "free";
+type GamePhase = "idle" | "spinning" | "pick" | "prefree" | "free";
 type SymbolId =
   | "10"
   | "J"
@@ -39,6 +39,16 @@ type PickState = {
   boatsFound: number;
   boatsTarget: number;
   modifiers: PickModifiers;
+};
+
+type PreFreeToken = "fs1" | "fs2" | "fs3" | "fs4" | "fisher" | "shoe";
+
+type PreFreeState = {
+  revealed: boolean[];
+  tokens: PreFreeToken[];
+  extraSpins: number;
+  extraFishers: number;
+  done: boolean;
 };
 
 const ROWS = 3;
@@ -108,9 +118,21 @@ const FREE_EVENT_CHANCES = {
   fishDropWhenOnlyFisher: 0.2,
   fisherDropWhenOnlyFish: 0.2,
   hook: 0.2,
-  waterfall: 0.12,
+  waterfall: 0.2,
 };
 const FS_MULTIPLIERS = [1, 2, 3, 10, 20, 30, 40, 50];
+const BOAT_WAKE_CHANCE_BASE = 0.2;
+const PREFREE_START_SPINS = 10;
+const PREFREE_TOKEN_POOL: PreFreeToken[] = [
+  "fs1",
+  "fs2",
+  "fs3",
+  "fisher",
+  "fisher",
+  "fisher",
+  "shoe",
+  "shoe",
+];
 const PAYTABLE: Partial<Record<SymbolId, [number, number, number]>> = {
   "10": [0.2, 0.4, 1],
   J: [0.2, 0.4, 1],
@@ -460,7 +482,7 @@ function renderSymbol(cell: Cell, spinCost?: number) {
   );
 }
 
-export default function SlotsPage() {
+export default function SlotPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
   const { volume } = useSoundVolume();
 
@@ -479,6 +501,7 @@ export default function SlotsPage() {
   const [currentFsMultiplier, setCurrentFsMultiplier] = useState(1);
   const [spinDisplayMultiplier, setSpinDisplayMultiplier] = useState(1);
   const [pickState, setPickState] = useState<PickState | null>(null);
+  const [preFreeState, setPreFreeState] = useState<PreFreeState | null>(null);
   const [mods, setMods] = useState<PickModifiers>({
     extraFreeSpins: 0,
     guaranteedFish: 0,
@@ -488,6 +511,7 @@ export default function SlotsPage() {
   const [pendingRoundStake, setPendingRoundStake] = useState(0);
   const [pendingRoundPayout, setPendingRoundPayout] = useState(0);
   const [lastWin, setLastWin] = useState(0);
+  const [boatAwake, setBoatAwake] = useState(false);
 
   
   const phaseRef = React.useRef<GamePhase>(phase);
@@ -495,6 +519,7 @@ export default function SlotsPage() {
   const [isExecutingSpin, setIsExecutingSpin] = useState(false);
   const intervalRefs = React.useRef<Array<ReturnType<typeof setInterval> | null>>(Array(REELS).fill(null));
   const timeoutRefs = React.useRef<Array<ReturnType<typeof setTimeout> | null>>(Array(REELS).fill(null));
+  const boatSleepTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   
 
   React.useEffect(() => {
@@ -509,6 +534,7 @@ export default function SlotsPage() {
       timeoutRefs.current.forEach((timer) => {
         if (timer) clearTimeout(timer);
       });
+      if (boatSleepTimeoutRef.current) clearTimeout(boatSleepTimeoutRef.current);
     };
   }, []);
 
@@ -655,15 +681,13 @@ export default function SlotsPage() {
     if (isExecutingSpinRef.current) return;
     isExecutingSpinRef.current = true;
     setIsExecutingSpin(true);
+    setBoatAwake(false);
     let messageLocal = "";
-    // hoist these so they are available after the try/finally block
     let lineEval: { totalWin: number; highlight: Set<string> } = { totalWin: 0, highlight: new Set() };
     let updatedRoundPayout = 0;
     try {
       const isFreeSpin = phase === "free" && freeSpinsLeft > 0;
-      // capture the multiplier that should apply to displayed fish for THIS spin
       setSpinDisplayMultiplier(isFreeSpin ? currentFsMultiplier : 1);
-      // track extra spins added during this executeSpin call (so we can decrement reliably)
       let gainedExtraSpinsThisCall = 0;
       setPhase(isFreeSpin ? "free" : "spinning");
       setSpinKey((v) => v + 1);
@@ -684,7 +708,6 @@ export default function SlotsPage() {
       nextGrid = randomEvents.grid;
     }
 
-    // WICHTIG: Animation startet mit den AKTUELLEN Symbolen (grid), nicht den neuen
     const startFrames = gridToReelFrames(grid).map((reelCol) => {
       const fresh = cellForSpin(isFreeSpin, anteBet, mods.removeLowestFish);
       return [fresh, ...reelCol.map((cell) => ({ ...cell, highlight: false }))];
@@ -709,11 +732,9 @@ export default function SlotsPage() {
         intervalRefs.current[reel] = setInterval(() => {
           frameCount += baseFrameRate;
 
-          // Easing: Wenn wir stoppen, erhöhen wir die Zeit für den nächsten Tick
           if (isStopping) {
             setReelDurations((prevD) => {
               const nextD = [...prevD];
-              // Steigerung der Dauer für ein "Einfedern"
               nextD[reel] = Math.round(baseFrameRate * (1 + stopProgress * 1.5));
               return nextD;
             });
@@ -725,7 +746,6 @@ export default function SlotsPage() {
 
             if (isStopping) {
               if (stopProgress < ROWS) {
-                // Finale Symbole nacheinander von oben "reinfahren" lassen (Reihenfolge: Bottm -> Mid -> Top)
                 const targetCell = nextGrid[ROWS - 1 - stopProgress][reel];
                 next[reel] = [
                   { ...targetCell, highlight: false },
@@ -735,7 +755,6 @@ export default function SlotsPage() {
                 ];
                 stopProgress++;
               } else {
-                // Reel ist fertig
                 if (intervalRefs.current[reel]) {
                   clearInterval(intervalRefs.current[reel]!);
                   intervalRefs.current[reel] = null;
@@ -758,7 +777,6 @@ export default function SlotsPage() {
                 if (stoppedCount === REELS) resolve();
               }
             } else {
-              // Rollen: Neues zufälliges Symbol oben rein, Rest rutscht nach unten
               const fresh = cellForSpin(isFreeSpin, anteBet, mods.removeLowestFish);
               next[reel] = [
                 { ...fresh, highlight: false },
@@ -773,7 +791,7 @@ export default function SlotsPage() {
           if (frameCount >= stopTimes[reel] && !isStopping) {
             isStopping = true;
           }
-        }, baseFrameRate); // we will adjust this in the interval logic
+        }, baseFrameRate);
       }
     });
 
@@ -791,7 +809,6 @@ export default function SlotsPage() {
     setGrid(highlighted);
 
     let fishWin = 0;
-    // reuse outer messageLocal
     let payoutForThisSpin = lineEval.totalWin;
 
     if (isFreeSpin && fishers > 0 && fishPack.total > 0) {
@@ -803,6 +820,15 @@ export default function SlotsPage() {
       fishWin = normalizeMoney(fishPack.total * spinCost * collectMulti);
       payoutForThisSpin += fishWin;
       messageLocal = `Basis-Collect! ${normalizeMoney(fishPack.total).toFixed(2)}x × ${collectMulti} = $${formatMoney(fishWin)}`;
+    } else if (!isFreeSpin && fishPack.total > 0 && Math.random() < BOAT_WAKE_CHANCE_BASE) {
+      const boatWin = normalizeMoney(fishPack.total * spinCost);
+      payoutForThisSpin += boatWin;
+      setBoatAwake(true);
+      if (boatSleepTimeoutRef.current) clearTimeout(boatSleepTimeoutRef.current);
+      boatSleepTimeoutRef.current = setTimeout(() => {
+        setBoatAwake(false);
+      }, 1600);
+      messageLocal = `Boot-Fisher sammelt ${normalizeMoney(fishPack.total).toFixed(2)}x = $${formatMoney(boatWin)}`;
     }
 
       if (isFreeSpin) {
@@ -818,11 +844,9 @@ export default function SlotsPage() {
           const gained = Math.max(0, effectiveNow - effectivePrev);
           if (gained > 0) {
             const extraSpins = gained * 10;
-            // record locally for this function so subsequent decrement is accurate
             gainedExtraSpinsThisCall = extraSpins;
             setFreeSpinsLeft((s) => s + extraSpins);
           }
-          // always cap stored retriggers to the maximum index
           const cappedRetriggers = Math.min(nowRetriggers, maxIndex);
           setRetriggers(cappedRetriggers);
           const fsMulti = FS_MULTIPLIERS[cappedRetriggers];
@@ -855,18 +879,20 @@ export default function SlotsPage() {
         return;
       }
 
-      setPhase("free");
-      setFreeSpinsLeft(10);
-      setFisherCollected(0);
-      setRetriggers(0);
-      setCurrentFsMultiplier(1);
+      setPhase("prefree");
+      setPreFreeState({
+        revealed: new Array(PREFREE_TOKEN_POOL.length).fill(false),
+        tokens: buildPreFreeTokens(),
+        extraSpins: 0,
+        extraFishers: 0,
+        done: false,
+      });
       setMods({ extraFreeSpins: 0, guaranteedFish: 0, collectedFishermen: 0, removeLowestFish: false });
       await sleep(350);
       return;
     }
 
       if (isFreeSpin) {
-        // Compute deterministically: starting freeSpinsLeft + any gained here - 1 (consumed)
         const leftAfter = Math.max(0, freeSpinsLeft + gainedExtraSpinsThisCall - 1);
         setFreeSpinsLeft(leftAfter);
 
@@ -924,6 +950,58 @@ export default function SlotsPage() {
     await executeSpin({ isPaidBaseSpin: false });
   };
 
+  const beginFreeSpinsFromPreFree = (extraSpins: number, extraFishers: number) => {
+    const totalStartSpins = PREFREE_START_SPINS + extraSpins;
+    const initialFishers = extraFishers;
+    const initialRetriggers = Math.floor(initialFishers / 4);
+    const maxIndex = FS_MULTIPLIERS.length - 1;
+    const cappedInitialRetriggers = Math.min(initialRetriggers, maxIndex);
+    const fsMulti = FS_MULTIPLIERS[cappedInitialRetriggers];
+
+    setFreeSpinsLeft(totalStartSpins);
+    setFisherCollected(initialFishers);
+    setRetriggers(cappedInitialRetriggers);
+    setCurrentFsMultiplier(fsMulti);
+    setPreFreeState(null);
+    setPhase("free");
+  };
+
+  const handlePreFreePick = (index: number) => {
+    if (!preFreeState || preFreeState.done || preFreeState.revealed[index]) return;
+
+    const token = preFreeState.tokens[index];
+    const revealed = [...preFreeState.revealed];
+    revealed[index] = true;
+
+    let nextExtraSpins = preFreeState.extraSpins;
+    let nextExtraFishers = preFreeState.extraFishers;
+
+    if (token === "fs1") nextExtraSpins += 1;
+    if (token === "fs2") nextExtraSpins += 2;
+    if (token === "fs3") nextExtraSpins += 3;
+    if (token === "fs4") nextExtraSpins += 4;
+    if (token === "fisher") nextExtraFishers += 1;
+
+    const isShoe = token === "shoe";
+    const allOpened = revealed.every(Boolean);
+
+    const nextState: PreFreeState = {
+      ...preFreeState,
+      revealed,
+      extraSpins: nextExtraSpins,
+      extraFishers: nextExtraFishers,
+      done: isShoe || allOpened,
+    };
+
+    setPreFreeState(nextState);
+
+    if (isShoe || allOpened) {
+      window.setTimeout(() => {
+        beginFreeSpinsFromPreFree(nextExtraSpins, nextExtraFishers);
+      }, 280);
+    }
+  };
+
   const buyBonus = async () => {
     if (anteBet || phase !== "idle" || betAmount <= 0 || balance < buyBonusCost) return;
     setLastWin(0);
@@ -936,8 +1014,15 @@ export default function SlotsPage() {
     setFisherCollected(0);
     setRetriggers(0);
     setCurrentFsMultiplier(1);
-    setFreeSpinsLeft(10);
-    setPhase("free");
+    setFreeSpinsLeft(0);
+    setPreFreeState({
+      revealed: new Array(PREFREE_TOKEN_POOL.length).fill(false),
+      tokens: buildPreFreeTokens(),
+      extraSpins: 0,
+      extraFishers: 0,
+      done: false,
+    });
+    setPhase("prefree");
   };
 
   const displaySpinCost = spinCost * spinDisplayMultiplier;
@@ -966,20 +1051,16 @@ export default function SlotsPage() {
     setPickState(nextState);
 
     if (boats >= pickState.boatsTarget) {
-      const startFs = 10 + nextMods.extraFreeSpins;
-      const initialFishers = nextMods.collectedFishermen;
-      const initialRetriggers = Math.floor(initialFishers / 4);
-      const maxIndex = FS_MULTIPLIERS.length - 1;
-      const cappedInitialRetriggers = Math.min(initialRetriggers, maxIndex);
-      const fsMulti = FS_MULTIPLIERS[cappedInitialRetriggers];
-
       setMods(nextMods);
-      setFreeSpinsLeft(startFs);
-      setFisherCollected(initialFishers);
-      setRetriggers(cappedInitialRetriggers);
-      setCurrentFsMultiplier(fsMulti);
       setPickState(null);
-      setPhase("free");
+      setPreFreeState({
+        revealed: new Array(PREFREE_TOKEN_POOL.length).fill(false),
+        tokens: buildPreFreeTokens(),
+        extraSpins: nextMods.extraFreeSpins,
+        extraFishers: nextMods.collectedFishermen,
+        done: false,
+      });
+      setPhase("prefree");
     }
   };
 
@@ -1103,18 +1184,14 @@ export default function SlotsPage() {
                     <div>Fisher:</div>
                     <div className="text-[#7dd3fc] font-black">{fisherCollected}</div>
                     <div className="px-2 rounded-full font-black text-[#b5ffbf] inline-flex items-center gap-1">
-                      🤠 → x{FS_MULTIPLIERS[Math.min(retriggers, FS_MULTIPLIERS.length - 1)]}
+                      x{FS_MULTIPLIERS[Math.min(retriggers, FS_MULTIPLIERS.length - 1)]}
                     </div>
                   </div>
                 </div>
               </div>
-            ) : (
-              <div>
-                
-              </div>
-            )}
+            ) : null}
 
-            <div className="relative mx-auto max-w-200 p-3 sm:p-4 rounded-2xl overflow-hidden">
+            <div className="relative mx-auto max-w-200 pt-32 sm:pt-40 pb-3 sm:pb-4 px-3 sm:px-4 rounded-2xl overflow-hidden">
               <div className="absolute inset-0 pointer-events-none z-0">
                 <div className="absolute inset-0 jungle-underwater-bg" />
 
@@ -1126,14 +1203,62 @@ export default function SlotsPage() {
                     </linearGradient>
                   </defs>
                   <path d="M0,170 C140,120 220,120 340,160 C470,205 560,120 700,150 C860,185 930,125 1200,165 L1200,0 L0,0 Z" fill="url(#jungleMist)" />
+                  
+                  <g className="mangrove-background" fillOpacity="0.9">
+                    <g transform="translate(80, 165) scale(0.9)">
+                      <path d="M-8 0 Q-10 -30, 0 -60 Q10 -90, 0 -120" stroke="#2d1d14" strokeWidth="12" fill="none" />
+                      <circle cx="0" cy="-120" r="45" fill="#0b452e" />
+                      <circle cx="-30" cy="-110" r="35" fill="#145c3d" />
+                      <circle cx="30" cy="-110" r="35" fill="#145c3d" />
+                    </g>
+
+                    <g transform="translate(240, 155) scale(1.1)">
+                      <path d="M-6 0 Q-12 -40, 2 -80 Q15 -110, -5 -140" stroke="#241810" strokeWidth="14" fill="none" />
+                      <path d="M0 -70 Q-40 -80, -55 -110" stroke="#241810" strokeWidth="8" fill="none" />
+                      <path d="M0 -70 Q40 -80, 55 -110" stroke="#241810" strokeWidth="8" fill="none" />
+                      <circle cx="-5" cy="-140" r="55" fill="#083a26" />
+                      <circle cx="-50" cy="-115" r="40" fill="#0b452e" />
+                      <circle cx="45" cy="-115" r="40" fill="#0b452e" />
+                    </g>
+
+                    <g transform="translate(420, 160) scale(0.8)">
+                      <path d="M-4 0 L0 -100" stroke="#2d1d14" strokeWidth="10" fill="none" />
+                      <circle cx="0" cy="-100" r="60" fill="#145c3d" />
+                      <circle cx="-40" cy="-90" r="35" fill="#1b5e20" />
+                    </g>
+
+                    <g transform="translate(680, 160) scale(1.2)">
+                      <path d="M-5 0 Q0 -50, -10 -100 Q-20 -150, 0 -180" stroke="#241810" strokeWidth="12" fill="none" />
+                      <circle cx="0" cy="-180" r="50" fill="#0b452e" />
+                      <circle cx="-35" cy="-160" r="40" fill="#083a26" />
+                      <circle cx="35" cy="-160" r="40" fill="#083a26" />
+                    </g>
+
+                    <g transform="translate(950, 165) scale(1.3)">
+                      <path d="M-10 0 Q-15 -40, 0 -80 Q15 -120, -5 -160" stroke="#2d1d14" strokeWidth="16" fill="none" />
+                      <path d="M0 -60 Q-50 -75, -70 -110" stroke="#2d1d14" strokeWidth="10" fill="none" />
+                      <path d="M0 -60 Q50 -75, 70 -110" stroke="#2d1d14" strokeWidth="10" fill="none" />
+                      <circle cx="-5" cy="-160" r="65" fill="#083a26" />
+                      <circle cx="-65" cy="-120" r="45" fill="#0b452e" />
+                      <circle cx="60" cy="-120" r="45" fill="#0b452e" />
+                    </g>
+
+                    <g transform="translate(1120, 160) scale(0.85)">
+                      <path d="M-5 0 Q0 -40, 5 -80" stroke="#241810" strokeWidth="12" fill="none" />
+                      <circle cx="5" cy="-80" r="50" fill="#145c3d" />
+                    </g>
+
+                    <path d="M0 160 Q100 145, 200 160 T400 160 T600 160 T800 160 T1000 160 T1200 160" fill="#0b452e" fillOpacity="0.6" />
+                  </g>
+
                   <path d="M0,210 C180,165 280,195 420,225 C600,265 760,180 920,210 C1010,228 1110,220 1200,190 L1200,0 L0,0 Z" fill="#1f6a52" fillOpacity="0.16" />
 
-                  <g fill="#6de3a0" fillOpacity="0.22">
-                    <path d="M70 620 C75 560, 90 520, 98 460 C112 520, 120 570, 118 620 Z" />
-                    <path d="M120 620 C128 560, 145 510, 160 450 C170 520, 172 560, 166 620 Z" />
-                    <path d="M1030 620 C1038 565, 1060 520, 1080 455 C1090 520, 1092 565, 1088 620 Z" />
-                    <path d="M1085 620 C1093 575, 1110 535, 1130 470 C1138 530, 1140 570, 1135 620 Z" />
-                  </g>
+                    <g fill="#6de3a0" fillOpacity="0.22">
+                    <path d="M70 650 C75 590, 90 550, 98 490 C112 550, 120 600, 118 650 Z" />
+                    <path d="M120 650 C128 590, 145 540, 160 480 C170 550, 172 590, 166 650 Z" />
+                    <path d="M1030 650 C1038 595, 1060 550, 1080 485 C1090 550, 1092 595, 1088 650 Z" />
+                    <path d="M1085 650 C1093 605, 1110 565, 1130 500 C1138 560, 1140 600, 1135 650 Z" />
+                    </g>
 
                   <g fill="#8ae6ff" fillOpacity="0.23">
                     <path d="M220 260 C250 230, 300 230, 330 260 C300 295, 255 294, 220 260 Z" />
@@ -1141,10 +1266,79 @@ export default function SlotsPage() {
                     <path d="M810 315 C840 287, 888 286, 915 315 C888 349, 842 348, 810 315 Z" />
                     <circle cx="826" cy="313" r="4" fill="#052436" fillOpacity="0.75" />
                     <path d="M530 230 C552 208, 586 208, 610 230 C586 255, 554 255, 530 230 Z" />
+                    <circle cx="547" cy="229" r="4" fill="#052436" fillOpacity="0.75" />
                   </g>
                 </svg>
 
-                <div className="absolute left-0 right-0 top-8 sm:top-10 h-2 sm:h-3 water-surface" />
+                <div className="absolute left-0 right-0 top-20 sm:top-32 h-2 sm:h-3 water-surface" />
+
+                <div className="absolute top-2 sm:top-4 left-[16%] sm:left-[20%] -translate-x-1/2 z-20 pointer-events-none boat-fisher-wrap">
+                  {!boatAwake && phase !== "free" && (
+                    <div className="absolute pointer-events-none" style={{ left: '45%', top: '20px' }}>
+                      <div className="relative w-8 h-6">
+                        <span className="absolute text-[#d2ecff] font-bold text-xs animate-[floatZ_2s_infinite]" style={{ left: '-0.5rem', top: '2px', animationDelay: '0s' }}>Z</span>
+                        <span className="absolute text-[#d2ecff]/80 font-bold text-[10px] animate-[floatZ_3s_infinite]" style={{ left: '-0.2rem', top: '6px', animationDelay: '0.4s' }}>z</span>
+                        <span className="absolute text-[#d2ecff]/60 font-bold text-[8px] animate-[floatZ_4s_infinite]" style={{ left: '0.3rem', top: '4px', animationDelay: '0.8s' }}>z</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <svg className="w-56 sm:w-72 h-auto" viewBox="0 0 280 140" aria-hidden>
+                    <path d="M45 80 L235 80 L228 72 L52 72 Z" fill="#432b1a" />
+
+                    <g transform="translate(158, 85) rotate(-35)">
+                      <line x1="0" y1="0" x2="110" y2="0" stroke="#455a64" strokeWidth="3" strokeLinecap="round" />
+                      <line x1="110" y1="0" x2="110" y2="80" stroke="white" strokeOpacity="0.4" strokeWidth="0.5" />
+                    </g>
+
+                    <g transform={`translate(140, ${boatAwake && phase !== "free" ? 44 : 54})`} className="transition-transform duration-700 ease-in-out">
+                      <g transform={boatAwake && phase !== "free" ? "scale(1.02)" : "rotate(8, 0, 40)"} className="transition-transform duration-700 origin-bottom">
+                        <path d="M-18 25 C-18 25, -22 62, 0 62 C22 62, 18 25, 18 25 Z" fill="#365167" />
+                        <path d="M-9 25 L9 25 L11 52 L-11 52 Z" fill="#fbc3a1" /> {/* Hemd */}
+
+                        <rect x="-4" y="18" width="8" height="12" fill="#fbc3a1" />
+
+                        <g transform="translate(0, 10)">
+                          <circle cx="0" cy="0" r="14" fill="#fbc3a1" stroke="#e0a080" strokeWidth="0.5" />
+                          
+                          {boatAwake && phase !== "free" ? (
+                            <>
+                              <circle cx="-5" cy="-1" r="3.5" fill="white" />
+                              <circle cx="5" cy="-1" r="3.5" fill="white" />
+                              <circle cx="-5" cy="-1" r="1.8" fill="#1a2a38" />
+                              <circle cx="5" cy="-1" r="1.8" fill="#1a2a38" />
+                              <path d="M-3 6 Q0 9 3 6" stroke="#1a2a38" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                            </>
+                          ) : (
+                            <>
+                              <path d="M-7 -1 Q-5 1 -3 -1" stroke="#4a3a2a" strokeWidth="2" fill="none" strokeLinecap="round" />
+                              <path d="M3 -1 Q5 1 7 -1" stroke="#4a3a2a" strokeWidth="2" fill="none" strokeLinecap="round" />
+                              <line x1="-2" y1="6" x2="2" y2="6" stroke="#4a3a2a" strokeWidth="1" />
+                            </>
+                          )}
+
+                          <g transform="translate(0, -10)">
+                            <path d="M-18 0 L18 0 L14 -15 L-14 -15 Z" fill="#cfd8dc" />
+                            <path d="M-24 0 L24 0 Q24 3 0 3 Q-24 3 -24 0 Z" fill="#90a4ae" />
+                          </g>
+                        </g>
+                      </g>
+                    </g>
+                    
+                    <path d="M30 80 C30 80, 45 125, 140 125 C235 125, 250 80, 250 80 Z" fill="#5d4037" stroke="#432b1a" strokeWidth="1" />
+                    
+                    <rect x="100" y="80" width="80" height="5" fill="#432b1a" rx="2" /> 
+
+                    <g transform="rotate(-15, 100, 85)">
+                      <line x1="100" y1="85" x2="25" y2="110" stroke="#795548" strokeWidth="4" strokeLinecap="round" />
+                      <rect x="5" y="105" width="22" height="14" rx="3" fill="#795548" transform="rotate(-20, 15, 110)" />
+                    </g>
+                    <g transform="rotate(15, 180, 85)">
+                      <line x1="180" y1="85" x2="255" y2="110" stroke="#795548" strokeWidth="4" strokeLinecap="round" />
+                      <rect x="250" y="105" width="22" height="14" rx="3" fill="#795548" transform="rotate(20, 260, 110)" />
+                    </g>
+                  </svg>
+                </div>
 
                 <div className="absolute bottom-0 left-0 right-0 h-20 sm:h-24 seabed-layer">
                   <svg className="absolute inset-0 w-full h-full" viewBox="0 0 1200 140" preserveAspectRatio="none" aria-hidden>
@@ -1153,6 +1347,58 @@ export default function SlotsPage() {
                   </svg>
                 </div>
               </div>
+
+              {phase === "prefree" && (
+                <div className="absolute inset-0 z-30 flex items-center justify-center p-3 sm:p-6">
+                  <div className="w-full max-w-140 aspect-square rounded-2xl border border-[#2f4553] bg-[#112331]/95 p-3 sm:p-5 shadow-[0_0_40px_rgba(0,0,0,0.45)] flex flex-col">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="text-[#d2ecff] font-bold text-sm uppercase tracking-wide">Tonkrüge öffnen</div>
+                      <div className="text-[11px] text-[#8ab8d4] text-right">
+                        Freispiele Bonus: <span className="text-[#9effc1] font-black">+{preFreeState?.extraSpins ?? 0}</span><br />
+                        Fisher Start: <span className="text-[#7dd3fc] font-black">+{preFreeState?.extraFishers ?? 0}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 grid grid-cols-4 gap-2">
+                      {(preFreeState?.tokens ?? []).map((token, index) => {
+                        const opened = !!preFreeState?.revealed[index];
+                        return (
+                          <button
+                            key={`pot-${index}`}
+                            type="button"
+                            onClick={() => handlePreFreePick(index)}
+                            disabled={opened || preFreeState?.done}
+                            className={`h-full min-h-16 rounded-xl border transition-all relative overflow-hidden ${opened ? "border-[#5d7f91] bg-[#173341]" : "border-[#3b5b6d] bg-[#143142] hover:bg-[#1b4157]"}`}
+                          >
+                            {!opened ? (
+                              <svg className="w-full h-full" viewBox="0 0 120 70" aria-hidden>
+                                <ellipse cx="60" cy="54" rx="27" ry="10" fill="#6a492f" />
+                                <path d="M33 22 C36 46, 84 46, 87 22 L80 54 L40 54 Z" fill="#9b6a3a" />
+                                <ellipse cx="60" cy="22" rx="27" ry="8" fill="#ba8751" />
+                                <ellipse cx="60" cy="20" rx="18" ry="5" fill="#7a5432" />
+                              </svg>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                {token === "shoe" ? (
+                                  <svg className="w-10 h-10" viewBox="0 0 64 64" aria-hidden>
+                                    <path d="M12 42 C20 34, 24 34, 30 38 C37 43, 45 41, 52 40 L52 50 L12 50 Z" fill="#533b2e" />
+                                    <path d="M9 50 L55 50 C56 54, 54 57, 49 57 L15 57 C10 57, 8 54, 9 50 Z" fill="#2c2c2c" />
+                                  </svg>
+                                ) : token === "fisher" ? (
+                                  <div className="text-3xl leading-none">🤠</div>
+                                ) : (
+                                  <div className="text-[#9effc1] font-black text-lg">
+                                    +{token === "fs1" ? 1 : token === "fs2" ? 2 : token === "fs3" ? 3 : 4}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-5 gap-1.5 sm:gap-4 relative z-10">
                 {Array.from({ length: REELS }, (_, reel) => (
@@ -1221,7 +1467,7 @@ export default function SlotsPage() {
             </div>
           </div>
 
-          <GameRecordsPanel gameId="slots"/>
+          <GameRecordsPanel gameId="slot"/>
         </div>
       </div>
 
@@ -1234,6 +1480,16 @@ export default function SlotsPage() {
           0% { transform: scale(1); }
           50% { transform: scale(1.15); filter: brightness(1.2) contrast(1.1); }
           100% { transform: scale(1); }
+        }
+        @keyframes floatZ {
+          0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+          20% { opacity: 1; }
+          80% { opacity: 1; }
+          100% { transform: translate(15px, -40px) scale(1.5); opacity: 0; }
+        }
+        @keyframes oarSway {
+          from { transform: rotate(-5deg); }
+          to { transform: rotate(5deg); }
         }
         .slot-reel-rolling {
           filter: blur(0.4px);
@@ -1311,4 +1567,13 @@ export default function SlotsPage() {
       `}</style>
     </>
   );
+}
+
+function buildPreFreeTokens() {
+  const tokens = [...PREFREE_TOKEN_POOL];
+  for (let i = tokens.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [tokens[i], tokens[j]] = [tokens[j], tokens[i]];
+  }
+  return tokens;
 }
