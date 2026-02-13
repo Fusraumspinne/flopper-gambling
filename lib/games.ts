@@ -24,4 +24,5 @@ export const games = [
   { name: "Coin Flip", href: "/coinflip", tagline: "Build a streak multiplier", image: "/images/Coinflip.png" },
   { name: "Rock Paper Scissors", href: "/rps", tagline: "Build a streak and cash out", image: "/images/RPS.png" },
   { name: "HiLo", href: "/hilo", tagline: "Wette, ob die nächste Karte höher oder niedriger ist", image: "/images/HiLo.png" },
+  { name: "Slots", href: "/slots", tagline: "5x3 reels with fish & free spins", image: "" },
 ];

@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 export default function UpdatesPanel() {
   const [items] = useState<string[]>([
     "Live chat to chat with other players while playing games",
-    "Panel to claim money from other players with interest charges",
     "Drill (game)",
     "Prime dice (game)",
     "Slot (game)",

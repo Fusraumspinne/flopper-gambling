@@ -38,7 +38,7 @@ function Wartungspause() {
         </div>
 
         <p className="text-sm text-[#557086]">
-          Estimated uptime: Monday • Play responsibly • Follow us for updates
+          Estimated uptime: A few hours • Play responsibly • Follow us for updates
         </p>
         
         <div className="mt-8 flex gap-4 justify-center">

@@ -24,6 +24,7 @@ export const GAME_STATUS_KEYS = [
   "coinflip",
   "rps",
   "hilo",
+  "slots",
 ];
 
 export const GAME_LABELS: Record<string, string> = {
@@ -52,6 +53,7 @@ export const GAME_LABELS: Record<string, string> = {
   coinflip: "Coin Flip",
   rps: "Rock Paper Scissors",
   hilo: "HiLo",
+  slots: "Slots",
 };
 
 export const GAME_ROUTE_TO_KEY: Record<string, string> = {
@@ -81,6 +83,7 @@ export const GAME_ROUTE_TO_KEY: Record<string, string> = {
   "/coinflip": "coinflip",
   "/rps": "rps",
   "/hilo": "hilo",
+  "/slots": "slots",
 };
 
 export const DEFAULT_GAME_STATUS: Record<string, boolean> = GAME_STATUS_KEYS.reduce(
