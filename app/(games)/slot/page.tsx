@@ -66,7 +66,6 @@ const PAYLINES: number[][] = [
   [0, 1, 1, 1, 0],
 ];
 
-const CARD_SYMBOLS: SymbolId[] = ["10", "J", "Q", "K", "A"];
 const HIGH_SYMBOLS: SymbolId[] = ["rod", "bag", "toucan", "lure"];
 const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   "10": 13,
@@ -749,8 +748,9 @@ export default function SlotPage() {
     lineEval = evaluateLines(nextGrid, spinCost, isFreeSpin);
 
     const isFreeCollect = isFreeSpin && fishers > 0 && fishPack.total > 0;
-    const isBoatCollect = (!isFreeSpin && fishPack.total > 0 && (shouldTriggerBaseCollect(fishPack.positions.length, anteBet) || Math.random() < BOAT_WAKE_CHANCE_BASE)) ||
-                         (isFreeSpin && fishers === 0 && fishPack.total > 0 && Math.random() < 0.15);
+    const isBoatCollect = !isFreeSpin && fishPack.total > 0 && (
+      shouldTriggerBaseCollect(fishPack.positions.length, anteBet) || Math.random() < BOAT_WAKE_CHANCE_BASE
+    );
     
     const isAnyFishCollect = isFreeCollect || isBoatCollect;
 
