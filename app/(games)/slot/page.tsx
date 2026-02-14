@@ -78,7 +78,7 @@ const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   toucan: 3.5,
   lure: 3,
   fish: 1.6,      
-  scatter: 0.9,   
+  scatter: 1.1,   
   fisher: 0,
 };
 const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
@@ -99,7 +99,7 @@ const FISH_VALUES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000];
 const FISH_WEIGHTS = [ 24,  19, 15, 13, 9.5, 6.5, 3.5, 0.6, 0.18, 0.07, 0.02, 0.006   ];
 const BASE_COLLECT_MULTIS = [1, 2, 3, 5, 8, 10, 15, 20, 30, 40, 50];
 const FS_MULTIPLIERS = [1, 2, 3, 10, 20, 30, 40, 50];
-const BOAT_WAKE_CHANCE_BASE = 0.05;
+const BOAT_WAKE_CHANCE_BASE = 0.1;
 const BOAT_COLLECT_MULTI_WEIGHTS = [60, 25, 7, 3, 2, 1.5, 1, 0.7, 0.4, 0.2, 0.1];
 const PREFREE_START_SPINS = 10;
 const PREFREE_TOKEN_POOL: PreFreeToken[] = [
@@ -378,7 +378,7 @@ function applyTwoScatterDownNudge(previousGrid: Cell[][], nextGrid: Cell[][], re
   const nudgedGrid = nextGrid.map((row) => row.map((cell) => ({ ...cell, highlight: false })));
 
   for (const [row, reel] of scatterPositions) {
-    nudgedGrid[row + 1][reel] = { symbol: "scatter", highlight: true };
+    nudgedGrid[row + 1][reel] = { symbol: "scatter", highlight: false };
     nudgedGrid[row][reel] = { ...randomNonScatterBaseSymbol(removeLowestFish), highlight: false };
   }
 
@@ -452,6 +452,7 @@ export default function SlotPage() {
     collectedFishermen: 0,
     removeLowestFish: false,
   });
+  const [isAutospinning, setIsAutospinning] = useState(false);
   const [pendingRoundPayout, setPendingRoundPayout] = useState(0);
   const [lastWin, setLastWin] = useState(0);
   const pendingRoundStakeRef = React.useRef(0);
@@ -486,6 +487,29 @@ export default function SlotPage() {
     };
   }, []);
 
+  const spinCost = useMemo(() => normalizeMoney(betAmount * (anteBet ? 1.5 : 1)), [betAmount, anteBet]);
+  const buyBonusCost = useMemo(() => normalizeMoney(betAmount * 100), [betAmount]);
+  const isTenDollarFreeSpin = !anteBet && normalizeMoney(betAmount) === 10;
+
+  React.useEffect(() => {
+    if (isAutospinning && phase === "idle" && !isExecutingSpin) {
+      if (!isTenDollarFreeSpin && balance < spinCost) {
+        setIsAutospinning(false);
+        return;
+      }
+
+      const timer = setTimeout(() => {
+        if (isAutospinning && phase === "idle" && !isExecutingSpin) {
+          startPaidSpin();
+        }
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+    if (isAutospinning && (phase === "prefree" || phase === "pick" || phase === "free")) {
+      setIsAutospinning(false);
+    }
+  }, [isAutospinning, phase, isExecutingSpin, balance, spinCost, isTenDollarFreeSpin]);
+
   const audioRef = React.useRef<{
     bet: HTMLAudioElement | null;
     spin: HTMLAudioElement | null;
@@ -494,8 +518,6 @@ export default function SlotPage() {
   }>({ bet: null, spin: null, win: null, lose: null });
 
   const canPaidSpin = phase === "idle";
-  const spinCost = useMemo(() => normalizeMoney(betAmount * (anteBet ? 1.5 : 1)), [betAmount, anteBet]);
-  const buyBonusCost = useMemo(() => normalizeMoney(betAmount * 100), [betAmount]);
 
   const playAudio = (a: HTMLAudioElement | null) => {
     if (!a) return;
@@ -544,7 +566,6 @@ export default function SlotPage() {
   }, [volume]);
 
   const settleRound = (stake: number, payout: number) => {
-    if (stake <= 0) return;
     const p = normalizeMoney(payout);
     const s = normalizeMoney(stake);
     const isWinRound = p >= s;
@@ -556,7 +577,11 @@ export default function SlotPage() {
       setLastWin(0);
     }
 
-    if (isWinRound) {
+    if (s <= 0) {
+      if (p > 0) {
+        playAudio(audioRef.current.win);
+      }
+    } else if (isWinRound) {
       playAudio(audioRef.current.win);
     } else {
       finalizePendingLoss();
@@ -579,13 +604,15 @@ export default function SlotPage() {
       const spots: [number, number][] = [];
       for (let row = 0; row < ROWS; row++) {
         for (let reel = 0; reel < REELS; reel++) {
-          if (finalGrid[row][reel].symbol !== "fisher") {
+          if (finalGrid[row][reel].symbol === "fisher") {
+            finalGrid[row][reel] = { ...finalGrid[row][reel], highlight: true };
+          } else {
             spots.push([row, reel]);
           }
         }
       }
 
-      const fishToAdd = Math.floor(Math.random() * 3) + 1;
+      const fishToAdd = Math.floor(Math.random() * 4) + 1;
       for (let i = 0; i < Math.min(fishToAdd, spots.length); i++) {
         const idx = Math.floor(Math.random() * spots.length);
         const [row, reel] = spots.splice(idx, 1)[0];
@@ -595,12 +622,20 @@ export default function SlotPage() {
           highlight: true 
         };
       }
+
+      for (let row = 0; row < ROWS; row++) {
+        for (let reel = 0; reel < REELS; reel++) {
+          if (finalGrid[row][reel].symbol === "fisher") {
+            finalGrid[row][reel] = { ...finalGrid[row][reel], highlight: true };
+          }
+        }
+      }
     }
 
     return { finalGrid, waterfallTriggered };
   };
 
-  const executeSpin = async ({ isPaidBaseSpin }: { isPaidBaseSpin: boolean }) => {
+  const executeSpin = async () => {
     if (isExecutingSpinRef.current) return;
     isExecutingSpinRef.current = true;
     setIsExecutingSpin(true);
@@ -735,10 +770,10 @@ export default function SlotPage() {
 
     if (waterfallInfo.triggered) {
       setIsWaterfallActive(true);
-      await sleep(950);
+      await sleep(1800); 
       nextGrid = waterfallInfo.finalGrid;
-      setGrid(nextGrid);
-      await sleep(1450);
+      setGrid(nextGrid.map(row => row.map(cell => ({ ...cell, highlight: false }))));
+      await sleep(600);
       setIsWaterfallActive(false);
     }
 
@@ -747,12 +782,13 @@ export default function SlotPage() {
     const fishPack = collectFishValues(nextGrid);
     lineEval = evaluateLines(nextGrid, spinCost, isFreeSpin);
 
-    const isFreeCollect = isFreeSpin && fishers > 0 && fishPack.total > 0;
-    const isBoatCollect = !isFreeSpin && fishPack.total > 0 && (
+    const hasFishSymbol = nextGrid.some((r) => r.some((c) => c.symbol === "fish"));
+    const isFisherCollect = fishers > 0 && (fishPack.total > 0 || hasFishSymbol);
+    const isBoatCollect = !isFreeSpin && !isFisherCollect && fishPack.total > 0 && (
       shouldTriggerBaseCollect(fishPack.positions.length, anteBet) || Math.random() < BOAT_WAKE_CHANCE_BASE
     );
     
-    const isAnyFishCollect = isFreeCollect || isBoatCollect;
+    const isAnyFishCollect = isFisherCollect || isBoatCollect;
 
     const highlighted = nextGrid.map((row, rowIdx) =>
       row.map((cell, reelIdx) => {
@@ -768,8 +804,9 @@ export default function SlotPage() {
     let fishWin = 0;
     let payoutForThisSpin = lineEval.totalWin;
 
-    if (isFreeCollect) {
-      const perFisherWin = normalizeMoney(fishPack.total * spinCost * currentFsMultiplier);
+    if (isFisherCollect) {
+      const collectMultiplier = isFreeSpin ? currentFsMultiplier : 1;
+      const perFisherWin = normalizeMoney(fishPack.total * spinCost * collectMultiplier);
       fishWin = normalizeMoney(perFisherWin * fishers);
       payoutForThisSpin += fishWin;
     } else if (isBoatCollect) {
@@ -877,24 +914,27 @@ export default function SlotPage() {
     }
 
     setPhase("idle");
-    if (isPaidBaseSpin) {
-      settleRound(pendingRoundStakeRef.current, updatedRoundPayout);
-    }
+    settleRound(pendingRoundStakeRef.current, updatedRoundPayout);
   };
 
   const startPaidSpin = async () => {
     if (!canPaidSpin) return;
     if (isExecutingSpinRef.current) return;
     if (betAmount <= 0) return;
-    if (balance < spinCost) {
+    if (!isTenDollarFreeSpin && balance < spinCost) {
       return;
     }
-    subtractFromBalance(spinCost);
-    playAudio(audioRef.current.bet);
-    pendingRoundStakeRef.current = spinCost;
+    if (!isTenDollarFreeSpin) {
+      subtractFromBalance(spinCost);
+      playAudio(audioRef.current.bet);
+      pendingRoundStakeRef.current = spinCost;
+    } else {
+      playAudio(audioRef.current.bet);
+      pendingRoundStakeRef.current = 10;
+    }
     pendingRoundPayoutRef.current = 0;
     setPendingRoundPayout(0);
-    const result = await executeSpin({ isPaidBaseSpin: true });
+    const result = await executeSpin();
     return result;
   };
 
@@ -909,15 +949,12 @@ export default function SlotPage() {
     }
   };
 
-  const mainDisabled =
-    isExecutingSpin || (phase === "free" ? freeSpinsLeft <= 0 : phase !== "idle" || balance < spinCost || betAmount <= 0);
-
-  
+  const mainDisabled = isExecutingSpin || (phase === "free" ? freeSpinsLeft <= 0 : phase !== "idle" || (!isTenDollarFreeSpin && balance < spinCost) || betAmount <= 0);
 
   const spinFree = async () => {
     if (phase !== "free" || freeSpinsLeft <= 0) return;
     if (isExecutingSpinRef.current) return;
-    await executeSpin({ isPaidBaseSpin: false });
+    await executeSpin();
   };
 
   const beginFreeSpinsFromPreFree = (extraSpins: number, extraFishers: number) => {
@@ -1041,6 +1078,9 @@ export default function SlotPage() {
         <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs self-start">
           <div className="space-y-2">
             <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
+                <div className="text-[9px] text-[#93c8a8] font-semibold">
+                Free spin with a $10 bet (no Ante)
+                </div>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3] font-mono">$</div>
               <input
@@ -1049,22 +1089,22 @@ export default function SlotPage() {
                 onChange={(e) => setBetInput(e.target.value)}
                 onBlur={() => {
                   const val = Number(betInput.replace(",", "."));
-                  const safe = Number.isFinite(val) ? Math.max(0, val) : 0;
+                  const safe = Number.isFinite(val) ? Math.max(10, val) : 10;
                   setBetAmount(normalizeMoney(safe));
                   setBetInput(String(normalizeMoney(safe)));
                 }}
-                disabled={phase !== "idle"}
+                disabled={phase !== "idle" || isAutospinning}
                 className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors"
               />
             </div>
             <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => {
-                  const n = normalizeMoney(betAmount / 2);
+                  const n = normalizeMoney(Math.max(10, betAmount / 2));
                   setBetAmount(n);
                   setBetInput(String(n));
                 }}
-                disabled={phase !== "idle"}
+                disabled={phase !== "idle" || isAutospinning}
                 className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50 cf-press"
               >
                 ½
@@ -1075,18 +1115,18 @@ export default function SlotPage() {
                   setBetAmount(n);
                   setBetInput(String(n));
                 }}
-                disabled={phase !== "idle"}
+                disabled={phase !== "idle" || isAutospinning}
                 className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50 cf-press"
               >
                 2×
               </button>
               <button
                 onClick={() => {
-                  const n = normalizeMoney(balance);
+                  const n = normalizeMoney(Math.max(10, balance));
                   setBetAmount(n);
                   setBetInput(String(n));
                 }}
-                disabled={phase !== "idle"}
+                disabled={phase !== "idle" || isAutospinning}
                 className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50 cf-press"
               >
                 All In
@@ -1099,7 +1139,7 @@ export default function SlotPage() {
                 <span className="text-[10px] text-[#b1bad3] font-bold uppercase">Ante Bet - Spin Cost +50%</span>
               <button
                 onClick={() => setAnteBet(!anteBet)}
-                disabled={phase !== "idle"}
+                disabled={phase !== "idle" || isAutospinning}
                 className={`w-10 h-5 rounded-full relative transition-colors ${anteBet ? "bg-[#00e701]" : "bg-[#2f4553]"}`}
               >
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${anteBet ? "left-5.5" : "left-0.5"}`} />
@@ -1108,7 +1148,7 @@ export default function SlotPage() {
             {!anteBet && (
                 <button
                 onClick={buyBonus}
-                disabled={anteBet || phase !== "idle" || betAmount <= 0 || balance < buyBonusCost}
+                disabled={anteBet || phase !== "idle" || isAutospinning || betAmount <= 0 || balance < buyBonusCost}
                 className="w-full py-1 text-[9px] font-bold uppercase bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20 rounded hover:bg-[#f59e0b]/20"
                 >
                 {`Bonus Buy $${formatMoney(buyBonusCost)}`}
@@ -1116,12 +1156,26 @@ export default function SlotPage() {
             )}
           </div>
 
+          {!isAutospinning && (
+            <button
+              onClick={() => setIsAutospinning(true)}
+              disabled={phase !== "idle" || (!isTenDollarFreeSpin && balance < spinCost)}
+              className="w-full py-2 rounded-md font-bold text-xs transition-all flex items-center justify-center gap-2 bg-[#2f4553] hover:bg-[#3e5666] text-[#b1bad3] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Auto (Until Bonus)
+            </button>
+          )}
+
           <button
-            onClick={handleMainSpin}
-            disabled={mainDisabled}
-            className="w-full bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
+            onClick={isAutospinning ? () => setIsAutospinning(false) : handleMainSpin}
+            disabled={!isAutospinning && mainDisabled}
+            className={`w-full ${
+              isAutospinning 
+                ? "bg-[#ff4d4d] hover:bg-[#ff3333] text-white shadow-[0_0_20px_rgba(255,77,77,0.2)]" 
+                : "bg-[#00e701] hover:bg-[#00c201] text-black shadow-[0_0_20px_rgba(0,231,1,0.2)]"
+            } disabled:opacity-50 disabled:cursor-not-allowed py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2`}
           >
-            {isExecutingSpin ? "Playing" : "Bet"}
+            {isAutospinning ? "STOP" : (isExecutingSpin ? "Playing" : "Bet")}
           </button>
 
           {phase === "free" && (

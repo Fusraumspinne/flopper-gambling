@@ -6,7 +6,8 @@ export default function UpdatesPanel() {
     "Live chat to chat with other players while playing games",
     "Drill (game)",
     "Prime dice (game)",
-    "Slide (game)"
+    "Slide (game)",
+    "Daily quests"
   ]);
 
   if(items.length === 0) return
