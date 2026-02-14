@@ -69,54 +69,39 @@ const PAYLINES: number[][] = [
 const CARD_SYMBOLS: SymbolId[] = ["10", "J", "Q", "K", "A"];
 const HIGH_SYMBOLS: SymbolId[] = ["rod", "bag", "toucan", "lure"];
 const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "10": 11,
-  J: 11,
-  Q: 10,
-  K: 9,
-  A: 8,
-  rod: 5,
-  bag: 4.5,
-  toucan: 4,
-  lure: 3.5,
-  fish: 2.5,
-  scatter: 1.35,
+  "10": 13,
+  J: 13,
+  Q: 12,
+  K: 11,
+  A: 10,
+  rod: 4,
+  bag: 3.8,
+  toucan: 3.5,
+  lure: 3,
+  fish: 1.6,      
+  scatter: 0.9,   
   fisher: 0,
 };
 const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "10": 10,
-  J: 10,
-  Q: 9,
-  K: 9,
-  A: 8,
-  rod: 4.8,
-  bag: 4.3,
-  toucan: 3.8,
-  lure: 3.2,
-  fish: 4.4,
+  "10": 12,
+  J: 12,
+  Q: 11,
+  K: 10,
+  A: 9,
+  rod: 4,
+  bag: 3.8,
+  toucan: 3.5,
+  lure: 3,
+  fish: 2.6,     
   scatter: 0,
-  fisher: 1.65,
+  fisher: 1.2,   
 };
-
 const FISH_VALUES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000];
-const FISH_WEIGHTS = [25, 20, 16, 14, 10, 7, 4, 2, 1.2, 0.7, 0.4, 0.15];
+const FISH_WEIGHTS = [ 24,  19, 15, 13, 9.5, 6.5, 3.5, 0.6, 0.18, 0.07, 0.02, 0.006   ];
 const BASE_COLLECT_MULTIS = [1, 2, 3, 5, 8, 10, 15, 20, 30, 40, 50];
-const BASE_COLLECT_WEIGHTS = [24, 20, 16, 14, 10, 7, 4.5, 2.5, 1.5, 0.8, 0.5];
-const BASE_COLLECT_CHANCE_BY_FISH_COUNT: Record<number, number> = {
-  1: 0.1,
-  2: 0.16,
-  3: 0.24,
-  4: 0.3,
-  5: 0.36,
-};
-const BASE_SCATTER_ASSIST_WEIGHTS: Record<"none" | "hook" | "respin" | "croc", number> = {
-  none: 62,
-  hook: 18,
-  respin: 14,
-  croc: 6,
-};
 const FS_MULTIPLIERS = [1, 2, 3, 10, 20, 30, 40, 50];
-const BOAT_WAKE_CHANCE_BASE = 1;
-const BOAT_COLLECT_MULTI_WEIGHTS = [42, 28, 12, 6, 4, 3, 2, 1.4, 0.9, 0.5, 0.2];
+const BOAT_WAKE_CHANCE_BASE = 0.05;
+const BOAT_COLLECT_MULTI_WEIGHTS = [60, 25, 7, 3, 2, 1.5, 1, 0.7, 0.4, 0.2, 0.1];
 const PREFREE_START_SPINS = 10;
 const PREFREE_TOKEN_POOL: PreFreeToken[] = [
   "fs1",
@@ -360,81 +345,12 @@ function buildPickTokens(startBoats: number, boatsTarget: number) {
 
 function applyBaseScatterAssist(gridBefore: Cell[][], removeLowestFish: boolean) {
   const g = gridBefore.map((row) => row.map((cell) => ({ ...cell, highlight: false })));
-  let scatter = countSymbol(g, "scatter");
   const fired: string[] = [];
-  if (scatter !== 2) return { grid: g, fired };
-
-  const mode = pickWeighted<"none" | "hook" | "respin" | "croc">([
-    ["none", BASE_SCATTER_ASSIST_WEIGHTS.none],
-    ["hook", BASE_SCATTER_ASSIST_WEIGHTS.hook],
-    ["respin", BASE_SCATTER_ASSIST_WEIGHTS.respin],
-    ["croc", BASE_SCATTER_ASSIST_WEIGHTS.croc],
-  ]);
-
-  const nonScatterPositions: [number, number][] = [];
-  const lowSymbolPositions: [number, number][] = [];
-  for (let row = 0; row < ROWS; row++) {
-    for (let reel = 0; reel < REELS; reel++) {
-      if (g[row][reel].symbol !== "scatter") nonScatterPositions.push([row, reel]);
-      if (CARD_SYMBOLS.includes(g[row][reel].symbol)) lowSymbolPositions.push([row, reel]);
-    }
-  }
-
-  const forceScatterOnRandom = (reason: string) => {
-    if (nonScatterPositions.length <= 0) return;
-    const [row, reel] = nonScatterPositions[Math.floor(Math.random() * nonScatterPositions.length)];
-    g[row][reel] = { symbol: "scatter", highlight: true };
-    fired.push(reason);
-  };
-
-  if (mode === "hook") {
-    forceScatterOnRandom("Base Hook: zusätzlicher Scatter wird gezogen");
-  }
-
-  if (mode === "croc") {
-    const pool = lowSymbolPositions.length > 0 ? lowSymbolPositions : nonScatterPositions;
-    if (pool.length > 0) {
-      const [row, reel] = pool[Math.floor(Math.random() * pool.length)];
-      g[row][reel] = { symbol: "scatter", highlight: true };
-      fired.push("Croc Event: Symbol wird zu Scatter verwandelt");
-    }
-  }
-
-  if (mode === "respin") {
-    for (let reel = 0; reel < REELS; reel++) {
-      for (let row = ROWS - 2; row >= 0; row--) {
-        if (g[row][reel].symbol === "scatter" && g[row + 1][reel].symbol !== "scatter") {
-          [g[row][reel], g[row + 1][reel]] = [g[row + 1][reel], g[row][reel]];
-          g[row + 1][reel].highlight = true;
-        }
-      }
-    }
-
-    for (let row = 0; row < ROWS; row++) {
-      for (let reel = 0; reel < REELS; reel++) {
-        if (g[row][reel].symbol !== "scatter") {
-          g[row][reel] = { ...randomNonScatterBaseSymbol(removeLowestFish), highlight: false };
-        }
-      }
-    }
-
-    scatter = countSymbol(g, "scatter");
-    if (scatter < 3) {
-      forceScatterOnRandom("Respin Event: 3. Scatter landet nach dem Nachdrehen");
-    } else {
-      fired.push("Respin Event: Scatter rutschen, Reels drehen nach");
-    }
-  }
-
   return { grid: g, fired };
 }
 
 function shouldTriggerBaseCollect(fishCount: number, anteBet: boolean) {
-  if (fishCount <= 0) return false;
-  const key = Math.min(5, Math.max(1, fishCount));
-  const baseChance = BASE_COLLECT_CHANCE_BY_FISH_COUNT[key] ?? BASE_COLLECT_CHANCE_BY_FISH_COUNT[5];
-  const chance = clamp(baseChance * (anteBet ? 1.08 : 1), 0, 0.5);
-  return Math.random() < chance;
+  return false;
 }
 
 function applyTwoScatterDownNudge(previousGrid: Cell[][], nextGrid: Cell[][], removeLowestFish: boolean) {
@@ -537,7 +453,6 @@ export default function SlotPage() {
     collectedFishermen: 0,
     removeLowestFish: false,
   });
-  const [pendingRoundStake, setPendingRoundStake] = useState(0);
   const [pendingRoundPayout, setPendingRoundPayout] = useState(0);
   const [lastWin, setLastWin] = useState(0);
   const pendingRoundStakeRef = React.useRef(0);
@@ -651,7 +566,6 @@ export default function SlotPage() {
 
     pendingRoundStakeRef.current = 0;
     pendingRoundPayoutRef.current = 0;
-    setPendingRoundStake(0);
     setPendingRoundPayout(0);
   };
 
@@ -659,7 +573,6 @@ export default function SlotPage() {
     const finalGrid = gridBefore.map((row) => row.map((cell) => ({ ...cell, highlight: false })));
     const fisherCount = countSymbol(finalGrid, "fisher");
     const fishCount = countSymbol(finalGrid, "fish");
-    const fired: string[] = [];
     let waterfallTriggered = false;
 
     if (fisherCount > 0 && fishCount === 0) {
@@ -683,10 +596,9 @@ export default function SlotPage() {
           highlight: true 
         };
       }
-      fired.push("Waterfall Event: Professor lockt Fische an!");
     }
 
-    return { finalGrid, waterfallTriggered, fired };
+    return { finalGrid, waterfallTriggered };
   };
 
   const executeSpin = async ({ isPaidBaseSpin }: { isPaidBaseSpin: boolean }) => {
@@ -697,7 +609,6 @@ export default function SlotPage() {
     setBoatNetCast(false);
     setBoatChestOpen(false);
     setBoatChestMulti(null);
-    let messageLocal = "";
     let lineEval: { totalWin: number; highlight: Set<string> } = { totalWin: 0, highlight: new Set() };
     let updatedRoundPayout = 0;
     try {
@@ -744,7 +655,7 @@ export default function SlotPage() {
 
     const animateReels = new Promise<void>((resolve) => {
       let stoppedCount = 0;
-      const stopTimes = [600, 750, 900, 1050, 1200];
+      const stopTimes = [300, 450, 600, 750, 900];
       const baseFrameRate = 90;
 
       for (let reel = 0; reel < REELS; reel++) {
@@ -838,8 +749,6 @@ export default function SlotPage() {
     lineEval = evaluateLines(nextGrid, spinCost, isFreeSpin);
 
     const isFreeCollect = isFreeSpin && fishers > 0 && fishPack.total > 0;
-    // All base game collections now use the boat animation. 
-    // In free spins, the boat can also step in if fish are present but no fisher symbol landed (15% chance).
     const isBoatCollect = (!isFreeSpin && fishPack.total > 0 && (shouldTriggerBaseCollect(fishPack.positions.length, anteBet) || Math.random() < BOAT_WAKE_CHANCE_BASE)) ||
                          (isFreeSpin && fishers === 0 && fishPack.total > 0 && Math.random() < 0.15);
     
@@ -863,13 +772,7 @@ export default function SlotPage() {
       const perFisherWin = normalizeMoney(fishPack.total * spinCost * currentFsMultiplier);
       fishWin = normalizeMoney(perFisherWin * fishers);
       payoutForThisSpin += fishWin;
-      if (fishers > 1) {
-        messageLocal = `Fisher x${fishers} sammelt je ${normalizeMoney(fishPack.total).toFixed(2)}x Fischwerte × ${currentFsMultiplier} = $${formatMoney(perFisherWin)} each, $${formatMoney(fishWin)} total`;
-      } else {
-        messageLocal = `Fisher sammelt ${normalizeMoney(fishPack.total).toFixed(2)}x Fischwerte × ${currentFsMultiplier} = $${formatMoney(fishWin)}`;
-      }
     } else if (isBoatCollect) {
-      // For free spin boat collects, we use the current FS multiplier. For base game, we pick a random one.
       const multi = isFreeSpin ? currentFsMultiplier : pickWeighted<number>(
         BASE_COLLECT_MULTIS.map((m, idx) => [m, BOAT_COLLECT_MULTI_WEIGHTS[idx]])
       );
@@ -877,7 +780,7 @@ export default function SlotPage() {
       const boatWin = normalizeMoney(fishPack.total * spinCost * multi);
       payoutForThisSpin += boatWin;
       
-      setBoatAwake(true);
+      if (!isFreeSpin) setBoatAwake(true);
       setBoatNetCast(true);
       await sleep(600);
       setBoatNetCast(false);
@@ -889,11 +792,7 @@ export default function SlotPage() {
       boatSleepTimeoutRef.current = setTimeout(() => {
         setBoatAwake(false);
       }, 2200);
-      
-      messageLocal = isFreeSpin 
-        ? `Boot-Fisher hilft aus! ${normalizeMoney(fishPack.total).toFixed(2)}x × ${multi} = $${formatMoney(boatWin)}`
-        : `Boot-Fisher wirft Netz! ${normalizeMoney(fishPack.total).toFixed(2)}x × ${multi} = $${formatMoney(boatWin)}`;
-        
+              
       await sleep(900);
       setBoatChestOpen(false);
       setBoatChestMulti(null);
@@ -994,7 +893,6 @@ export default function SlotPage() {
     playAudio(audioRef.current.bet);
     pendingRoundStakeRef.current = spinCost;
     pendingRoundPayoutRef.current = 0;
-    setPendingRoundStake(spinCost);
     setPendingRoundPayout(0);
     const result = await executeSpin({ isPaidBaseSpin: true });
     return result;
@@ -1082,7 +980,6 @@ export default function SlotPage() {
 
     pendingRoundStakeRef.current = buyBonusCost;
     pendingRoundPayoutRef.current = 0;
-    setPendingRoundStake(buyBonusCost);
     setPendingRoundPayout(0);
     setMods({ extraFreeSpins: 0, guaranteedFish: 0, collectedFishermen: 0, removeLowestFish: false });
     setFisherCollected(0);
@@ -1199,7 +1096,7 @@ export default function SlotPage() {
 
           <div className="p-3 bg-[#132330] rounded-lg border border-[#2f4553] space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-[#b1bad3] font-bold uppercase">Ante Bet (+50%)</span>
+                <span className="text-[10px] text-[#b1bad3] font-bold uppercase">Ante Bet - Spin Cost +50%</span>
               <button
                 onClick={() => setAnteBet(!anteBet)}
                 disabled={phase !== "idle"}
@@ -1367,7 +1264,7 @@ export default function SlotPage() {
                       <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-8 border-t-[#ea580c] -mt-1" />
                     </div>
                   )}
-                  {!boatAwake && phase !== "free" && (
+                  {!boatAwake && (
                     <div className="absolute pointer-events-none" style={{ left: '45%', top: '20px' }}>
                       <div className="relative w-8 h-6">
                         <span className="absolute text-[#d2ecff] font-bold text-xs animate-[floatZ_2s_infinite]" style={{ left: '-0.5rem', top: '2px', animationDelay: '0s' }}>Z</span>
@@ -1386,12 +1283,10 @@ export default function SlotPage() {
                     <line x1="248" y1="22" x2="248" y2="400" stroke="white" strokeOpacity="0.6" strokeWidth="0.5" />
 
                     <g transform="translate(188, 56)">
-                      {/* Detailed Treasure Chest */}
                       <rect x="0" y="8" width="30" height="20" rx="2" fill="#5c4033" stroke="#3d2b22" strokeWidth="1.5" />
                       <rect x="5" y="8" width="3" height="20" fill="#d7b36a" fillOpacity="0.4" />
                       <rect x="22" y="8" width="3" height="20" fill="#d7b36a" fillOpacity="0.4" />
                       
-                      {/* Lid - disappears when open */}
                       <g transform={boatChestOpen ? "translate(0, -10) scale(1, 0)" : ""} className={`transition-all duration-500 ease-out will-change-transform ${boatChestOpen ? "opacity-0 invisible" : "opacity-100"}`}>
                         <rect x="0" y="2" width="30" height="10" rx="3" fill="#7a5230" stroke="#3d2b22" strokeWidth="1.5" />
                         <rect x="5" y="2" width="3" height="10" fill="#d7b36a" />
