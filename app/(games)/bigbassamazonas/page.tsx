@@ -425,7 +425,7 @@ function renderSymbol(cell: Cell, spinCost?: number) {
   );
 }
 
-export default function SlotPage() {
+export default function BigBassAmazonasPage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss } = useWallet();
   const { volume } = useSoundVolume();
 

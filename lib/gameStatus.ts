@@ -1,5 +1,5 @@
 export const GAME_STATUS_KEYS = [
-  "slot",
+  "bigbassamazonas",
   "blackjack",
   "poker",
   "mines",
@@ -28,7 +28,7 @@ export const GAME_STATUS_KEYS = [
 ];
 
 export const GAME_LABELS: Record<string, string> = {
-  slot: "Slot",
+  bigbassamazonas: "Big Bass Amazonas",
   blackjack: "Blackjack",
   poker: "Poker",
   mines: "Mines",
@@ -57,7 +57,7 @@ export const GAME_LABELS: Record<string, string> = {
 };
 
 export const GAME_ROUTE_TO_KEY: Record<string, string> = {
-  "/slot": "slot",
+  "/bigbassamazonas": "bigbassamazonas",
   "/blackjack": "blackjack",
   "/poker": "poker",
   "/livepoker": "poker",

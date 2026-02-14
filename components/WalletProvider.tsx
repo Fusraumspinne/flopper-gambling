@@ -27,7 +27,7 @@ export type LiveStatsState = {
 };
 
 export const GAME_OPTIONS = [
-  { id: "slot", label: "Slot" },
+  { id: "bigbassamazonas", label: "Big Bass Amazonas" },
   { id: "blackjack", label: "Blackjack" },
   { id: "poker", label: "Poker" },
   { id: "mines", label: "Mines" },

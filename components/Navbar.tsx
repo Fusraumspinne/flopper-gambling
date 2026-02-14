@@ -19,7 +19,7 @@ interface Game {
 }
 
 const games: Game[] = [
-  { name: "Slot", icon: <Phishing className="w-5 h-5" />, href: "/slot" },
+  { name: "Big Bass Amazonas", icon: <Phishing className="w-5 h-5" />, href: "/bigbassamazonas" },
   { name: "Blackjack", icon: <Casino className="w-5 h-5" />, href: "/blackjack" },
   { name: "Poker", icon: <Toll className="w-5 h-5" />, href: "/poker" },
   { name: "Mines", icon: <Diamond className="w-5 h-5" />, href: "/mines" },

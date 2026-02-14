@@ -1,5 +1,5 @@
 export const games = [
-  { name: "Slot", href: "/slot", tagline: "Catch the biggest Fishes", image: "/images/Slot.png" },
+  { name: "Big Bass Amazonas", href: "/bigbassamazonas", tagline: "Catch the biggest Fishes", image: "/images/BigBassAmazonas.png" },
   { name: "Blackjack", href: "/blackjack", tagline: "Beat the dealer", image: "/images/BlackJack.png" },
   { name: "Poker", href: "/poker", tagline: "Read your enemies", image: "/images/Poker.png" },
   { name: "Mines", href: "/mines", tagline: "Find diamonds, avoid mines", image: "/images/Mines.png" },
