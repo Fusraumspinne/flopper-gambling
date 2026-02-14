@@ -114,12 +114,6 @@ const BASE_SCATTER_ASSIST_WEIGHTS: Record<"none" | "hook" | "respin" | "croc", n
   respin: 14,
   croc: 6,
 };
-const FREE_EVENT_CHANCES = {
-  fishDropWhenOnlyFisher: 0.2,
-  fisherDropWhenOnlyFish: 0.2,
-  hook: 0.2,
-  waterfall: 0.2,
-};
 const FS_MULTIPLIERS = [1, 2, 3, 10, 20, 30, 40, 50];
 const BOAT_WAKE_CHANCE_BASE = 0.2;
 const PREFREE_START_SPINS = 10;
@@ -442,6 +436,39 @@ function shouldTriggerBaseCollect(fishCount: number, anteBet: boolean) {
   return Math.random() < chance;
 }
 
+function applyTwoScatterDownNudge(previousGrid: Cell[][], nextGrid: Cell[][], removeLowestFish: boolean) {
+  const scatterPositions: [number, number][] = [];
+  for (let row = 0; row < ROWS; row++) {
+    for (let reel = 0; reel < REELS; reel++) {
+      if (previousGrid[row][reel].symbol === "scatter") {
+        scatterPositions.push([row, reel]);
+      }
+    }
+  }
+
+  if (scatterPositions.length !== 2) {
+    return { grid: nextGrid, triggered: false };
+  }
+
+  const canMoveAll = scatterPositions.every(([row, reel]) => {
+    if (row >= ROWS - 1) return false;
+    return previousGrid[row + 1][reel].symbol !== "scatter";
+  });
+
+  if (!canMoveAll) {
+    return { grid: nextGrid, triggered: false };
+  }
+
+  const nudgedGrid = nextGrid.map((row) => row.map((cell) => ({ ...cell, highlight: false })));
+
+  for (const [row, reel] of scatterPositions) {
+    nudgedGrid[row + 1][reel] = { symbol: "scatter", highlight: true };
+    nudgedGrid[row][reel] = { ...randomNonScatterBaseSymbol(removeLowestFish), highlight: false };
+  }
+
+  return { grid: nudgedGrid, triggered: true };
+}
+
 function renderSymbol(cell: Cell, spinCost?: number) {
   if (cell.symbol === "fish") {
     const raw = (typeof cell.fishValue === "number" ? cell.fishValue : 0) * (spinCost ?? 0);
@@ -500,6 +527,7 @@ export default function SlotPage() {
   const [retriggers, setRetriggers] = useState(0);
   const [currentFsMultiplier, setCurrentFsMultiplier] = useState(1);
   const [spinDisplayMultiplier, setSpinDisplayMultiplier] = useState(1);
+  const [isWaterfallActive, setIsWaterfallActive] = useState(false);
   const [pickState, setPickState] = useState<PickState | null>(null);
   const [preFreeState, setPreFreeState] = useState<PreFreeState | null>(null);
   const [mods, setMods] = useState<PickModifiers>({
@@ -612,69 +640,37 @@ export default function SlotPage() {
   };
 
   const applyFreeSpinEvents = (gridBefore: Cell[][], currentMods: PickModifiers) => {
-    const g = gridBefore.map((row) => row.map((cell) => ({ ...cell, highlight: false })));
-    const fisherCount = countSymbol(g, "fisher");
-    const fishCount = countSymbol(g, "fish");
+    const finalGrid = gridBefore.map((row) => row.map((cell) => ({ ...cell, highlight: false })));
+    const fisherCount = countSymbol(finalGrid, "fisher");
+    const fishCount = countSymbol(finalGrid, "fish");
     const fired: string[] = [];
+    let waterfallTriggered = false;
 
-    if (Math.random() < FREE_EVENT_CHANCES.fishDropWhenOnlyFisher && fisherCount > 0 && fishCount === 0) {
+    if (fisherCount > 0 && fishCount === 0) {
+      waterfallTriggered = true;
       const spots: [number, number][] = [];
       for (let row = 0; row < ROWS; row++) {
         for (let reel = 0; reel < REELS; reel++) {
-          if (g[row][reel].symbol !== "scatter" && g[row][reel].symbol !== "fisher") spots.push([row, reel]);
+          if (finalGrid[row][reel].symbol !== "fisher") {
+            spots.push([row, reel]);
+          }
         }
       }
-      for (let i = 0; i < Math.min(2, spots.length); i++) {
+
+      const fishToAdd = Math.floor(Math.random() * 3) + 1; // 2-4 Fische
+      for (let i = 0; i < Math.min(fishToAdd, spots.length); i++) {
         const idx = Math.floor(Math.random() * spots.length);
         const [row, reel] = spots.splice(idx, 1)[0];
-        g[row][reel] = { symbol: "fish", fishValue: fishValue(currentMods.removeLowestFish), highlight: true };
+        finalGrid[row][reel] = { 
+          symbol: "fish", 
+          fishValue: fishValue(currentMods.removeLowestFish), 
+          highlight: true 
+        };
       }
-      fired.push("Random Event: Extra Geld-Fische erscheinen");
+      fired.push("Waterfall Event: Professor lockt Fische an!");
     }
 
-    if (Math.random() < FREE_EVENT_CHANCES.fisherDropWhenOnlyFish && fisherCount === 0 && fishCount > 0) {
-      const spots: [number, number][] = [];
-      for (let row = 0; row < ROWS; row++) {
-        for (let reel = 0; reel < REELS; reel++) {
-          if (g[row][reel].symbol !== "scatter" && g[row][reel].symbol !== "fish") spots.push([row, reel]);
-        }
-      }
-      if (spots.length > 0) {
-        const [row, reel] = spots[Math.floor(Math.random() * spots.length)];
-        g[row][reel] = { symbol: "fisher", highlight: true };
-        fired.push("Random Event: Fisherman Wild springt hinein");
-      }
-    }
-
-    if (Math.random() < FREE_EVENT_CHANCES.hook) {
-      const row = Math.floor(Math.random() * ROWS);
-      const reel = Math.floor(Math.random() * REELS);
-      const current = g[row][reel];
-      if (current.symbol !== "scatter") {
-        g[row][reel] =
-          Math.random() < 0.5
-            ? { symbol: "fish", fishValue: fishValue(currentMods.removeLowestFish), highlight: true }
-            : { symbol: "fisher", highlight: true };
-        fired.push("Hook Event: Symbol wird aufgezogen");
-      }
-    }
-
-    if (Math.random() < FREE_EVENT_CHANCES.waterfall) {
-      for (let row = 0; row < ROWS; row++) {
-        for (let reel = 0; reel < REELS; reel++) {
-          if (g[row][reel].symbol === "scatter" || g[row][reel].symbol === "fish" || g[row][reel].symbol === "fisher") {
-            continue;
-          }
-          if (Math.random() < 0.35) {
-            const sym = randomSymbol(true, false);
-            g[row][reel] = sym === "scatter" ? { symbol: "A", highlight: true } : { symbol: sym, highlight: true };
-          }
-        }
-      }
-      fired.push("Waterfall Event: Reels erneuern sich");
-    }
-
-    return { grid: g, fired };
+    return { finalGrid, waterfallTriggered, fired };
   };
 
   const executeSpin = async ({ isPaidBaseSpin }: { isPaidBaseSpin: boolean }) => {
@@ -699,13 +695,25 @@ export default function SlotPage() {
     }
 
     if (!isFreeSpin) {
-      const scatterAssist = applyBaseScatterAssist(nextGrid, mods.removeLowestFish);
-      nextGrid = scatterAssist.grid;
+      const hadExactlyTwoScatters = countSymbol(grid, "scatter") === 2;
+      if (hadExactlyTwoScatters) {
+        const nudgeResult = applyTwoScatterDownNudge(grid, nextGrid, mods.removeLowestFish);
+        nextGrid = nudgeResult.grid;
+      } else {
+        const scatterAssist = applyBaseScatterAssist(nextGrid, mods.removeLowestFish);
+        nextGrid = scatterAssist.grid;
+      }
     }
 
+    let waterfallInfo = { triggered: false, finalGrid: [] as Cell[][] };
     if (isFreeSpin) {
       const randomEvents = applyFreeSpinEvents(nextGrid, mods);
-      nextGrid = randomEvents.grid;
+      if (randomEvents.waterfallTriggered) {
+        waterfallInfo = { triggered: true, finalGrid: randomEvents.finalGrid };
+        // Lassen den initialen Spin das Grid OHNE die extra Fische zeigen
+      } else {
+        nextGrid = randomEvents.finalGrid;
+      }
     }
 
     const startFrames = gridToReelFrames(grid).map((reelCol) => {
@@ -797,6 +805,15 @@ export default function SlotPage() {
 
     await animateReels;
 
+    if (waterfallInfo.triggered) {
+      setIsWaterfallActive(true);
+      await sleep(950);
+      nextGrid = waterfallInfo.finalGrid;
+      setGrid(nextGrid);
+      await sleep(1450);
+      setIsWaterfallActive(false);
+    }
+
     const scatter = countSymbol(nextGrid, "scatter");
     const fishers = countSymbol(nextGrid, "fisher");
     const fishPack = collectFishValues(nextGrid);
@@ -812,9 +829,15 @@ export default function SlotPage() {
     let payoutForThisSpin = lineEval.totalWin;
 
     if (isFreeSpin && fishers > 0 && fishPack.total > 0) {
-      fishWin = normalizeMoney(fishPack.total * spinCost * currentFsMultiplier);
+      // Each fisher on the board collects the available fish values individually
+      const perFisherWin = normalizeMoney(fishPack.total * spinCost * currentFsMultiplier);
+      fishWin = normalizeMoney(perFisherWin * fishers);
       payoutForThisSpin += fishWin;
-      messageLocal = `Fisher sammelt ${normalizeMoney(fishPack.total).toFixed(2)}x Fischwerte × ${currentFsMultiplier} = $${formatMoney(fishWin)}`;
+      if (fishers > 1) {
+        messageLocal = `Fisher x${fishers} sammelt je ${normalizeMoney(fishPack.total).toFixed(2)}x Fischwerte × ${currentFsMultiplier} = $${formatMoney(perFisherWin)} each, $${formatMoney(fishWin)} total`;
+      } else {
+        messageLocal = `Fisher sammelt ${normalizeMoney(fishPack.total).toFixed(2)}x Fischwerte × ${currentFsMultiplier} = $${formatMoney(fishWin)}`;
+      }
     } else if (!isFreeSpin && fishPack.total > 0 && shouldTriggerBaseCollect(fishPack.positions.length, anteBet)) {
       const collectMulti = pickWeighted<number>(BASE_COLLECT_MULTIS.map((m, idx) => [m, BASE_COLLECT_WEIGHTS[idx]]));
       fishWin = normalizeMoney(fishPack.total * spinCost * collectMulti);
@@ -1261,12 +1284,21 @@ export default function SlotPage() {
                     </g>
 
                   <g fill="#8ae6ff" fillOpacity="0.23">
-                    <path d="M220 260 C250 230, 300 230, 330 260 C300 295, 255 294, 220 260 Z" />
-                    <circle cx="235" cy="258" r="4" fill="#052436" fillOpacity="0.75" />
-                    <path d="M810 315 C840 287, 888 286, 915 315 C888 349, 842 348, 810 315 Z" />
-                    <circle cx="826" cy="313" r="4" fill="#052436" fillOpacity="0.75" />
-                    <path d="M530 230 C552 208, 586 208, 610 230 C586 255, 554 255, 530 230 Z" />
-                    <circle cx="547" cy="229" r="4" fill="#052436" fillOpacity="0.75" />
+                    <g>
+                      <path d="M220 260 C250 230, 300 230, 330 260 C300 295, 255 294, 220 260 Z" />
+                      <circle cx="235" cy="258" r="4" fill="#052436" fillOpacity="0.75" />
+                      <path d="M330 260 L345 250 L342 260 L345 270 Z" />
+                    </g>
+                    <g>
+                      <path d="M810 315 C840 287, 888 286, 915 315 C888 349, 842 348, 810 315 Z" />
+                      <circle cx="826" cy="313" r="4" fill="#052436" fillOpacity="0.75" />
+                      <path d="M915 315 L930 305 L927 315 L930 325 Z" />
+                    </g>
+                    <g>
+                      <path d="M530 230 C552 208, 586 208, 610 230 C586 255, 554 255, 530 230 Z" />
+                      <circle cx="547" cy="229" r="4" fill="#052436" fillOpacity="0.75" />
+                      <path d="M610 230 L625 220 L622 230 L625 240 Z" />
+                    </g>
                   </g>
                 </svg>
 
@@ -1288,8 +1320,8 @@ export default function SlotPage() {
 
                     <g transform="translate(158, 85) rotate(-35)">
                       <line x1="0" y1="0" x2="110" y2="0" stroke="#455a64" strokeWidth="3" strokeLinecap="round" />
-                      <line x1="110" y1="0" x2="110" y2="80" stroke="white" strokeOpacity="0.4" strokeWidth="0.5" />
                     </g>
+                    <line x1="248" y1="22" x2="248" y2="400" stroke="white" strokeOpacity="0.6" strokeWidth="0.5" />
 
                     <g transform={`translate(140, ${boatAwake && phase !== "free" ? 44 : 54})`} className="transition-transform duration-700 ease-in-out">
                       <g transform={boatAwake && phase !== "free" ? "scale(1.02)" : "rotate(8, 0, 40)"} className="transition-transform duration-700 origin-bottom">
@@ -1401,10 +1433,17 @@ export default function SlotPage() {
               )}
 
               <div className="grid grid-cols-5 gap-1.5 sm:gap-4 relative z-10">
+                {isWaterfallActive && (
+                  <div className="waterfall-overlay" aria-hidden>
+                    <div className="waterfall-envelope">
+                      <div className="waterfall-interior" />
+                    </div>
+                  </div>
+                )}
                 {Array.from({ length: REELS }, (_, reel) => (
                   <div key={reel} className="relative h-72 sm:h-96">
                     {reel < REELS - 1 && (
-                      <div className="absolute -right-2 sm:-right-3 top-8 sm:top-12 bottom-0 w-4 sm:w-6 pointer-events-none z-20 bubble-separator">
+                      <div className={`absolute -right-2 sm:-right-3 top-8 sm:top-12 bottom-0 w-4 sm:w-6 pointer-events-none z-20 bubble-separator sep-${reel}`}>
                         <span className="bubble b1" />
                         <span className="bubble b2" />
                         <span className="bubble b3" />
@@ -1425,6 +1464,11 @@ export default function SlotPage() {
                         <span className="bubble b18" />
                         <span className="bubble b19" />
                         <span className="bubble b20" />
+                        <span className="bubble b21" />
+                        <span className="bubble b22" />
+                        <span className="bubble b23" />
+                        <span className="bubble b24" />
+                        <span className="bubble b25" />
                       </div>
                     )}
                     <div className="absolute inset-x-0 top-4 sm:top-6 bottom-2 sm:bottom-4 overflow-hidden">
@@ -1532,37 +1576,132 @@ export default function SlotPage() {
           opacity: 0;
           bottom: -15px;
         }
-        .bubble-separator .b1 { width: 4px; height: 4px; animation-duration: 3.2s; animation-delay: 0s; }
-        .bubble-separator .b2 { width: 7px; height: 7px; animation-duration: 4.5s; animation-delay: 0.8s; left: 30%; }
-        .bubble-separator .b3 { width: 5px; height: 5px; animation-duration: 3.8s; animation-delay: 1.5s; left: 70%; }
-        .bubble-separator .b4 { width: 10px; height: 10px; animation-duration: 5.2s; animation-delay: 2.2s; left: 40%; }
-        .bubble-separator .b5 { width: 6px; height: 6px; animation-duration: 4.1s; animation-delay: 3.1s; left: 60%; }
-        .bubble-separator .b6 { width: 4px; height: 4px; animation-duration: 3.5s; animation-delay: 0.4s; left: 20%; }
-        .bubble-separator .b7 { width: 8px; height: 8px; animation-duration: 4.8s; animation-delay: 1.2s; left: 80%; }
-        .bubble-separator .b8 { width: 5px; height: 5px; animation-duration: 3.9s; animation-delay: 2.5s; left: 50%; }
-        .bubble-separator .b9 { width: 6px; height: 6px; animation-duration: 4.3s; animation-delay: 0.2s; left: 10%; }
-        .bubble-separator .b10 { width: 4px; height: 4px; animation-duration: 3.1s; animation-delay: 1.8s; left: 90%; }
-        .bubble-separator .b11 { width: 9px; height: 9px; animation-duration: 5.5s; animation-delay: 2.9s; left: 25%; }
-        .bubble-separator .b12 { width: 5px; height: 5px; animation-duration: 3.7s; animation-delay: 3.4s; left: 75%; }
-        .bubble-separator .b13 { width: 7px; height: 7px; animation-duration: 4.6s; animation-delay: 0.6s; left: 45%; }
-        .bubble-separator .b14 { width: 4px; height: 4px; animation-duration: 3.3s; animation-delay: 1.3s; left: 55%; }
-        .bubble-separator .b15 { width: 8px; height: 8px; animation-duration: 4.9s; animation-delay: 2.7s; left: 35%; }
-        .bubble-separator .b16 { width: 5px; height: 5px; animation-duration: 3.4s; animation-delay: 1.0s; left: 15%; }
-        .bubble-separator .b17 { width: 4px; height: 4px; animation-duration: 4.0s; animation-delay: 2.1s; left: 85%; }
-        .bubble-separator .b18 { width: 9px; height: 9px; animation-duration: 5.1s; animation-delay: 0.5s; left: 65%; }
-        .bubble-separator .b19 { width: 6px; height: 6px; animation-duration: 4.2s; animation-delay: 1.7s; left: 25%; }
-        .bubble-separator .b20 { width: 4px; height: 4px; animation-duration: 3.6s; animation-delay: 3.3s; left: 75%; }
+        .bubble-separator .b1 { width: 4px; height: 4px; animation-duration: 3.2s; animation-delay: -0.2s; left: 10%; }
+        .bubble-separator .b2 { width: 7px; height: 7px; animation-duration: 4.5s; animation-delay: -1.5s; left: 30%; }
+        .bubble-separator .b3 { width: 5px; height: 5px; animation-duration: 3.8s; animation-delay: -2.8s; left: 70%; }
+        .bubble-separator .b4 { width: 10px; height: 10px; animation-duration: 5.2s; animation-delay: -0.7s; left: 40%; }
+        .bubble-separator .b5 { width: 6px; height: 6px; animation-duration: 4.1s; animation-delay: -3.4s; left: 60%; }
+        .bubble-separator .b6 { width: 4px; height: 4px; animation-duration: 3.5s; animation-delay: -1.9s; left: 20%; }
+        .bubble-separator .b7 { width: 8px; height: 8px; animation-duration: 4.8s; animation-delay: -4.2s; left: 80%; }
+        .bubble-separator .b8 { width: 5px; height: 5px; animation-duration: 3.9s; animation-delay: -0.5s; left: 50%; }
+        .bubble-separator .b9 { width: 6px; height: 6px; animation-duration: 4.3s; animation-delay: -2.3s; left: 10%; }
+        .bubble-separator .b10 { width: 4px; height: 4px; animation-duration: 3.1s; animation-delay: -3.7s; left: 90%; }
+        .bubble-separator .b11 { width: 9px; height: 9px; animation-duration: 5.5s; animation-delay: -1.1s; left: 25%; }
+        .bubble-separator .b12 { width: 5px; height: 5px; animation-duration: 3.7s; animation-delay: -2.9s; left: 75%; }
+        .bubble-separator .b13 { width: 7px; height: 7px; animation-duration: 4.6s; animation-delay: -4.8s; left: 45%; }
+        .bubble-separator .b14 { width: 4px; height: 4px; animation-duration: 3.3s; animation-delay: -0.3s; left: 55%; }
+        .bubble-separator .b15 { width: 8px; height: 8px; animation-duration: 4.9s; animation-delay: -1.7s; left: 35%; }
+        .bubble-separator .b16 { width: 5px; height: 5px; animation-duration: 3.4s; animation-delay: -3.2s; left: 15%; }
+        .bubble-separator .b17 { width: 4px; height: 4px; animation-duration: 4.0s; animation-delay: -4.5s; left: 85%; }
+        .bubble-separator .b18 { width: 9px; height: 9px; animation-duration: 5.1s; animation-delay: -0.8s; left: 65%; }
+        .bubble-separator .b19 { width: 6px; height: 6px; animation-duration: 4.2s; animation-delay: -2.1s; left: 25%; }
+        .bubble-separator .b20 { width: 4px; height: 4px; animation-duration: 3.6s; animation-delay: -5.0s; left: 75%; }
+        .bubble-separator .b21 { width: 5px; height: 5px; animation-duration: 3.2s; animation-delay: -1.3s; left: 20%; }
+        .bubble-separator .b22 { width: 8px; height: 8px; animation-duration: 4.4s; animation-delay: -3.6s; left: 40%; }
+        .bubble-separator .b23 { width: 4px; height: 4px; animation-duration: 3.7s; animation-delay: -0.1s; left: 60%; }
+        .bubble-separator .b24 { width: 9px; height: 9px; animation-duration: 5.0s; animation-delay: -2.5s; left: 80%; }
+        .bubble-separator .b25 { width: 6px; height: 6px; animation-duration: 4.1s; animation-delay: -4.9s; left: 30%; }
+
+        .sep-0 .bubble { animation-name: bubbleRise, bubbleSway; }
+        .sep-1 .bubble { animation-name: bubbleRise1, bubbleSway1; animation-duration: 4.8s, 2.5s; }
+        .sep-2 .bubble { animation-name: bubbleRise2, bubbleSway2; animation-duration: 3.2s, 1.8s; }
+        .sep-3 .bubble { animation-name: bubbleRise3, bubbleSway3; animation-duration: 5.5s, 3s; }
 
         @keyframes bubbleRise {
           0% { transform: translateY(0) scale(0.8); opacity: 0; }
           10% { opacity: 0.7; }
           80% { opacity: 0.7; transform: translateY(-300px) scale(1); }
-          90% { opacity: 0.8; transform: translateY(-330px) scale(1.6); }
           100% { transform: translateY(-345px) scale(2.2); opacity: 0; }
         }
+        @keyframes bubbleRise1 {
+          0% { transform: translateY(0) scale(0.7); opacity: 0; }
+          20% { opacity: 0.6; }
+          70% { opacity: 0.6; transform: translateY(-280px) scale(1.2); }
+          100% { transform: translateY(-360px) scale(1.8); opacity: 0; }
+        }
+        @keyframes bubbleRise2 {
+          0% { transform: translateY(0) scale(1); opacity: 0; }
+          15% { opacity: 0.8; }
+          85% { opacity: 0.8; transform: translateY(-320px) scale(0.9); }
+          100% { transform: translateY(-340px) scale(2.0); opacity: 0; }
+        }
+        @keyframes bubbleRise3 {
+          0% { transform: translateY(0) scale(0.6); opacity: 0; }
+          5% { opacity: 0.5; }
+          75% { opacity: 0.5; transform: translateY(-250px) scale(1.5); }
+          100% { transform: translateY(-370px) scale(2.5); opacity: 0; }
+        }
         @keyframes bubbleSway {
-          from { margin-left: -5px; }
-          to { margin-left: 5px; }
+          0%, 100% { margin-left: -2px; }
+          50% { margin-left: 2px; }
+        }
+        @keyframes bubbleSway1 {
+          0%, 100% { margin-left: 4px; }
+          50% { margin-left: -4px; }
+        }
+        @keyframes bubbleSway2 {
+          0%, 100% { margin-left: -3px; }
+          50% { margin-left: 3px; }
+        }
+        @keyframes bubbleSway3 {
+          0%, 100% { margin-left: 2px; }
+          50% { margin-left: -2px; }
+        }
+
+        @keyframes waterfallEnvelope {
+          0% {
+            clip-path: inset(0 0 100% 0 round 0 0 40% 40%);
+            opacity: 0;
+          }
+          15% {
+            clip-path: inset(0 0 40% 0 round 0 0 20% 20%);
+            opacity: 1;
+          }
+          40% {
+            clip-path: inset(0 0 0 0 round 0 0 0 0);
+            opacity: 1;
+          }
+          75% {
+            clip-path: inset(0 0 0 0 round 0 0 0 0);
+            opacity: 1;
+          }
+          100% {
+            clip-path: inset(100% 0 0 0 round 40% 40% 0 0);
+            opacity: 0;
+          }
+        }
+
+        .waterfall-overlay {
+          position: absolute;
+          inset: -4px;
+          z-index: 60;
+          pointer-events: none;
+          overflow: hidden;
+          border-radius: 1.25rem;
+          transform: translateZ(0);
+        }
+
+        .waterfall-envelope {
+          position: absolute;
+          inset: 0;
+          will-change: clip-path, opacity;
+          animation: waterfallEnvelope 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+          background: #072938; /* Die dunkelste Farbe ganz unten */
+        }
+
+        .waterfall-interior {
+          position: absolute;
+          inset: 0;
+          /* Dezentere Blau/Grüntöne direkt aus dem Slot-Wasser mit EXTREM flachen Wellen */
+          background-color: #072938; /* Bottom: Deep Cyan */
+          background-image: 
+            /* Obere Schicht: Teal/Greenish Schicht (noch flachere Wellen) */
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='10' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M0 5 Q 5 4, 10 5 T 20 5 T 30 5 T 40 5 T 50 5 T 60 5 T 70 5 T 80 5 T 90 5 T 100 5 V 0 H 0 Z' fill='%230c3a34'/%3E%3C/svg%3E"),
+            /* Mittlere Schicht: Dark Cyan Schicht (noch flachere Wellen) */
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='10' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M0 8 Q 5 7.2, 10 8 T 20 8 T 30 8 T 40 8 T 50 8 T 60 8 T 70 8 T 80 8 T 90 8 T 100 8 V 0 H 0 Z' fill='%23083142'/%3E%3C/svg%3E");
+          background-size: 100% 33.3%, 100% 66.6%;
+          background-repeat: no-repeat;
+          opacity: 1;
         }
       `}</style>
     </>
