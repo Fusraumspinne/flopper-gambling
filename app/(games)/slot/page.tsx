@@ -115,7 +115,8 @@ const BASE_SCATTER_ASSIST_WEIGHTS: Record<"none" | "hook" | "respin" | "croc", n
   croc: 6,
 };
 const FS_MULTIPLIERS = [1, 2, 3, 10, 20, 30, 40, 50];
-const BOAT_WAKE_CHANCE_BASE = 0.2;
+const BOAT_WAKE_CHANCE_BASE = 1;
+const BOAT_COLLECT_MULTI_WEIGHTS = [42, 28, 12, 6, 4, 3, 2, 1.4, 0.9, 0.5, 0.2];
 const PREFREE_START_SPINS = 10;
 const PREFREE_TOKEN_POOL: PreFreeToken[] = [
   "fs1",
@@ -539,7 +540,12 @@ export default function SlotPage() {
   const [pendingRoundStake, setPendingRoundStake] = useState(0);
   const [pendingRoundPayout, setPendingRoundPayout] = useState(0);
   const [lastWin, setLastWin] = useState(0);
+  const pendingRoundStakeRef = React.useRef(0);
+  const pendingRoundPayoutRef = React.useRef(0);
   const [boatAwake, setBoatAwake] = useState(false);
+  const [boatNetCast, setBoatNetCast] = useState(false);
+  const [boatChestOpen, setBoatChestOpen] = useState(false);
+  const [boatChestMulti, setBoatChestMulti] = useState<number | null>(null);
 
   
   const phaseRef = React.useRef<GamePhase>(phase);
@@ -626,15 +632,25 @@ export default function SlotPage() {
   const settleRound = (stake: number, payout: number) => {
     if (stake <= 0) return;
     const p = normalizeMoney(payout);
+    const s = normalizeMoney(stake);
+    const isWinRound = p >= s;
+
     if (p > 0) {
       addToBalance(p);
-      playAudio(audioRef.current.win);
       setLastWin(p);
+    } else {
+      setLastWin(0);
+    }
+
+    if (isWinRound) {
+      playAudio(audioRef.current.win);
     } else {
       finalizePendingLoss();
       playAudio(audioRef.current.lose);
-      setLastWin(0);
     }
+
+    pendingRoundStakeRef.current = 0;
+    pendingRoundPayoutRef.current = 0;
     setPendingRoundStake(0);
     setPendingRoundPayout(0);
   };
@@ -657,7 +673,7 @@ export default function SlotPage() {
         }
       }
 
-      const fishToAdd = Math.floor(Math.random() * 3) + 1; // 2-4 Fische
+      const fishToAdd = Math.floor(Math.random() * 3) + 1;
       for (let i = 0; i < Math.min(fishToAdd, spots.length); i++) {
         const idx = Math.floor(Math.random() * spots.length);
         const [row, reel] = spots.splice(idx, 1)[0];
@@ -678,6 +694,9 @@ export default function SlotPage() {
     isExecutingSpinRef.current = true;
     setIsExecutingSpin(true);
     setBoatAwake(false);
+    setBoatNetCast(false);
+    setBoatChestOpen(false);
+    setBoatChestMulti(null);
     let messageLocal = "";
     let lineEval: { totalWin: number; highlight: Set<string> } = { totalWin: 0, highlight: new Set() };
     let updatedRoundPayout = 0;
@@ -710,7 +729,6 @@ export default function SlotPage() {
       const randomEvents = applyFreeSpinEvents(nextGrid, mods);
       if (randomEvents.waterfallTriggered) {
         waterfallInfo = { triggered: true, finalGrid: randomEvents.finalGrid };
-        // Lassen den initialen Spin das Grid OHNE die extra Fische zeigen
       } else {
         nextGrid = randomEvents.finalGrid;
       }
@@ -819,8 +837,21 @@ export default function SlotPage() {
     const fishPack = collectFishValues(nextGrid);
     lineEval = evaluateLines(nextGrid, spinCost, isFreeSpin);
 
+    const isFreeCollect = isFreeSpin && fishers > 0 && fishPack.total > 0;
+    // All base game collections now use the boat animation. 
+    // In free spins, the boat can also step in if fish are present but no fisher symbol landed (15% chance).
+    const isBoatCollect = (!isFreeSpin && fishPack.total > 0 && (shouldTriggerBaseCollect(fishPack.positions.length, anteBet) || Math.random() < BOAT_WAKE_CHANCE_BASE)) ||
+                         (isFreeSpin && fishers === 0 && fishPack.total > 0 && Math.random() < 0.15);
+    
+    const isAnyFishCollect = isFreeCollect || isBoatCollect;
+
     const highlighted = nextGrid.map((row, rowIdx) =>
-      row.map((cell, reelIdx) => ({ ...cell, highlight: lineEval.highlight.has(`${rowIdx}-${reelIdx}`) }))
+      row.map((cell, reelIdx) => {
+        let isH = cell.highlight || lineEval.highlight.has(`${rowIdx}-${reelIdx}`);
+        if (scatter >= 3 && cell.symbol === "scatter") isH = true;
+        if (isAnyFishCollect && (cell.symbol === "fisher" || cell.symbol === "fish")) isH = true;
+        return { ...cell, highlight: isH };
+      })
     );
 
     setGrid(highlighted);
@@ -828,8 +859,7 @@ export default function SlotPage() {
     let fishWin = 0;
     let payoutForThisSpin = lineEval.totalWin;
 
-    if (isFreeSpin && fishers > 0 && fishPack.total > 0) {
-      // Each fisher on the board collects the available fish values individually
+    if (isFreeCollect) {
       const perFisherWin = normalizeMoney(fishPack.total * spinCost * currentFsMultiplier);
       fishWin = normalizeMoney(perFisherWin * fishers);
       payoutForThisSpin += fishWin;
@@ -838,20 +868,35 @@ export default function SlotPage() {
       } else {
         messageLocal = `Fisher sammelt ${normalizeMoney(fishPack.total).toFixed(2)}x Fischwerte × ${currentFsMultiplier} = $${formatMoney(fishWin)}`;
       }
-    } else if (!isFreeSpin && fishPack.total > 0 && shouldTriggerBaseCollect(fishPack.positions.length, anteBet)) {
-      const collectMulti = pickWeighted<number>(BASE_COLLECT_MULTIS.map((m, idx) => [m, BASE_COLLECT_WEIGHTS[idx]]));
-      fishWin = normalizeMoney(fishPack.total * spinCost * collectMulti);
-      payoutForThisSpin += fishWin;
-      messageLocal = `Basis-Collect! ${normalizeMoney(fishPack.total).toFixed(2)}x × ${collectMulti} = $${formatMoney(fishWin)}`;
-    } else if (!isFreeSpin && fishPack.total > 0 && Math.random() < BOAT_WAKE_CHANCE_BASE) {
-      const boatWin = normalizeMoney(fishPack.total * spinCost);
+    } else if (isBoatCollect) {
+      // For free spin boat collects, we use the current FS multiplier. For base game, we pick a random one.
+      const multi = isFreeSpin ? currentFsMultiplier : pickWeighted<number>(
+        BASE_COLLECT_MULTIS.map((m, idx) => [m, BOAT_COLLECT_MULTI_WEIGHTS[idx]])
+      );
+      
+      const boatWin = normalizeMoney(fishPack.total * spinCost * multi);
       payoutForThisSpin += boatWin;
+      
       setBoatAwake(true);
+      setBoatNetCast(true);
+      await sleep(600);
+      setBoatNetCast(false);
+      await sleep(220);
+      setBoatChestOpen(true);
+      setBoatChestMulti(multi);
+      
       if (boatSleepTimeoutRef.current) clearTimeout(boatSleepTimeoutRef.current);
       boatSleepTimeoutRef.current = setTimeout(() => {
         setBoatAwake(false);
-      }, 1600);
-      messageLocal = `Boot-Fisher sammelt ${normalizeMoney(fishPack.total).toFixed(2)}x = $${formatMoney(boatWin)}`;
+      }, 2200);
+      
+      messageLocal = isFreeSpin 
+        ? `Boot-Fisher hilft aus! ${normalizeMoney(fishPack.total).toFixed(2)}x × ${multi} = $${formatMoney(boatWin)}`
+        : `Boot-Fisher wirft Netz! ${normalizeMoney(fishPack.total).toFixed(2)}x × ${multi} = $${formatMoney(boatWin)}`;
+        
+      await sleep(900);
+      setBoatChestOpen(false);
+      setBoatChestMulti(null);
     }
 
       if (isFreeSpin) {
@@ -877,7 +922,8 @@ export default function SlotPage() {
         }
       }
 
-    updatedRoundPayout = normalizeMoney(pendingRoundPayout + payoutForThisSpin);
+    updatedRoundPayout = normalizeMoney(pendingRoundPayoutRef.current + payoutForThisSpin);
+    pendingRoundPayoutRef.current = updatedRoundPayout;
     setPendingRoundPayout(updatedRoundPayout);
 
     if (!isFreeSpin && scatter >= 3) {
@@ -921,7 +967,7 @@ export default function SlotPage() {
 
         if (leftAfter <= 0) {
           setPhase("idle");
-          settleRound(pendingRoundStake, updatedRoundPayout);
+          settleRound(pendingRoundStakeRef.current, updatedRoundPayout);
         }
         await sleep(250);
         return;
@@ -933,7 +979,7 @@ export default function SlotPage() {
 
     setPhase("idle");
     if (isPaidBaseSpin) {
-      settleRound(pendingRoundStake, updatedRoundPayout);
+      settleRound(pendingRoundStakeRef.current, updatedRoundPayout);
     }
   };
 
@@ -946,6 +992,8 @@ export default function SlotPage() {
     }
     subtractFromBalance(spinCost);
     playAudio(audioRef.current.bet);
+    pendingRoundStakeRef.current = spinCost;
+    pendingRoundPayoutRef.current = 0;
     setPendingRoundStake(spinCost);
     setPendingRoundPayout(0);
     const result = await executeSpin({ isPaidBaseSpin: true });
@@ -956,6 +1004,7 @@ export default function SlotPage() {
     if (isExecutingSpinRef.current) return;
     setLastWin(0);
     if (phase === "free") {
+      setFreeSpinsLeft((s) => Math.max(0, s - 1));
       await spinFree();
     } else {
       await startPaidSpin();
@@ -1031,6 +1080,8 @@ export default function SlotPage() {
     subtractFromBalance(buyBonusCost);
     playAudio(audioRef.current.bet);
 
+    pendingRoundStakeRef.current = buyBonusCost;
+    pendingRoundPayoutRef.current = 0;
     setPendingRoundStake(buyBonusCost);
     setPendingRoundPayout(0);
     setMods({ extraFreeSpins: 0, guaranteedFish: 0, collectedFishermen: 0, removeLowestFish: false });
@@ -1090,7 +1141,7 @@ export default function SlotPage() {
   return (
     <>
       <div className="p-2 sm:p-4 lg:p-6 max-w-350 mx-auto flex flex-col lg:flex-row gap-4 lg:gap-8">
-        <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs">
+        <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs self-start">
           <div className="space-y-2">
             <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
             <div className="relative">
@@ -1117,9 +1168,9 @@ export default function SlotPage() {
                   setBetInput(String(n));
                 }}
                 disabled={phase !== "idle"}
-                className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3]"
+                className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50 cf-press"
               >
-                1/2
+                ½
               </button>
               <button
                 onClick={() => {
@@ -1128,9 +1179,9 @@ export default function SlotPage() {
                   setBetInput(String(n));
                 }}
                 disabled={phase !== "idle"}
-                className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3]"
+                className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50 cf-press"
               >
-                2x
+                2×
               </button>
               <button
                 onClick={() => {
@@ -1139,9 +1190,9 @@ export default function SlotPage() {
                   setBetInput(String(n));
                 }}
                 disabled={phase !== "idle"}
-                className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3]"
+                className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50 cf-press"
               >
-                Max
+                All In
               </button>
             </div>
           </div>
@@ -1197,24 +1248,27 @@ export default function SlotPage() {
 
         <div className="flex-1 flex flex-col gap-6">
           <div className="rounded-2xl overflow-hidden p-4 sm:p-8 relative bg-[#0f212e]">
-            {phase === "free" ? (
-              <div className="mb-6 min-h-28 rounded-2xl p-3 sm:p-4">
-                <div className="mb-3 flex items-center justify-center gap-2">
-                  <div className="rounded-xl px-3 py-2 text-xs text-[#b9d0df]">
-                    Free spins: <span className="text-[#00e701] font-black">{freeSpinsLeft}</span>
-                  </div>
-                  <div className="rounded-xl px-3 py-2 text-xs text-[#b9d0df] flex items-center gap-2">
-                    <div>Fisher:</div>
-                    <div className="text-[#7dd3fc] font-black">{fisherCollected}</div>
-                    <div className="px-2 rounded-full font-black text-[#b5ffbf] inline-flex items-center gap-1">
-                      x{FS_MULTIPLIERS[Math.min(retriggers, FS_MULTIPLIERS.length - 1)]}
+            <div className="relative mx-auto max-w-200 pt-32 sm:pt-40 pb-3 sm:pb-4 px-3 sm:px-4 rounded-2xl overflow-hidden">
+              {phase === "free" && (
+                <div className="absolute top-4 sm:top-6 left-1/2 -translate-x-1/2 z-30 flex justify-center w-full px-4 pointer-events-none">
+                  <div className="bg-[#07151a] border border-[#17313a] px-4 py-2 rounded-full flex items-center gap-5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[10px] text-[#93c8a8] font-black uppercase tracking-widest">Spins</span>
+                      <span className="text-xl font-black text-[#00e701] leading-none">{freeSpinsLeft}</span>
+                    </div>
+                    <div className="w-px h-4 bg-[#17313a]" />
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[10px] text-[#93c8a8] font-black uppercase tracking-widest">Fisher</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xl font-black text-[#7dd3fc] leading-none">{fisherCollected}</span>
+                        <span className="px-1.5 py-0.5 bg-[#1a3a46] border border-[#234b5a] rounded text-[10px] text-white font-black">
+                          x{FS_MULTIPLIERS[Math.min(retriggers, FS_MULTIPLIERS.length - 1)]}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ) : null}
-
-            <div className="relative mx-auto max-w-200 pt-32 sm:pt-40 pb-3 sm:pb-4 px-3 sm:px-4 rounded-2xl overflow-hidden">
+              )}
               <div className="absolute inset-0 pointer-events-none z-0">
                 <div className="absolute inset-0 jungle-underwater-bg" />
 
@@ -1305,6 +1359,14 @@ export default function SlotPage() {
                 <div className="absolute left-0 right-0 top-20 sm:top-32 h-2 sm:h-3 water-surface" />
 
                 <div className="absolute top-2 sm:top-4 left-[16%] sm:left-[20%] -translate-x-1/2 z-20 pointer-events-none boat-fisher-wrap">
+                  {boatChestMulti !== null && boatChestOpen && (
+                    <div className="absolute top-[18%] left-[72.5%] -translate-x-1/2 boat-chest-multi flex flex-col items-center">
+                      <div className="bg-linear-to-t from-[#ea580c] to-[#f97316] text-white px-2.5 py-1 rounded-lg text-[13px] sm:text-base font-black border-2 border-[#fff2cc] shadow-[0_0_20px_rgba(234,88,12,0.5)] animate-bounce-short">
+                        x{boatChestMulti}
+                      </div>
+                      <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-8 border-t-[#ea580c] -mt-1" />
+                    </div>
+                  )}
                   {!boatAwake && phase !== "free" && (
                     <div className="absolute pointer-events-none" style={{ left: '45%', top: '20px' }}>
                       <div className="relative w-8 h-6">
@@ -1322,6 +1384,22 @@ export default function SlotPage() {
                       <line x1="0" y1="0" x2="110" y2="0" stroke="#455a64" strokeWidth="3" strokeLinecap="round" />
                     </g>
                     <line x1="248" y1="22" x2="248" y2="400" stroke="white" strokeOpacity="0.6" strokeWidth="0.5" />
+
+                    <g transform="translate(188, 56)">
+                      {/* Detailed Treasure Chest */}
+                      <rect x="0" y="8" width="30" height="20" rx="2" fill="#5c4033" stroke="#3d2b22" strokeWidth="1.5" />
+                      <rect x="5" y="8" width="3" height="20" fill="#d7b36a" fillOpacity="0.4" />
+                      <rect x="22" y="8" width="3" height="20" fill="#d7b36a" fillOpacity="0.4" />
+                      
+                      {/* Lid - disappears when open */}
+                      <g transform={boatChestOpen ? "translate(0, -10) scale(1, 0)" : ""} className={`transition-all duration-500 ease-out will-change-transform ${boatChestOpen ? "opacity-0 invisible" : "opacity-100"}`}>
+                        <rect x="0" y="2" width="30" height="10" rx="3" fill="#7a5230" stroke="#3d2b22" strokeWidth="1.5" />
+                        <rect x="5" y="2" width="3" height="10" fill="#d7b36a" />
+                        <rect x="22" y="2" width="3" height="10" fill="#d7b36a" />
+                        <rect x="12" y="7" width="6" height="6" rx="1" fill="#d7b36a" stroke="#b8860b" strokeWidth="0.5" />
+                        <circle cx="15" cy="10" r="1.2" fill="#3d2b22" />
+                      </g>
+                    </g>
 
                     <g transform={`translate(140, ${boatAwake && phase !== "free" ? 44 : 54})`} className="transition-transform duration-700 ease-in-out">
                       <g transform={boatAwake && phase !== "free" ? "scale(1.02)" : "rotate(8, 0, 40)"} className="transition-transform duration-700 origin-bottom">
@@ -1382,15 +1460,31 @@ export default function SlotPage() {
 
               {phase === "prefree" && (
                 <div className="absolute inset-0 z-30 flex items-center justify-center p-3 sm:p-6">
-                  <div className="w-full max-w-140 aspect-square rounded-2xl border border-[#2f4553] bg-[#112331]/95 p-3 sm:p-5 shadow-[0_0_40px_rgba(0,0,0,0.45)] flex flex-col">
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="text-[#d2ecff] font-bold text-sm uppercase tracking-wide">Tonkrüge öffnen</div>
-                      <div className="text-[11px] text-[#8ab8d4] text-right">
-                        Freispiele Bonus: <span className="text-[#9effc1] font-black">+{preFreeState?.extraSpins ?? 0}</span><br />
-                        Fisher Start: <span className="text-[#7dd3fc] font-black">+{preFreeState?.extraFishers ?? 0}</span>
+                  <div className="w-full max-w-md aspect-square rounded-3xl border border-[#3b5b6d]/30 bg-[#0a1e2b] p-4 sm:p-6  flex flex-col relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
+                      <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        <path d="M0 20 Q25 15 50 20 T100 20 V0 H0 Z" fill="#4ade80" />
+                      </svg>
+                    </div>
+
+                    <div className="relative z-10 flex items-center justify-between gap-3 mb-5 px-1">
+                      <div>
+                        <div className="text-[#9effc1] font-black text-lg sm:text-xl uppercase tracking-wider">Amphoren Wahl</div>
+                        <div className="text-[10px] sm:text-[11px] text-[#8ab8d4] font-medium opacity-80">Choose wisely for your free spins</div>
+                      </div>
+                      <div className="p-2 rounded-xl bg-[#143142]/60 border border-[#3b5b6d]/30 text-[11px] text-right">
+                        <div className="flex justify-between gap-4">
+                          <span className="text-[#d2ecff]">Spins:</span>
+                          <span className="text-[#9effc1] font-black">+{preFreeState?.extraSpins ?? 0}</span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-[#d2ecff]">Fisher:</span>
+                          <span className="text-[#7dd3fc] font-black">+{preFreeState?.extraFishers ?? 0}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex-1 grid grid-cols-4 gap-2">
+                    
+                    <div className="flex-1 grid grid-cols-4 gap-4 sm:gap-6 relative z-10">
                       {(preFreeState?.tokens ?? []).map((token, index) => {
                         const opened = !!preFreeState?.revealed[index];
                         return (
@@ -1399,40 +1493,119 @@ export default function SlotPage() {
                             type="button"
                             onClick={() => handlePreFreePick(index)}
                             disabled={opened || preFreeState?.done}
-                            className={`h-full min-h-16 rounded-xl border transition-all relative overflow-hidden ${opened ? "border-[#5d7f91] bg-[#173341]" : "border-[#3b5b6d] bg-[#143142] hover:bg-[#1b4157]"}`}
+                            className={`group/pot transition-all duration-300 relative ${
+                              opened 
+                                ? "cursor-default" 
+                                : "hover:scale-110 active:scale-95"
+                            }`}
                           >
                             {!opened ? (
-                              <svg className="w-full h-full" viewBox="0 0 120 70" aria-hidden>
-                                <ellipse cx="60" cy="54" rx="27" ry="10" fill="#6a492f" />
-                                <path d="M33 22 C36 46, 84 46, 87 22 L80 54 L40 54 Z" fill="#9b6a3a" />
-                                <ellipse cx="60" cy="22" rx="27" ry="8" fill="#ba8751" />
-                                <ellipse cx="60" cy="20" rx="18" ry="5" fill="#7a5432" />
-                              </svg>
+                              <div className="w-full h-full flex items-center justify-center filter">
+                                <svg className="w-full max-w-[80%] aspect-4/3" viewBox="0 0 100 120" aria-hidden>
+                                  <ellipse cx="50" cy="105" rx="30" ry="10" fill="black" fillOpacity="0.2" />
+                                  <path d="M50 20 C25 20 20 50 20 75 C20 100 35 110 50 110 C65 110 80 100 80 75 C80 50 75 20 50 20" fill="#a67c52" />
+                                  <path d="M50 20 C35 20 30 40 30 60 C30 80 40 95 50 95" fill="#8d6542" fillOpacity="0.4" />
+                                  <ellipse cx="50" cy="20" rx="18" ry="6" fill="#c39a6b" />
+                                  <ellipse cx="50" cy="20" rx="12" ry="4" fill="#6d4c31" />
+                                  <path d="M30 35 Q15 40 25 60" fill="none" stroke="#8d6542" strokeWidth="4" strokeLinecap="round" />
+                                  <path d="M70 35 Q85 40 75 60" fill="none" stroke="#8d6542" strokeWidth="4" strokeLinecap="round" />
+                                  <circle cx="45" cy="50" r="2" fill="#8d6542" fillOpacity="0.3" />
+                                  <circle cx="60" cy="80" r="3" fill="#8d6542" fillOpacity="0.2" />
+                                </svg>
+                              </div>
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                {token === "shoe" ? (
-                                  <svg className="w-10 h-10" viewBox="0 0 64 64" aria-hidden>
-                                    <path d="M12 42 C20 34, 24 34, 30 38 C37 43, 45 41, 52 40 L52 50 L12 50 Z" fill="#533b2e" />
-                                    <path d="M9 50 L55 50 C56 54, 54 57, 49 57 L15 57 C10 57, 8 54, 9 50 Z" fill="#2c2c2c" />
-                                  </svg>
-                                ) : token === "fisher" ? (
-                                  <div className="text-3xl leading-none">🤠</div>
-                                ) : (
-                                  <div className="text-[#9effc1] font-black text-lg">
-                                    +{token === "fs1" ? 1 : token === "fs2" ? 2 : token === "fs3" ? 3 : 4}
-                                  </div>
-                                )}
+                              <div className="w-full h-full flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
+                                <div className="absolute inset-0" />
+                                <div className="relative z-10 flex items-center justify-center w-full h-full overflow-hidden">
+                                  {token === "shoe" ? (
+                                    <div className="flex flex-col items-center gap-1 scale-110">
+                                      <svg className="w-12 h-12" viewBox="0 0 64 64" aria-hidden>
+                                        <path d="M12 42 C20 34, 24 34, 30 38 C37 43, 45 41, 52 40 L52 50 L12 50 Z" fill="#533b2e" />
+                                        <path d="M9 50 L55 50 C56 54, 54 57, 49 57 L15 57 C10 57, 8 54, 9 50 Z" fill="#2c2c2c" />
+                                        <path d="M15 45 L20 45" stroke="#3e2a1e" strokeWidth="2" strokeLinecap="round" />
+                                      </svg>
+                                    </div>
+                                  ) : token === "fisher" ? (
+                                    <div className="flex flex-col items-center gap-0">
+                                      <div className="text-4xl">🤠</div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center gap-0">
+                                      <div className="text-[#9effc1] font-black text-2xl">
+                                        +{token === "fs1" ? 1 : token === "fs2" ? 2 : token === "fs3" ? 3 : 4}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </button>
                         );
                       })}
                     </div>
+
+                    <div className="mt-4 flex justify-center gap-1 opacity-40">
+                    </div>
                   </div>
                 </div>
               )}
 
               <div className="grid grid-cols-5 gap-1.5 sm:gap-4 relative z-10">
+                {boatNetCast && (
+                  <div className="boat-net-cast" aria-hidden>
+                    <svg viewBox="0 0 1000 520" preserveAspectRatio="none" className="w-full h-full">
+                      {/* Net Connection Ropes */}
+                      <path d="M170 80 L10 140" fill="none" stroke="#d2b48c" strokeWidth="3" strokeLinecap="round" />
+                      <path d="M170 80 L990 140" fill="none" stroke="#d2b48c" strokeWidth="2" strokeLinecap="round" strokeDasharray="5 5" />
+
+                      {/* Net Outline - Rectangular with sagging, covering full width */}
+                      <path d="M10 140 Q 500 120 990 140" fill="none" stroke="#d2b48c" strokeWidth="4" />
+                      <path d="M10 140 V 460" fill="none" stroke="#d2b48c" strokeWidth="4" />
+                      <path d="M990 140 V 460" fill="none" stroke="#d2b48c" strokeWidth="4" />
+                      <path d="M10 460 Q 500 520 990 460" fill="none" stroke="#d2b48c" strokeWidth="4" />
+
+                      {/* Grid Lines (Net Mesh) - More dense */}
+                      <g stroke="rgba(210,180,140,0.55)" strokeWidth="1.8" fill="none">
+                        {/* Horizontal lines with sag */}
+                        <path d="M10 180 Q 500 165 990 180" />
+                        <path d="M10 220 Q 500 210 990 220" />
+                        <path d="M10 260 Q 500 255 990 260" />
+                        <path d="M10 300 Q 500 300 990 300" />
+                        <path d="M10 340 Q 500 350 990 340" />
+                        <path d="M10 380 Q 500 400 990 380" />
+                        <path d="M10 420 Q 500 440 990 420" />
+
+                        {/* Vertical lines */}
+                        <path d="M120 140 Q 125 300 120 460" />
+                        <path d="M220 140 Q 225 300 220 470" />
+                        <path d="M320 140 Q 325 300 320 480" />
+                        <path d="M420 140 Q 425 300 420 490" />
+                        <path d="M520 140 Q 525 300 520 490" />
+                        <path d="M620 140 Q 625 300 620 480" />
+                        <path d="M720 140 Q 725 300 720 470" />
+                        <path d="M820 140 Q 825 300 820 460" />
+                        <path d="M920 140 Q 925 300 920 460" />
+                      </g>
+
+                      {/* Reddish-Orange Floats */}
+                      <g fill="#ea580c" stroke="#991b1b" strokeWidth="1.5">
+                        {/* Corners */}
+                        <circle cx="10" cy="140" r="12" />
+                        <circle cx="990" cy="140" r="12" />
+                        <circle cx="10" cy="460" r="12" />
+                        <circle cx="990" cy="460" r="12" />
+                        {/* Midpoints */}
+                        <circle cx="500" cy="118" r="10" />
+                        <circle cx="500" cy="510" r="10" />
+                        <circle cx="10" cy="300" r="9" />
+                        <circle cx="990" cy="300" r="9" />
+                        {/* Extra floats for realism */}
+                        <circle cx="250" cy="130" r="8" />
+                        <circle cx="750" cy="130" r="8" />
+                      </g>
+                    </svg>
+                  </div>
+                )}
                 {isWaterfallActive && (
                   <div className="waterfall-overlay" aria-hidden>
                     <div className="waterfall-envelope">
@@ -1492,13 +1665,13 @@ export default function SlotPage() {
                           return (
                             <div
                               key={`static-${reel}-${rowIdx}`}
-                              className={`h-24 sm:h-32 flex items-center justify-center shrink-0 w-full relative ${
+                              className={`h-24 sm:h-32 flex items-center justify-center shrink-0 w-full relative z-0 ${
                                 cell.highlight
-                                  ? "z-10 scale-105 transition-all duration-300"
-                                  : "transition-all duration-300"
+                                  ? "z-30 scale-115 transition-transform duration-300"
+                                  : "transition-transform duration-300"
                               }`}
                             >
-                                <div className={`${cell.highlight ? "slot-cell-pop" : "transition-transform"}`}>{renderSymbol(cell, displaySpinCost)}</div>
+                                <div className={`${cell.highlight ? "slot-cell-pop" : ""}`}>{renderSymbol(cell, displaySpinCost)}</div>
                             </div>
                           );
                         })
@@ -1522,7 +1695,7 @@ export default function SlotPage() {
         }
         @keyframes slotCellPop {
           0% { transform: scale(1); }
-          50% { transform: scale(1.15); filter: brightness(1.2) contrast(1.1); }
+          50% { transform: scale(1.3); }
           100% { transform: scale(1); }
         }
         @keyframes floatZ {
@@ -1534,6 +1707,29 @@ export default function SlotPage() {
         @keyframes oarSway {
           from { transform: rotate(-5deg); }
           to { transform: rotate(5deg); }
+        }
+        @keyframes netCastIn {
+          0% { opacity: 0; transform: translateY(-50px) scale(0.85); filter: blur(1px); }
+          60% { opacity: 1; transform: translateY(15px) scale(1.03); filter: blur(0); }
+          80% { transform: translateY(-5px) scale(0.98); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes chestMultiPop {
+          0% { opacity: 0; transform: translateY(15px) scale(0.5); filter: blur(2px); }
+          45% { opacity: 1; transform: translateY(-15px) scale(1.1); filter: blur(0); }
+          75% { transform: translateY(-3px) scale(0.95); }
+          100% { opacity: 1; transform: translateY(-5px) scale(1); }
+        }
+        .boat-net-cast {
+          position: absolute;
+          inset: 0;
+          z-index: 55;
+          pointer-events: none;
+          animation: netCastIn .55s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+        }
+        .boat-chest-multi {
+          text-shadow: 0 1px 0 rgba(0,0,0,0.25);
+          animation: chestMultiPop .28s ease-out forwards;
         }
         .slot-reel-rolling {
           filter: blur(0.4px);
@@ -1560,7 +1756,6 @@ export default function SlotPage() {
         .water-surface {
           background:
             linear-gradient(180deg, rgba(177, 239, 255, 0.45), rgba(177, 239, 255, 0.08));
-          box-shadow: 0 2px 8px rgba(163, 239, 255, 0.22), 0 0 20px rgba(138, 222, 246, 0.18);
           border-radius: 9999px;
         }
         .seabed-layer {
@@ -1647,7 +1842,24 @@ export default function SlotPage() {
           0%, 100% { margin-left: 2px; }
           50% { margin-left: -2px; }
         }
-
+        /* symbol flicker removed to avoid visual noise during reel animations */
+        @keyframes bounceShort {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        @keyframes fadeInZoom {
+          0% { opacity: 0; transform: scale(0.8) translateY(10px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-bounce-short {
+          animation: bounceShort 1s ease-in-out infinite;
+        }
+        .animate-in.fade-in.zoom-in {
+          animation: fadeInZoom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        .bg-gradient-radial {
+          background-image: radial-gradient(var(--tw-gradient-stops));
+        }
         @keyframes waterfallEnvelope {
           0% {
             clip-path: inset(0 0 100% 0 round 0 0 40% 40%);
