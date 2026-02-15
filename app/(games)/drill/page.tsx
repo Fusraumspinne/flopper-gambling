@@ -209,7 +209,7 @@ export default function DrillPage() {
   const [betInput, setBetInput] = useState("100");
 
   const [targetMultiplier, setTargetMultiplier] = useState(2);
-  const [targetInput, setTargetInput] = useState("2");
+  const [targetInput, setTargetInput] = useState("2.00");
 
   const [selectedDrill, setSelectedDrill] = useState<DrillId>("yellow");
 
@@ -489,7 +489,7 @@ export default function DrillPage() {
     const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
     const value = normalizeMoney(Math.max(0, parseNumberLoose(sanitized)));
     setBetAmount(value);
-    setBetInput(String(value));
+    setBetInput(value.toFixed(2));
   }, [betInput]);
 
   const handleTargetBlur = useCallback(() => {
@@ -498,13 +498,13 @@ export default function DrillPage() {
     const value = clamp(parseNumberLoose(sanitized), MIN_TARGET, MAX_TARGET);
     const rounded = Math.round(value * 100) / 100;
     setTargetMultiplier(rounded);
-    setTargetInput(String(rounded));
+    setTargetInput(rounded.toFixed(2));
   }, [targetInput]);
 
   const setBetBoth = (next: number) => {
     const v = normalizeMoney(next);
     setBetAmount(v);
-    setBetInput(String(v));
+    setBetInput(v.toFixed(2));
     betAmountRef.current = v;
   };
 
@@ -596,7 +596,7 @@ export default function DrillPage() {
       resultTimeoutRef.current = window.setTimeout(() => {
         resultTimeoutRef.current = null;
         resolve();
-      }, 500);
+      }, 200);
     });
 
     runningRef.current = false;
@@ -698,7 +698,7 @@ export default function DrillPage() {
               onClick={() => {
                 const next = normalizeMoney(betAmount / 2);
                 setBetAmount(next);
-                setBetInput(String(next));
+                setBetInput(next.toFixed(2));
               }}
               disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
@@ -709,7 +709,7 @@ export default function DrillPage() {
               onClick={() => {
                 const next = normalizeMoney(betAmount * 2);
                 setBetAmount(next);
-                setBetInput(String(next));
+                setBetInput(next.toFixed(2));
               }}
               disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
@@ -720,7 +720,7 @@ export default function DrillPage() {
               onClick={() => {
                 const next = normalizeMoney(balance);
                 setBetAmount(next);
-                setBetInput(String(next));
+                setBetInput(next.toFixed(2));
               }}
               disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"

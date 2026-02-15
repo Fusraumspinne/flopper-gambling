@@ -4,12 +4,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { games as allGames } from "@/lib/games";
 import { getGameKeyFromHref } from "@/lib/gameStatus";
-import { sortByOpenCountThenName, subscribeToGameOpenCountUpdates } from "@/lib/gameOpenStats";
 
 export default function GamesGrid({ initialAllowed }: { initialAllowed: string[] }) {
   const [allowed, setAllowed] = useState<string[]>(initialAllowed || []);
   const [loading, setLoading] = useState(false);
-  const [openCountVersion, setOpenCountVersion] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -46,21 +44,7 @@ export default function GamesGrid({ initialAllowed }: { initialAllowed: string[]
     };
   }, []);
 
-  useEffect(() => {
-    return subscribeToGameOpenCountUpdates(() => {
-      setOpenCountVersion((prev) => prev + 1);
-    });
-  }, []);
-
-  const visibleGames = useMemo(
-    () =>
-      sortByOpenCountThenName(
-        allGames.filter((g) => allowed.includes(g.href)),
-        (game) => game.name,
-        (game) => game.href
-      ),
-    [allowed, openCountVersion]
-  );
+  const visibleGames = allGames.filter((g) => allowed.includes(g.href));
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">

@@ -11,7 +11,6 @@ import { useSidebar } from "./Shell";
 import { useHourlyReward } from "./useHourlyReward";
 import { useSoundVolume } from "./SoundVolumeProvider";
 import { DEFAULT_GAME_STATUS, getGameKeyFromHref } from "@/lib/gameStatus";
-import { sortByOpenCountThenName, subscribeToGameOpenCountUpdates } from "@/lib/gameOpenStats";
 
 interface Game {
   name: string;
@@ -20,33 +19,33 @@ interface Game {
 }
 
 const games: Game[] = [
-  { name: "Bars", icon: <LocalBar className="w-5 h-5" />, href: "/bars" },
   { name: "Big Bass Amazonas", icon: <Phishing className="w-5 h-5" />, href: "/bigbassamazonas" },
-  { name: "Blackjack", icon: <Casino className="w-5 h-5" />, href: "/blackjack" },
-  { name: "Cases", icon: <CardGiftcard className="w-5 h-5" />, href: "/cases" },
-  { name: "Chicken", icon: <CatchingPokemon className="w-5 h-5" />, href: "/chicken" },
   { name: "Coin Flip", icon: <MonetizationOn className="w-5 h-5" />, href: "/coinflip" },
-  { name: "Crash", icon: <FlightTakeoff className="w-5 h-5" />, href: "/crash" },
+  { name: "Poker", icon: <Toll className="w-5 h-5" />, href: "/poker" },
+  { name: "Mines", icon: <Diamond className="w-5 h-5" />, href: "/mines" },
+  { name: "Roulette", icon: <Album className="w-5 h-5" />, href: "/roulette" },
   { name: "Dice", icon: <SmartToy className="w-5 h-5" />, href: "/dice" },
-  { name: "Diamonds", icon: <Category className="w-5 h-5" />, href: "/diamonds" },
-  { name: "Darts", icon: <Shuffle className="w-5 h-5" />, href: "/darts" },
+  { name: "Crash", icon: <FlightTakeoff className="w-5 h-5" />, href: "/crash" },
   { name: "Dragon Tower", icon: <AutoAwesome className="w-5 h-5" />, href: "/dragontower" },
-  { name: "Drill", icon: <ArrowDownward className="w-5 h-5" />, href: "/drill" },
-  { name: "HiLo", icon: <ShowChart className="w-5 h-5" />, href: "/hilo" },
-  { name: "Horse Race", icon: <Speed className="w-5 h-5" />, href: "/horserace" },
+  { name: "Pump", icon: <TrendingUp className="w-5 h-5" />, href: "/pump" },
+  { name: "Diamonds", icon: <Category className="w-5 h-5" />, href: "/diamonds" },
+  { name: "Spinning Wheel", icon: <Cached className="w-5 h-5" />, href: "/spinningwheel" },
   { name: "Keno", icon: <GridOn className="w-5 h-5" />, href: "/keno" },
   { name: "Limbo", icon: <Timeline className="w-5 h-5" />, href: "/limbo" },
-  { name: "Mines", icon: <Diamond className="w-5 h-5" />, href: "/mines" },
-  { name: "Poker", icon: <Toll className="w-5 h-5" />, href: "/poker" },
-  { name: "Plinko", icon: <ScatterPlot className="w-5 h-5" />, href: "/plinko" },
-  { name: "Pump", icon: <TrendingUp className="w-5 h-5" />, href: "/pump" },
-  { name: "Rock Paper Scissors", icon: <SportsMma className="w-5 h-5" />, href: "/rps" },
-  { name: "Roulette", icon: <Album className="w-5 h-5" />, href: "/roulette" },
+  { name: "Blackjack", icon: <Casino className="w-5 h-5" />, href: "/blackjack" },
+  { name: "Horse Race", icon: <Speed className="w-5 h-5" />, href: "/horserace" },
+  { name: "Cases", icon: <CardGiftcard className="w-5 h-5" />, href: "/cases" },
+  { name: "Drill", icon: <ArrowDownward className="w-5 h-5" />, href: "/drill" },
   { name: "Russian Roulette", icon: <LocalFireDepartment className="w-5 h-5" />, href: "/russianroulette" },
-  { name: "Snakes", icon: <SportsEsports className="w-5 h-5" />, href: "/snakes" },
-  { name: "Spinning Wheel", icon: <Cached className="w-5 h-5" />, href: "/spinningwheel" },
   { name: "Tarot", icon: <Flare className="w-5 h-5" />, href: "/tarot" },
+  { name: "Chicken", icon: <CatchingPokemon className="w-5 h-5" />, href: "/chicken" },
+  { name: "Snakes", icon: <SportsEsports className="w-5 h-5" />, href: "/snakes" },
+  { name: "Plinko", icon: <ScatterPlot className="w-5 h-5" />, href: "/plinko" },
+  { name: "HiLo", icon: <ShowChart className="w-5 h-5" />, href: "/hilo" },
+  { name: "Rock Paper Scissors", icon: <SportsMma className="w-5 h-5" />, href: "/rps" },
+  { name: "Bars", icon: <LocalBar className="w-5 h-5" />, href: "/bars" },
   { name: "Vault", icon: <Lock className="w-5 h-5" />, href: "/vault" },
+  { name: "Darts", icon: <Shuffle className="w-5 h-5" />, href: "/darts" },
 ];
 
 export default function Navbar() {
@@ -60,7 +59,6 @@ export default function Navbar() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [gameStatus, setGameStatus] = useState<Record<string, boolean>>(DEFAULT_GAME_STATUS);
   const [adminAuthorized, setAdminAuthorized] = useState(false);
-  const [openCountVersion, setOpenCountVersion] = useState(0);
 
   useEffect(() => {
     const loadStatus = async () => {
@@ -89,25 +87,14 @@ export default function Navbar() {
     checkAdmin();
   }, []);
 
-  useEffect(() => {
-    return subscribeToGameOpenCountUpdates(() => {
-      setOpenCountVersion((prev) => prev + 1);
-    });
-  }, []);
+  const claimFree = async () => {
+    await claim();
+  };
 
   const visibleGames = useMemo(
     () => games.filter((game) => gameStatus[getGameKeyFromHref(game.href)] !== false),
     [gameStatus]
   );
-
-  const sortedVisibleGames = useMemo(
-    () => sortByOpenCountThenName(visibleGames, (game) => game.name, (game) => game.href),
-    [visibleGames, openCountVersion]
-  );
-
-  const claimFree = async () => {
-    await claim();
-  };
 
   return (
     <aside
@@ -187,7 +174,7 @@ export default function Navbar() {
           <div className={`${collapsed ? "hidden" : "mb-2 px-4"} text-xs font-bold uppercase tracking-wider text-[#557086]`}>Games</div>
         )}
         
-        {sortedVisibleGames.map((game, index) => {
+        {visibleGames.map((game, index) => {
           const isActive = pathname === game.href || (pathname === "/livepoker" && game.href === "/poker");
           return (
             <Link
