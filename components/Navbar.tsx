@@ -11,6 +11,7 @@ import { useSidebar } from "./Shell";
 import { useHourlyReward } from "./useHourlyReward";
 import { useSoundVolume } from "./SoundVolumeProvider";
 import { DEFAULT_GAME_STATUS, getGameKeyFromHref } from "@/lib/gameStatus";
+import { sortByOpenCountThenName, subscribeToGameOpenCountUpdates } from "@/lib/gameOpenStats";
 
 interface Game {
   name: string;
@@ -59,6 +60,7 @@ export default function Navbar() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [gameStatus, setGameStatus] = useState<Record<string, boolean>>(DEFAULT_GAME_STATUS);
   const [adminAuthorized, setAdminAuthorized] = useState(false);
+  const [openCountVersion, setOpenCountVersion] = useState(0);
 
   useEffect(() => {
     const loadStatus = async () => {
@@ -87,9 +89,20 @@ export default function Navbar() {
     checkAdmin();
   }, []);
 
+  useEffect(() => {
+    return subscribeToGameOpenCountUpdates(() => {
+      setOpenCountVersion((prev) => prev + 1);
+    });
+  }, []);
+
   const visibleGames = useMemo(
     () => games.filter((game) => gameStatus[getGameKeyFromHref(game.href)] !== false),
     [gameStatus]
+  );
+
+  const sortedVisibleGames = useMemo(
+    () => sortByOpenCountThenName(visibleGames, (game) => game.name, (game) => game.href),
+    [visibleGames, openCountVersion]
   );
 
   const claimFree = async () => {
@@ -174,7 +187,7 @@ export default function Navbar() {
           <div className={`${collapsed ? "hidden" : "mb-2 px-4"} text-xs font-bold uppercase tracking-wider text-[#557086]`}>Games</div>
         )}
         
-        {visibleGames.map((game, index) => {
+        {sortedVisibleGames.map((game, index) => {
           const isActive = pathname === game.href || (pathname === "/livepoker" && game.href === "/poker");
           return (
             <Link

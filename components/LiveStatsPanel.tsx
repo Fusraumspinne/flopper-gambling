@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { Close, RestartAlt, QueryStats } from "@mui/icons-material";
 import { DROPDOWN_GAME_OPTIONS, useWallet } from "./WalletProvider";
+import { sortByOpenCountThenName, subscribeToGameOpenCountUpdates } from "@/lib/gameOpenStats";
 
 type LiveStatsPanelProps = {
   open: boolean;
@@ -48,18 +49,36 @@ export default function LiveStatsPanel({ open, onClose }: LiveStatsPanelProps) {
 
   const [pos, setPos] = useState<StoredPos>({ x: 360, y: 80 });
   const [selectedGameId, setSelectedGameId] = useState<(typeof DROPDOWN_GAME_OPTIONS)[number]["id"]>("all");
+  const [openCountVersion, setOpenCountVersion] = useState(0);
   const emptyStatsRef = useRef(createEmptyStats());
 
   const prevOpenRef = useRef<boolean>(open);
 
+  useEffect(() => {
+    return subscribeToGameOpenCountUpdates(() => {
+      setOpenCountVersion((prev) => prev + 1);
+    });
+  }, []);
+
 
   const availableOptions = useMemo(() => {
-    return DROPDOWN_GAME_OPTIONS.filter((opt) => {
+    const filtered = DROPDOWN_GAME_OPTIONS.filter((opt) => {
       if (opt.id === "all") return true;
       const s = (liveStatsByGame as any)[opt.id];
       return typeof s?.wagered === "number" && s.wagered > 0;
     });
-  }, [liveStatsByGame]);
+
+    const allOption = filtered.find((opt) => opt.id === "all");
+    const gameOptions = filtered.filter((opt) => opt.id !== "all");
+
+    const sortedGames = sortByOpenCountThenName(
+      gameOptions,
+      (option) => option.label,
+      (option) => `/${option.id === "livepoker" ? "poker" : option.id}`
+    );
+
+    return allOption ? [allOption, ...sortedGames] : sortedGames;
+  }, [liveStatsByGame, openCountVersion]);
 
   useEffect(() => {
     if (!availableOptions || availableOptions.length === 0) return;
