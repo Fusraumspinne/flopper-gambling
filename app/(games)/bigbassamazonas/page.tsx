@@ -78,7 +78,7 @@ const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   toucan: 3.5,
   lure: 3,
   fish: 2.2,      
-  scatter: 1,   
+  scatter: 1.2,   
   fisher: 0,
 };
 const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
@@ -91,9 +91,9 @@ const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   bag: 3.8,
   toucan: 3.5,
   lure: 3,
-  fish: 3,     
+  fish: 3.5,     
   scatter: 0,
-  fisher: 0.8,   
+  fisher: 1,   
 };
 const FISH_VALUES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000];
 const FISH_WEIGHTS = [26,  21, 17, 14, 10, 7, 3.5, 0.35, 0.09, 0.03, 0.008, 0.002];
@@ -1451,7 +1451,7 @@ export default function BigBassAmazonasPage() {
 
                     <div className="relative z-10 flex items-center justify-between gap-3 mb-5 px-1">
                       <div>
-                        <div className="text-[#9effc1] font-black text-lg sm:text-xl uppercase tracking-wider">Amphoren Wahl</div>
+                        <div className="text-[#9effc1] font-black text-lg sm:text-xl uppercase tracking-wider">Amphoren Choice</div>
                         <div className="text-[10px] sm:text-[11px] text-[#8ab8d4] font-medium opacity-80">Choose wisely for your free spins</div>
                       </div>
                       <div className="p-2 rounded-xl bg-[#143142]/60 border border-[#3b5b6d]/30 text-[11px] text-right">
@@ -1536,19 +1536,15 @@ export default function BigBassAmazonasPage() {
                 {boatNetCast && (
                   <div className="boat-net-cast" aria-hidden>
                     <svg viewBox="0 0 1000 520" preserveAspectRatio="none" className="w-full h-full">
-                      {/* Net Connection Ropes */}
                       <path d="M170 80 L10 140" fill="none" stroke="#d2b48c" strokeWidth="3" strokeLinecap="round" />
                       <path d="M170 80 L990 140" fill="none" stroke="#d2b48c" strokeWidth="2" strokeLinecap="round" strokeDasharray="5 5" />
 
-                      {/* Net Outline - Rectangular with sagging, covering full width */}
                       <path d="M10 140 Q 500 120 990 140" fill="none" stroke="#d2b48c" strokeWidth="4" />
                       <path d="M10 140 V 460" fill="none" stroke="#d2b48c" strokeWidth="4" />
                       <path d="M990 140 V 460" fill="none" stroke="#d2b48c" strokeWidth="4" />
                       <path d="M10 460 Q 500 520 990 460" fill="none" stroke="#d2b48c" strokeWidth="4" />
 
-                      {/* Grid Lines (Net Mesh) - More dense */}
                       <g stroke="rgba(210,180,140,0.55)" strokeWidth="1.8" fill="none">
-                        {/* Horizontal lines with sag */}
                         <path d="M10 180 Q 500 165 990 180" />
                         <path d="M10 220 Q 500 210 990 220" />
                         <path d="M10 260 Q 500 255 990 260" />
@@ -1557,7 +1553,6 @@ export default function BigBassAmazonasPage() {
                         <path d="M10 380 Q 500 400 990 380" />
                         <path d="M10 420 Q 500 440 990 420" />
 
-                        {/* Vertical lines */}
                         <path d="M120 140 Q 125 300 120 460" />
                         <path d="M220 140 Q 225 300 220 470" />
                         <path d="M320 140 Q 325 300 320 480" />
@@ -1569,19 +1564,15 @@ export default function BigBassAmazonasPage() {
                         <path d="M920 140 Q 925 300 920 460" />
                       </g>
 
-                      {/* Reddish-Orange Floats */}
                       <g fill="#ea580c" stroke="#991b1b" strokeWidth="1.5">
-                        {/* Corners */}
                         <circle cx="10" cy="140" r="12" />
                         <circle cx="990" cy="140" r="12" />
                         <circle cx="10" cy="460" r="12" />
                         <circle cx="990" cy="460" r="12" />
-                        {/* Midpoints */}
                         <circle cx="500" cy="118" r="10" />
                         <circle cx="500" cy="510" r="10" />
                         <circle cx="10" cy="300" r="9" />
                         <circle cx="990" cy="300" r="9" />
-                        {/* Extra floats for realism */}
                         <circle cx="250" cy="130" r="8" />
                         <circle cx="750" cy="130" r="8" />
                       </g>
