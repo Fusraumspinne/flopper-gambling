@@ -395,7 +395,6 @@ export default function HorseRacePage() {
 
     setPositions(nextPositions);
 
-    // detect first horse that crosses the finish line and mark it immediately
     if (crossingIndexRef.current == null) {
       const idx = nextPositions.findIndex((p) => p >= 1);
       if (idx >= 0) {

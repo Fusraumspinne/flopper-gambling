@@ -135,8 +135,6 @@ export default function PumpPage() {
     return Number.isFinite(n) ? n : 0;
   };
 
-  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
   const setBetBoth = (next: number) => {
     const v = normalizeMoney(next);
     setBetAmount(v);
@@ -464,7 +462,7 @@ export default function PumpPage() {
   };
 
   const playRound = useCallback(
-    async (opts?: { betAmount?: number; pumps?: number }) => {
+    (opts?: { betAmount?: number; pumps?: number; onFinish?: (res: any) => void }) => {
       const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
       const pumpsRequestedRaw = Math.floor(
         Number.isFinite(opts?.pumps as number) ? (opts?.pumps as number) : parseNumberLoose(pumpsPerRoundInput)
@@ -478,13 +476,16 @@ export default function PumpPage() {
       );
 
       if (bet <= 0 || bet > balanceRef.current) {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        opts?.onFinish?.(null);
+        return;
       }
       if (isPumping) {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        opts?.onFinish?.(null);
+        return;
       }
       if (gameState === "playing") {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        opts?.onFinish?.(null);
+        return;
       }
 
       if (resultTimeoutRef.current) {
@@ -507,11 +508,27 @@ export default function PumpPage() {
       const safeLimit = Math.max(safeIndex, 0);
       setPlannedSafeSteps(safeLimit);
 
-      let stepIndex = 0;
-
-      for (let i = 0; i < pumpsRequested; i++) {
+      const runStep = (i: number, stepIndex: number) => {
         const nextIndex = stepIndex + 1;
-        if (nextIndex > roundMaxPumps) break;
+        if (nextIndex > roundMaxPumps || i >= pumpsRequested) {
+          const payout = normalizeMoney(bet * data[stepIndex].multiplier);
+          addToBalance(payout);
+          setLastWin(payout);
+          setGameState("cashed_out");
+          playAudio(audioRef.current.win);
+          setIsFlyingAway(true);
+          setResultFx("win");
+          resultTimeoutRef.current = window.setTimeout(() => {
+            setResultFx(null);
+            resultTimeoutRef.current = null;
+            setIsFlyingAway(false);
+            setCurrentStepIndex(0);
+            setHasPumped(false);
+            setPlannedSafeSteps(null);
+            opts?.onFinish?.({ betAmount: bet, winAmount: payout, didWin: true });
+          }, 900);
+          return;
+        }
 
         if (resultTimeoutRef.current) {
           clearTimeout(resultTimeoutRef.current);
@@ -521,56 +538,34 @@ export default function PumpPage() {
         setHasPumped(true);
 
         setIsPumping(false);
-        await sleep(10);
-        setIsPumping(true);
-        playAudio(audioRef.current.pump);
-        await sleep(300);
-        setIsPumping(false);
+        window.setTimeout(() => {
+          setIsPumping(true);
+          playAudio(audioRef.current.pump);
+          window.setTimeout(() => {
+            setIsPumping(false);
 
-        if (nextIndex <= safeLimit) {
-          stepIndex = nextIndex;
-          setCurrentStepIndex(stepIndex);
-          setScale(1 + stepIndex * 0.1);
+            if (nextIndex <= safeLimit) {
+              const nextStepIndex = nextIndex;
+              setCurrentStepIndex(nextStepIndex);
+              setScale(1 + nextStepIndex * 0.1);
+              runStep(i + 1, nextStepIndex);
+            } else {
+              setIsFlyingAway(false);
+              setGameState("popped");
+              playAudio(audioRef.current.pop);
+              finalizePendingLoss();
+              setResultFx("lose");
+              resultTimeoutRef.current = window.setTimeout(() => {
+                setResultFx(null);
+                resultTimeoutRef.current = null;
+                opts?.onFinish?.({ betAmount: bet, winAmount: 0, didWin: false });
+              }, 900);
+            }
+          }, 300);
+        }, 10);
+      };
 
-          const reachedEnd = stepIndex >= roundMaxPumps;
-          if (reachedEnd) break;
-        } else {
-          setIsFlyingAway(false);
-          setGameState("popped");
-          playAudio(audioRef.current.pop);
-          finalizePendingLoss();
-          setResultFx("lose");
-          await new Promise<void>((resolve) => {
-            resultTimeoutRef.current = window.setTimeout(() => {
-              setResultFx(null);
-              resultTimeoutRef.current = null;
-              resolve();
-            }, 900);
-          });
-          return { betAmount: bet, winAmount: 0, didWin: false };
-        }
-      }
-
-      const payout = normalizeMoney(bet * data[stepIndex].multiplier);
-      addToBalance(payout);
-      setLastWin(payout);
-      setGameState("cashed_out");
-      playAudio(audioRef.current.win);
-      setIsFlyingAway(true);
-      setResultFx("win");
-      await new Promise<void>((resolve) => {
-        resultTimeoutRef.current = window.setTimeout(() => {
-          setResultFx(null);
-          resultTimeoutRef.current = null;
-          resolve();
-        }, 900);
-      });
-      setIsFlyingAway(false);
-      setCurrentStepIndex(0);
-      setHasPumped(false);
-      setPlannedSafeSteps(null);
-
-      return { betAmount: bet, winAmount: payout, didWin: true };
+      runStep(0, 0);
     },
     [
       addToBalance,
@@ -588,7 +583,7 @@ export default function PumpPage() {
     void syncBalance();
   }, [syncBalance]);
 
-  const startAutoBet = useCallback(async () => {
+  const startAutoBet = useCallback(() => {
     if (isAutoBettingRef.current) return;
 
     const startingBet = normalizeMoney(betAmountRef.current);
@@ -602,47 +597,58 @@ export default function PumpPage() {
     isAutoBettingRef.current = true;
     setIsAutoBetting(true);
 
-    while (isAutoBettingRef.current) {
-      const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
-      const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
+    const runAutoRound = () => {
+      if (!isAutoBettingRef.current) {
+        setIsAutoBetting(false);
+        void syncBalance();
+        return;
+      }
 
       const roundBet = normalizeMoney(betAmountRef.current);
-      if (roundBet <= 0) break;
-      if (roundBet > balanceRef.current) break;
-
-      const result = await playRound({ betAmount: roundBet });
-      if (!result) break;
-
-      const lastNet = normalizeMoney(result.winAmount - result.betAmount);
-
-      if (result.didWin && result.winAmount > 0) {
-        autoNetRef.current = normalizeMoney(
-          autoNetRef.current + lastNet
-        );
-        if (onWinMode === "reset") {
-          setBetBoth(autoOriginalBetRef.current);
-          betAmountRef.current = autoOriginalBetRef.current;
-        } else {
-          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
-          setBetBoth(next);
-          betAmountRef.current = next;
-        }
-      } else {
-        autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
-        if (onLoseMode === "reset") {
-          setBetBoth(autoOriginalBetRef.current);
-          betAmountRef.current = autoOriginalBetRef.current;
-        } else {
-          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
-          setBetBoth(next);
-          betAmountRef.current = next;
-        }
+      if (roundBet <= 0 || roundBet > balanceRef.current) {
+        stopAutoBet();
+        return;
       }
-    }
 
-    isAutoBettingRef.current = false;
-    setIsAutoBetting(false);
-    void syncBalance();
+      playRound({
+        betAmount: roundBet,
+        onFinish: (result) => {
+          if (!result) {
+            stopAutoBet();
+            return;
+          }
+
+          const lastNet = normalizeMoney(result.winAmount - result.betAmount);
+          autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
+
+          if (result.didWin && result.winAmount > 0) {
+            if (onWinMode === "reset") {
+              setBetBoth(autoOriginalBetRef.current);
+              betAmountRef.current = autoOriginalBetRef.current;
+            } else {
+              const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
+              const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+              setBetBoth(next);
+              betAmountRef.current = next;
+            }
+          } else {
+            if (onLoseMode === "reset") {
+              setBetBoth(autoOriginalBetRef.current);
+              betAmountRef.current = autoOriginalBetRef.current;
+            } else {
+              const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
+              const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+              setBetBoth(next);
+              betAmountRef.current = next;
+            }
+          }
+
+          window.setTimeout(runAutoRound, 100);
+        },
+      });
+    };
+
+    runAutoRound();
   }, [
     gameState,
     isPumping,

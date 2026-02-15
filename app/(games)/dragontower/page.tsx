@@ -90,8 +90,6 @@ export default function DragonTowerPage() {
     setBetInput(String(v));
   };
 
-  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
   const [riskLevel, setRiskLevel] = useState<RiskLevel>("low");
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
@@ -349,7 +347,7 @@ export default function DragonTowerPage() {
     });
   };
 
-  const startRound = async () => {
+  const startRound = () => {
     if (!canStart) return;
 
     setIsBusy(true);
@@ -374,11 +372,12 @@ export default function DragonTowerPage() {
     setLevel(0);
     setRoundState("active");
 
-    await new Promise((r) => setTimeout(r, 120));
-    setIsBusy(false);
+    window.setTimeout(() => {
+      setIsBusy(false);
+    }, 120);
   };
 
-  const endRoundCashout = async () => {
+  const endRoundCashout = () => {
     if (!canCashout) return;
 
     setIsBusy(true);
@@ -386,20 +385,22 @@ export default function DragonTowerPage() {
 
     revealAllRemainingRows();
 
-    await new Promise((r) => setTimeout(r, 150));
-    addToBalance(win);
-    setLastWin(win);
-    playAudio(audioRef.current.win);
-    if (resultTimeoutRef.current) {
-      clearTimeout(resultTimeoutRef.current);
-      resultTimeoutRef.current = null;
-    }
-    setResultFx("win");
-    resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
-    setRoundState("cashed");
+    window.setTimeout(() => {
+      addToBalance(win);
+      setLastWin(win);
+      playAudio(audioRef.current.win);
+      if (resultTimeoutRef.current) {
+        clearTimeout(resultTimeoutRef.current);
+        resultTimeoutRef.current = null;
+      }
+      setResultFx("win");
+      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
+      setRoundState("cashed");
 
-    await new Promise((r) => setTimeout(r, 150));
-    setIsBusy(false);
+      window.setTimeout(() => {
+        setIsBusy(false);
+      }, 150);
+    }, 150);
   };
 
   const resetRound = () => {
@@ -448,7 +449,7 @@ export default function DragonTowerPage() {
     setPlayMode(mode);
   };
 
-  const pickField = async (idx: number) => {
+  const pickField = (idx: number) => {
     if (roundState !== "active" || isUiBusy) return;
     if (playMode !== "manual") return;
     if (level < 0 || level >= TOWER_LEVELS) return;
@@ -478,49 +479,42 @@ export default function DragonTowerPage() {
       playAudio(audioRef.current.eggReveal);
     }
 
-    await new Promise((r) => setTimeout(r, 180));
-
-    if (outcome === "trap") {
-      revealAllRemainingRows();
-      playAudio(audioRef.current.fireReveal);
-      if (resultTimeoutRef.current) {
-        clearTimeout(resultTimeoutRef.current);
-        resultTimeoutRef.current = null;
+    window.setTimeout(() => {
+      if (outcome === "trap") {
+        revealAllRemainingRows();
+        playAudio(audioRef.current.fireReveal);
+        showFx("lose", () => {
+          finalizePendingLoss();
+          setRoundState("busted");
+          setIsBusy(false);
+        });
+        return;
       }
-      setResultFx("lose");
-      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
-      finalizePendingLoss();
-      setRoundState("busted");
-      setIsBusy(false);
-      return;
-    }
 
-    const nextLevel = level + 1;
+      const nextLevel = level + 1;
 
-    if (nextLevel >= TOWER_LEVELS) {
-      const winMult = multipliers[TOWER_LEVELS - 1] ?? 0;
-      const win = betAmount * winMult;
+      if (nextLevel >= TOWER_LEVELS) {
+        const winMult = multipliers[TOWER_LEVELS - 1] ?? 0;
+        const win = betAmount * winMult;
 
-      await new Promise((r) => setTimeout(r, 200));
-      addToBalance(win);
-      setLastWin(win);
-      playAudio(audioRef.current.dragonWin);
-      playAudio(audioRef.current.win);
-      if (resultTimeoutRef.current) {
-        clearTimeout(resultTimeoutRef.current);
-        resultTimeoutRef.current = null;
+        window.setTimeout(() => {
+          addToBalance(win);
+          setLastWin(win);
+          playAudio(audioRef.current.dragonWin);
+          playAudio(audioRef.current.win);
+          showFx("win", () => {
+            revealAllRemainingRows();
+            setLevel(nextLevel);
+            setRoundState("cashed");
+            setIsBusy(false);
+          });
+        }, 200);
+        return;
       }
-      setResultFx("win");
-      resultTimeoutRef.current = window.setTimeout(() => setResultFx(null), 900);
-      revealAllRemainingRows();
+
       setLevel(nextLevel);
-      setRoundState("cashed");
       setIsBusy(false);
-      return;
-    }
-
-    setLevel(nextLevel);
-    setIsBusy(false);
+    }, 180);
   };
 
   const currentReveal = useMemo(() => {
@@ -539,23 +533,21 @@ export default function DragonTowerPage() {
     return count;
   }, []);
 
-  const showFx = useCallback(async (fx: "win" | "lose") => {
+  const showFx = useCallback((fx: "win" | "lose", onFinish?: () => void) => {
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);
       resultTimeoutRef.current = null;
     }
     setResultFx(fx);
-    await new Promise<void>((resolve) => {
-      resultTimeoutRef.current = window.setTimeout(() => {
-        setResultFx(null);
-        resultTimeoutRef.current = null;
-        resolve();
-      }, 900);
-    });
+    resultTimeoutRef.current = window.setTimeout(() => {
+      setResultFx(null);
+      resultTimeoutRef.current = null;
+      onFinish?.();
+    }, 900);
   }, []);
 
   const playRound = useCallback(
-    async (opts?: { betAmount?: number }) => {
+    (opts?: { betAmount?: number; onFinish?: (res: any) => void }) => {
       const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
       const currentBalance = balanceRef.current;
       const currentRisk = riskLevelRef.current;
@@ -569,14 +561,17 @@ export default function DragonTowerPage() {
       const plan = autoPickPlanRef.current;
       const plannedPicks = getPlannedPickCount(plan, fields);
       if (plannedPicks <= 0) {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        opts?.onFinish?.(null);
+        return;
       }
 
       if (currentRoundState === "active" || currentBusy) {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        opts?.onFinish?.(null);
+        return;
       }
       if (bet <= 0 || bet > currentBalance) {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        opts?.onFinish?.(null);
+        return;
       }
 
       const revealAllRemainingRowsFrom = (traps: number[][]) => {
@@ -626,97 +621,113 @@ export default function DragonTowerPage() {
       setLevel(0);
       setRoundState("active");
 
-      await sleep(120);
-      setIsBusy(false);
-
-      for (let lvl = 0; lvl < plannedPicks; lvl++) {
-        const pickIdx = plan[lvl];
-        if (pickIdx == null) break;
-
-        setIsBusy(true);
-        if (resultTimeoutRef.current) {
-          clearTimeout(resultTimeoutRef.current);
-          resultTimeoutRef.current = null;
-        }
-        setResultFx("rolling");
-
-        const trapIndices = traps[lvl] ?? [];
-        const outcome: Reveal["outcome"] = trapIndices.includes(pickIdx)
-          ? "trap"
-          : "safe";
-
-        const reveal: Reveal = {
-          level: lvl,
-          pickedIndex: pickIdx,
-          trapIndices,
-          outcome,
-        };
-        setReveals((prev) => [...prev, reveal]);
-
-        if (outcome === "safe") {
-          playAudio(audioRef.current.eggReveal);
-        }
-
-        await sleep(180);
-
-        if (outcome === "trap") {
-          revealAllRemainingRowsFrom(traps);
-          playAudio(audioRef.current.fireReveal);
-          await showFx("lose");
-          finalizePendingLoss();
-          setRoundState("busted");
-          setIsBusy(false);
-          return { betAmount: bet, winAmount: 0, didWin: false };
-        }
-
-        const nextLevel = lvl + 1;
-        setLevel(nextLevel);
-
-        if (nextLevel >= TOWER_LEVELS) {
-          const winMult = roundMultipliers[TOWER_LEVELS - 1] ?? 0;
-          const win = normalizeMoney(bet * winMult);
-          await sleep(200);
-          addToBalance(win);
-          setLastWin(win);
-          playAudio(audioRef.current.dragonWin);
-          playAudio(audioRef.current.win);
-          await showFx("win");
-          revealAllRemainingRowsFrom(traps);
-          setRoundState("cashed");
-          setIsBusy(false);
-          return { betAmount: bet, winAmount: win, didWin: true };
-        }
-
+      window.setTimeout(() => {
         setIsBusy(false);
-      }
 
-      const cashLevel = Math.max(1, plannedPicks);
-      const cashMult = roundMultipliers[cashLevel - 1] ?? 1;
-      const win = normalizeMoney(bet * cashMult);
+        const runLevel = (lvl: number) => {
+          if (lvl >= plannedPicks) {
+            const cashLevel = Math.max(1, plannedPicks);
+            const cashMult = roundMultipliers[cashLevel - 1] ?? 1;
+            const win = normalizeMoney(bet * cashMult);
 
-      setIsBusy(true);
-      revealAllRemainingRowsFrom(traps);
-      await sleep(150);
-      addToBalance(win);
-      setLastWin(win);
-      await showFx("win");
-      setRoundState("cashed");
-      await sleep(150);
-      setIsBusy(false);
+            setIsBusy(true);
+            revealAllRemainingRowsFrom(traps);
+            window.setTimeout(() => {
+              addToBalance(win);
+              setLastWin(win);
+              showFx("win", () => {
+                setRoundState("cashed");
+                window.setTimeout(() => {
+                  setIsBusy(false);
+                  opts?.onFinish?.({ betAmount: bet, winAmount: win, didWin: true });
+                }, 150);
+              });
+            }, 150);
+            return;
+          }
 
-      return { betAmount: bet, winAmount: win, didWin: true };
+          const pickIdx = plan[lvl];
+          if (pickIdx == null) {
+            opts?.onFinish?.(null);
+            return;
+          }
+
+          setIsBusy(true);
+          if (resultTimeoutRef.current) {
+            clearTimeout(resultTimeoutRef.current);
+            resultTimeoutRef.current = null;
+          }
+          setResultFx("rolling");
+
+          const trapIndices = traps[lvl] ?? [];
+          const outcome: Reveal["outcome"] = trapIndices.includes(pickIdx)
+            ? "trap"
+            : "safe";
+
+          const reveal: Reveal = {
+            level: lvl,
+            pickedIndex: pickIdx,
+            trapIndices,
+            outcome,
+          };
+          setReveals((prev) => [...prev, reveal]);
+
+          if (outcome === "safe") {
+            playAudio(audioRef.current.eggReveal);
+          }
+
+          window.setTimeout(() => {
+            if (outcome === "trap") {
+              revealAllRemainingRowsFrom(traps);
+              playAudio(audioRef.current.fireReveal);
+              showFx("lose", () => {
+                finalizePendingLoss();
+                setRoundState("busted");
+                setIsBusy(false);
+                opts?.onFinish?.({ betAmount: bet, winAmount: 0, didWin: false });
+              });
+              return;
+            }
+
+            const nextLevel = lvl + 1;
+            setLevel(nextLevel);
+
+            if (nextLevel >= TOWER_LEVELS) {
+              const winMult = roundMultipliers[TOWER_LEVELS - 1] ?? 0;
+              const win = normalizeMoney(bet * winMult);
+              window.setTimeout(() => {
+                addToBalance(win);
+                setLastWin(win);
+                playAudio(audioRef.current.dragonWin);
+                playAudio(audioRef.current.win);
+                showFx("win", () => {
+                  revealAllRemainingRowsFrom(traps);
+                  setRoundState("cashed");
+                  setIsBusy(false);
+                  opts?.onFinish?.({ betAmount: bet, winAmount: win, didWin: true });
+                });
+              }, 200);
+              return;
+            }
+
+            setIsBusy(false);
+            runLevel(nextLevel);
+          }, 180);
+        };
+
+        runLevel(0);
+      }, 120);
     },
     [
       addToBalance,
       finalizePendingLoss,
       getPlannedPickCount,
       showFx,
-      sleep,
       subtractFromBalance,
     ]
   );
 
-  const startAutoBet = useCallback(async () => {
+  const startAutoBet = useCallback(() => {
     if (isAutoBettingRef.current) return;
 
     const currentRisk = riskLevelRef.current;
@@ -734,51 +745,72 @@ export default function DragonTowerPage() {
     isAutoBettingRef.current = true;
     setIsAutoBetting(true);
 
-    while (isAutoBettingRef.current) {
+    const runAutoRound = () => {
+      if (!isAutoBettingRef.current) {
+        setIsAutoBetting(false);
+        void syncBalance();
+        return;
+      }
+
       const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
       const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
       const roundBet = normalizeMoney(betAmountRef.current);
-      if (roundBet <= 0) break;
-      if (roundBet > balanceRef.current) break;
 
-      const result = await playRound({ betAmount: roundBet });
-      if (!result) {
-        const nowPlanned = getPlannedPickCount(autoPickPlanRef.current, fields);
-        if (nowPlanned <= 0) break;
-        await sleep(200);
-        if (isAutoBettingRef.current) continue;
-        break;
+      if (roundBet <= 0 || roundBet > balanceRef.current) {
+        isAutoBettingRef.current = false;
+        setIsAutoBetting(false);
+        void syncBalance();
+        return;
       }
 
-      const lastNet = normalizeMoney((result.winAmount ?? 0) - result.betAmount);
-      autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
+      playRound({
+        betAmount: roundBet,
+        onFinish: (result) => {
+          if (!result) {
+            const nowPlanned = getPlannedPickCount(autoPickPlanRef.current, fields);
+            if (nowPlanned <= 0) {
+              isAutoBettingRef.current = false;
+              setIsAutoBetting(false);
+              void syncBalance();
+              return;
+            }
+            window.setTimeout(() => {
+              runAutoRound();
+            }, 200);
+            return;
+          }
 
-      if (result.didWin && result.winAmount > 0) {
-        if (onWinMode === "reset") {
-          setBetBoth(autoOriginalBetRef.current);
-          betAmountRef.current = autoOriginalBetRef.current;
-        } else {
-          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
-          setBetBoth(next);
-          betAmountRef.current = next;
-        }
-      } else {
-        if (onLoseMode === "reset") {
-          setBetBoth(autoOriginalBetRef.current);
-          betAmountRef.current = autoOriginalBetRef.current;
-        } else {
-          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
-          setBetBoth(next);
-          betAmountRef.current = next;
-        }
-      }
+          const lastNet = normalizeMoney((result.winAmount ?? 0) - result.betAmount);
+          autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
 
-      await sleep(120);
-    }
+          if (result.didWin && result.winAmount > 0) {
+            if (onWinMode === "reset") {
+              setBetBoth(autoOriginalBetRef.current);
+              betAmountRef.current = autoOriginalBetRef.current;
+            } else {
+              const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+              setBetBoth(next);
+              betAmountRef.current = next;
+            }
+          } else {
+            if (onLoseMode === "reset") {
+              setBetBoth(autoOriginalBetRef.current);
+              betAmountRef.current = autoOriginalBetRef.current;
+            } else {
+              const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+              setBetBoth(next);
+              betAmountRef.current = next;
+            }
+          }
 
-    isAutoBettingRef.current = false;
-    setIsAutoBetting(false);
-    void syncBalance();
+          window.setTimeout(() => {
+            runAutoRound();
+          }, 120);
+        },
+      });
+    };
+
+    runAutoRound();
   }, [
     getPlannedPickCount,
     onLoseMode,

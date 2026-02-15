@@ -99,7 +99,7 @@ const FISH_VALUES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000];
 const FISH_WEIGHTS = [26,  21, 17, 14, 10, 7, 3.5, 0.35, 0.09, 0.03, 0.008, 0.002];
 const BASE_COLLECT_MULTIS = [1, 2, 3, 5, 8, 10, 15, 20, 30, 40, 50];
 const FS_MULTIPLIERS = [1, 2, 3, 10, 20, 30, 40, 50];
-const BOAT_WAKE_CHANCE_BASE = 0.1;
+const BOAT_WAKE_CHANCE_BASE = 0.15;
 const BOAT_COLLECT_MULTI_WEIGHTS = [60, 25, 7, 3, 2, 1.5, 1, 0.7, 0.4, 0.2, 0.1];
 const PREFREE_START_SPINS = 10;
 const PREFREE_TOKEN_POOL: PreFreeToken[] = [
@@ -123,8 +123,6 @@ const PAYTABLE: Partial<Record<SymbolId, [number, number, number]>> = {
   bag: [1, 3, 10],
   rod: [1.5, 5, 15],
 };
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const normalizeMoney = (value: number) => {
   if (!Number.isFinite(value)) return 0;
@@ -647,7 +645,7 @@ export default function BigBassAmazonasPage() {
     return { finalGrid, waterfallTriggered };
   };
 
-  const executeSpin = async () => {
+  const executeSpin = (onFinish?: (payout: number) => void) => {
     if (isExecutingSpinRef.current) return;
     isExecutingSpinRef.current = true;
     setIsExecutingSpin(true);
@@ -657,13 +655,13 @@ export default function BigBassAmazonasPage() {
     setBoatChestMulti(null);
     let lineEval: { totalWin: number; highlight: Set<string> } = { totalWin: 0, highlight: new Set() };
     let updatedRoundPayout = 0;
-    try {
-      const isFreeSpin = phase === "free" && freeSpinsLeft > 0;
-      setSpinDisplayMultiplier(isFreeSpin ? currentFsMultiplier : 1);
-      let gainedExtraSpinsThisCall = 0;
-      setPhase(isFreeSpin ? "free" : "spinning");
-      setSpinKey((v) => v + 1);
-      playAudio(audioRef.current.spin);
+
+    const isFreeSpin = phase === "free" && freeSpinsLeft > 0;
+    setSpinDisplayMultiplier(isFreeSpin ? currentFsMultiplier : 1);
+    let gainedExtraSpinsThisCall = 0;
+    setPhase(isFreeSpin ? "free" : "spinning");
+    setSpinKey((v) => v + 1);
+    playAudio(audioRef.current.spin);
 
     let nextGrid = buildRandomGrid(isFreeSpin, anteBet, mods.removeLowestFish);
     if (isFreeSpin && mods.guaranteedFish > 0) {
@@ -699,7 +697,7 @@ export default function BigBassAmazonasPage() {
     setReelDurations(Array(REELS).fill(90));
     setReelsSpinning([true, true, true, true, true]);
 
-    const animateReels = new Promise<void>((resolve) => {
+    const animateReels = (onReelsDone: () => void) => {
       let stoppedCount = 0;
       const stopTimes = [300, 450, 600, 750, 900];
       const baseFrameRate = 90;
@@ -716,50 +714,49 @@ export default function BigBassAmazonasPage() {
           frameCount += baseFrameRate;
 
           if (isStopping) {
-            setReelDurations((prevD) => {
-              const nextD = [...prevD];
-              nextD[reel] = Math.round(baseFrameRate * (1 + stopProgress * 1.5));
-              return nextD;
-            });
-          }
-
-          setReelFrames((prev) => {
-            const next = prev.map((f) => [...f]);
-            const currentCol = next[reel];
-
-            if (isStopping) {
-              if (stopProgress < ROWS) {
-                const targetCell = nextGrid[ROWS - 1 - stopProgress][reel];
+            if (stopProgress < ROWS) {
+              const targetCell = nextGrid[ROWS - 1 - stopProgress][reel];
+              setReelFrames((prev) => {
+                const next = prev.map((f) => [...f]);
+                const currentCol = next[reel];
                 next[reel] = [
                   { ...targetCell, highlight: false },
                   currentCol[0],
                   currentCol[1],
                   currentCol[2],
                 ];
-                stopProgress++;
-              } else {
-                if (intervalRefs.current[reel]) {
-                  clearInterval(intervalRefs.current[reel]!);
-                  intervalRefs.current[reel] = null;
-                }
-                
-                setGrid((prevGrid) => {
-                  const nextG = prevGrid.map((r) => [...r]);
-                  for (let rr = 0; rr < ROWS; rr++) {
-                    nextG[rr][reel] = { ...nextGrid[rr][reel], highlight: false };
-                  }
-                  return nextG;
-                });
-
-                setReelsSpinning((prev) => {
-                  const nextS = [...prev];
-                  nextS[reel] = false;
-                  return nextS;
-                });
-                stoppedCount++;
-                if (stoppedCount === REELS) resolve();
-              }
+                return next;
+              });
+              stopProgress++;
             } else {
+              if (intervalRefs.current[reel]) {
+                clearInterval(intervalRefs.current[reel]!);
+                intervalRefs.current[reel] = null;
+              }
+              
+              setGrid((prevGrid) => {
+                const nextG = prevGrid.map((r) => [...r]);
+                for (let rr = 0; rr < ROWS; rr++) {
+                  nextG[rr][reel] = { ...nextGrid[rr][reel], highlight: false };
+                }
+                return nextG;
+              });
+
+              setReelsSpinning((prev) => {
+                const nextS = [...prev];
+                nextS[reel] = false;
+                return nextS;
+              });
+
+              stoppedCount++;
+              if (stoppedCount === REELS) {
+                window.setTimeout(onReelsDone, 60);
+              }
+            }
+          } else {
+            setReelFrames((prev) => {
+              const next = prev.map((f) => [...f]);
+              const currentCol = next[reel];
               const fresh = cellForSpin(isFreeSpin, anteBet, mods.removeLowestFish);
               next[reel] = [
                 { ...fresh, highlight: false },
@@ -767,170 +764,194 @@ export default function BigBassAmazonasPage() {
                 currentCol[1],
                 currentCol[2],
               ];
-            }
-            return next;
-          });
+              return next;
+            });
+          }
 
           if (frameCount >= stopTimes[reel] && !isStopping) {
             isStopping = true;
           }
         }, baseFrameRate);
       }
-    });
+    };
 
-    await animateReels;
+    animateReels(() => {
+      const handleAfterReels = () => {
+        const scatter = countSymbol(nextGrid, "scatter");
+        const fishers = countSymbol(nextGrid, "fisher");
+        const fishPack = collectFishValues(nextGrid);
+        lineEval = evaluateLines(nextGrid, spinCost, isFreeSpin);
 
-    if (waterfallInfo.triggered) {
-      setIsWaterfallActive(true);
-      await sleep(1800); 
-      nextGrid = waterfallInfo.finalGrid;
-      setGrid(nextGrid.map(row => row.map(cell => ({ ...cell, highlight: false }))));
-      await sleep(600);
-      setIsWaterfallActive(false);
-    }
+        const hasFishSymbol = nextGrid.some((r) => r.some((c) => c.symbol === "fish"));
+        const isFisherCollect = fishers > 0 && (fishPack.total > 0 || hasFishSymbol);
+        const isBoatCollect = !isFreeSpin && !isFisherCollect && fishPack.total > 0 && (
+          shouldTriggerBaseCollect(fishPack.positions.length, anteBet) || Math.random() < BOAT_WAKE_CHANCE_BASE
+        );
+        
+        const isAnyFishCollect = isFisherCollect || isBoatCollect;
 
-    const scatter = countSymbol(nextGrid, "scatter");
-    const fishers = countSymbol(nextGrid, "fisher");
-    const fishPack = collectFishValues(nextGrid);
-    lineEval = evaluateLines(nextGrid, spinCost, isFreeSpin);
+        const highlighted = nextGrid.map((row, rowIdx) =>
+          row.map((cell, reelIdx) => {
+            let isH = cell.highlight || lineEval.highlight.has(`${rowIdx}-${reelIdx}`);
+            if (scatter >= 3 && cell.symbol === "scatter") isH = true;
+            if (isAnyFishCollect && (cell.symbol === "fisher" || cell.symbol === "fish")) isH = true;
+            return { ...cell, highlight: isH };
+          })
+        );
 
-    const hasFishSymbol = nextGrid.some((r) => r.some((c) => c.symbol === "fish"));
-    const isFisherCollect = fishers > 0 && (fishPack.total > 0 || hasFishSymbol);
-    const isBoatCollect = !isFreeSpin && !isFisherCollect && fishPack.total > 0 && (
-      shouldTriggerBaseCollect(fishPack.positions.length, anteBet) || Math.random() < BOAT_WAKE_CHANCE_BASE
-    );
-    
-    const isAnyFishCollect = isFisherCollect || isBoatCollect;
+        setGrid(highlighted);
 
-    const highlighted = nextGrid.map((row, rowIdx) =>
-      row.map((cell, reelIdx) => {
-        let isH = cell.highlight || lineEval.highlight.has(`${rowIdx}-${reelIdx}`);
-        if (scatter >= 3 && cell.symbol === "scatter") isH = true;
-        if (isAnyFishCollect && (cell.symbol === "fisher" || cell.symbol === "fish")) isH = true;
-        return { ...cell, highlight: isH };
-      })
-    );
+        let fishWin = 0;
+        let payoutForThisSpin = lineEval.totalWin;
 
-    setGrid(highlighted);
+        const finalizeStep = () => {
+          if (isFreeSpin) {
+            const newCollected = fisherCollected + fishers;
+            setFisherCollected(newCollected);
+            const prevRetriggers = retriggers;
+            const nowRetriggers = Math.floor(newCollected / 4);
 
-    let fishWin = 0;
-    let payoutForThisSpin = lineEval.totalWin;
-
-    if (isFisherCollect) {
-      const collectMultiplier = isFreeSpin ? currentFsMultiplier : 1;
-      const perFisherWin = normalizeMoney(fishPack.total * spinCost * collectMultiplier);
-      fishWin = normalizeMoney(perFisherWin * fishers);
-      payoutForThisSpin += fishWin;
-    } else if (isBoatCollect) {
-      const multi = isFreeSpin ? currentFsMultiplier : pickWeighted<number>(
-        BASE_COLLECT_MULTIS.map((m, idx) => [m, BOAT_COLLECT_MULTI_WEIGHTS[idx]])
-      );
-      
-      const boatWin = normalizeMoney(fishPack.total * spinCost * multi);
-      payoutForThisSpin += boatWin;
-      
-      if (!isFreeSpin) setBoatAwake(true);
-      setBoatNetCast(true);
-      await sleep(600);
-      setBoatNetCast(false);
-      await sleep(220);
-      setBoatChestOpen(true);
-      setBoatChestMulti(multi);
-      
-      if (boatSleepTimeoutRef.current) clearTimeout(boatSleepTimeoutRef.current);
-      boatSleepTimeoutRef.current = setTimeout(() => {
-        setBoatAwake(false);
-      }, 2200);
-              
-      await sleep(900);
-      setBoatChestOpen(false);
-      setBoatChestMulti(null);
-    }
-
-      if (isFreeSpin) {
-        const newCollected = fisherCollected + fishers;
-        setFisherCollected(newCollected);
-        const prevRetriggers = retriggers;
-        const nowRetriggers = Math.floor(newCollected / 4);
-
-        if (nowRetriggers > prevRetriggers) {
-          const maxIndex = FS_MULTIPLIERS.length - 1;
-          const effectiveNow = Math.min(nowRetriggers, maxIndex);
-          const effectivePrev = Math.min(prevRetriggers, maxIndex);
-          const gained = Math.max(0, effectiveNow - effectivePrev);
-          if (gained > 0) {
-            const extraSpins = gained * 10;
-            gainedExtraSpinsThisCall = extraSpins;
-            setFreeSpinsLeft((s) => s + extraSpins);
+            if (nowRetriggers > prevRetriggers) {
+              const maxIndex = FS_MULTIPLIERS.length - 1;
+              const effectiveNow = Math.min(nowRetriggers, maxIndex);
+              const effectivePrev = Math.min(prevRetriggers, maxIndex);
+              const gained = Math.max(0, effectiveNow - effectivePrev);
+              if (gained > 0) {
+                const extraSpins = gained * 10;
+                gainedExtraSpinsThisCall = extraSpins;
+                setFreeSpinsLeft((s) => s + extraSpins);
+              }
+              const cappedRetriggers = Math.min(nowRetriggers, maxIndex);
+              setRetriggers(cappedRetriggers);
+              const fsMulti = FS_MULTIPLIERS[cappedRetriggers];
+              setCurrentFsMultiplier(fsMulti);
+            }
           }
-          const cappedRetriggers = Math.min(nowRetriggers, maxIndex);
-          setRetriggers(cappedRetriggers);
-          const fsMulti = FS_MULTIPLIERS[cappedRetriggers];
-          setCurrentFsMultiplier(fsMulti);
-        }
-      }
 
-    updatedRoundPayout = normalizeMoney(pendingRoundPayoutRef.current + payoutForThisSpin);
-    pendingRoundPayoutRef.current = updatedRoundPayout;
-    setPendingRoundPayout(updatedRoundPayout);
+          updatedRoundPayout = normalizeMoney(pendingRoundPayoutRef.current + payoutForThisSpin);
+          pendingRoundPayoutRef.current = updatedRoundPayout;
+          setPendingRoundPayout(updatedRoundPayout);
 
-    if (!isFreeSpin && scatter >= 3) {
-      let startBoats = 0;
-      if (scatter === 4) startBoats = 1;
-      if (scatter >= 5) startBoats = 2;
+          const finishExecution = () => {
+            isExecutingSpinRef.current = false;
+            setIsExecutingSpin(false);
+            if (onFinish) onFinish(updatedRoundPayout);
+          };
 
-      if (startBoats > 0) {
-        setPhase("pick");
-        setPickState({
-          revealed: new Array(12).fill(false),
-          tokens: buildPickTokens(startBoats, 3),
-          boatsFound: startBoats,
-          boatsTarget: 3,
-          modifiers: {
-            extraFreeSpins: 0,
-            guaranteedFish: 0,
-            collectedFishermen: 0,
-            removeLowestFish: false,
-          },
-        });
-        return;
-      }
+          if (!isFreeSpin && scatter >= 3) {
+            let startBoats = 0;
+            if (scatter === 4) startBoats = 1;
+            if (scatter >= 5) startBoats = 2;
 
-      setPhase("prefree");
-      setPreFreeState({
-        revealed: new Array(PREFREE_TOKEN_POOL.length).fill(false),
-        tokens: buildPreFreeTokens(),
-        extraSpins: 0,
-        extraFishers: 0,
-        done: false,
-      });
-      setMods({ extraFreeSpins: 0, guaranteedFish: 0, collectedFishermen: 0, removeLowestFish: false });
-      await sleep(350);
-      return;
-    }
+            if (startBoats > 0) {
+              setPhase("pick");
+              setPickState({
+                revealed: new Array(12).fill(false),
+                tokens: buildPickTokens(startBoats, 3),
+                boatsFound: startBoats,
+                boatsTarget: 3,
+                modifiers: {
+                  extraFreeSpins: 0,
+                  guaranteedFish: 0,
+                  collectedFishermen: 0,
+                  removeLowestFish: false,
+                },
+              });
+              finishExecution();
+              return;
+            }
 
-      if (isFreeSpin) {
-        const leftAfter = Math.max(0, freeSpinsLeft + gainedExtraSpinsThisCall - 1);
-        setFreeSpinsLeft(leftAfter);
+            setPhase("prefree");
+            setPreFreeState({
+              revealed: new Array(PREFREE_TOKEN_POOL.length).fill(false),
+              tokens: buildPreFreeTokens(),
+              extraSpins: 0,
+              extraFishers: 0,
+              done: false,
+            });
+            setMods({ extraFreeSpins: 0, guaranteedFish: 0, collectedFishermen: 0, removeLowestFish: false });
+            window.setTimeout(() => {
+              finishExecution();
+            }, 350);
+            return;
+          }
 
-        if (leftAfter <= 0) {
+          if (isFreeSpin) {
+            const leftAfter = Math.max(0, freeSpinsLeft + gainedExtraSpinsThisCall - 1);
+            setFreeSpinsLeft(leftAfter);
+
+            if (leftAfter <= 0) {
+              setPhase("idle");
+              settleRound(pendingRoundStakeRef.current, updatedRoundPayout);
+              setIsAutospinning(false);
+            }
+            window.setTimeout(() => {
+              finishExecution();
+            }, 250);
+            return;
+          }
+
           setPhase("idle");
           settleRound(pendingRoundStakeRef.current, updatedRoundPayout);
-          setIsAutospinning(false);
-        }
-        await sleep(250);
-        return;
-      }
-    } finally {
-      isExecutingSpinRef.current = false;
-      setIsExecutingSpin(false);
-    }
+          finishExecution();
+        };
 
-    setPhase("idle");
-    settleRound(pendingRoundStakeRef.current, updatedRoundPayout);
+        if (isFisherCollect) {
+          const collectMultiplier = isFreeSpin ? currentFsMultiplier : 1;
+          const perFisherWin = normalizeMoney(fishPack.total * spinCost * collectMultiplier);
+          fishWin = normalizeMoney(perFisherWin * fishers);
+          payoutForThisSpin += fishWin;
+          finalizeStep();
+        } else if (isBoatCollect) {
+          const multi = isFreeSpin ? currentFsMultiplier : pickWeighted<number>(
+            BASE_COLLECT_MULTIS.map((m, idx) => [m, BOAT_COLLECT_MULTI_WEIGHTS[idx]])
+          );
+          
+          const boatWin = normalizeMoney(fishPack.total * spinCost * multi);
+          payoutForThisSpin += boatWin;
+          
+          if (!isFreeSpin) setBoatAwake(true);
+          setBoatNetCast(true);
+          window.setTimeout(() => {
+            setBoatNetCast(false);
+            window.setTimeout(() => {
+              setBoatChestOpen(true);
+              setBoatChestMulti(multi);
+              
+              if (boatSleepTimeoutRef.current) clearTimeout(boatSleepTimeoutRef.current);
+              boatSleepTimeoutRef.current = setTimeout(() => {
+                setBoatAwake(false);
+              }, 2200);
+                      
+              window.setTimeout(() => {
+                setBoatChestOpen(false);
+                setBoatChestMulti(null);
+                finalizeStep();
+              }, 900);
+            }, 220);
+          }, 600);
+        } else {
+          finalizeStep();
+        }
+      };
+
+      if (waterfallInfo.triggered) {
+        setIsWaterfallActive(true);
+        window.setTimeout(() => {
+          nextGrid = waterfallInfo.finalGrid;
+          setGrid(nextGrid.map(row => row.map(cell => ({ ...cell, highlight: false }))));
+          window.setTimeout(() => {
+            setIsWaterfallActive(false);
+            handleAfterReels();
+          }, 600);
+        }, 1800);
+      } else {
+        handleAfterReels();
+      }
+    });
   };
 
-  const startPaidSpin = async () => {
+  const startPaidSpin = () => {
     if (!canPaidSpin) return;
     if (isExecutingSpinRef.current) return;
     if (betAmount <= 0) return;
@@ -947,27 +968,26 @@ export default function BigBassAmazonasPage() {
     }
     pendingRoundPayoutRef.current = 0;
     setPendingRoundPayout(0);
-    const result = await executeSpin();
-    return result;
+    executeSpin();
   };
 
-  const handleMainSpin = async () => {
+  const handleMainSpin = () => {
     if (isExecutingSpinRef.current) return;
     setLastWin(0);
     if (phase === "free") {
       setFreeSpinsLeft((s) => Math.max(0, s - 1));
-      await spinFree();
+      spinFree();
     } else {
-      await startPaidSpin();
+      startPaidSpin();
     }
   };
 
   const mainDisabled = isExecutingSpin || (phase === "free" ? freeSpinsLeft <= 0 : phase !== "idle" || (!isTenDollarFreeSpin && balance < spinCost) || betAmount <= 0);
 
-  const spinFree = async () => {
+  const spinFree = () => {
     if (phase !== "free" || freeSpinsLeft <= 0) return;
     if (isExecutingSpinRef.current) return;
-    await executeSpin();
+    executeSpin();
   };
 
   const beginFreeSpinsFromPreFree = (extraSpins: number, extraFishers: number) => {
@@ -1608,7 +1628,7 @@ export default function BigBassAmazonasPage() {
                     )}
                     <div className="absolute inset-x-0 top-4 sm:top-6 bottom-2 sm:bottom-4 overflow-hidden">
                       <div
-                        key={reelsSpinning[reel] ? `spinning-${reel}-${spinKey}` : `static-${reel}`}
+                        key={`reel-container-${reel}`}
                         className={`flex flex-col relative w-full ${reelsSpinning[reel] ? "slot-reel-rolling slot-rolling" : ""}`}
                         style={reelsSpinning[reel] ? { ['--dur' as any]: `${reelDurations[reel]}ms` } : undefined}
                       >

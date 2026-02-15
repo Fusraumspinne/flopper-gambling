@@ -339,7 +339,6 @@ export async function PATCH(req: Request) {
 
     const updateData: Record<string, any> = {};
 
-    // Handle Name Change
     if (typeof newName === "string") {
       const to = newName.trim();
       if (to && to !== from) {
@@ -351,7 +350,6 @@ export async function PATCH(req: Request) {
       }
     }
 
-    // Handle Password Change
     if (typeof newPassword === "string" && newPassword.length > 0) {
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       updateData.password = hashedPassword;

@@ -398,10 +398,8 @@ export default function DartsPage() {
       ? `0 0 28px ${boardGlowInner}, 0 0 90px ${boardGlowOuter}`
       : "0 0 0 rgba(0,0,0,0)";
 
-  const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
-
   const playRound = useCallback(
-    async (opts?: { betAmount?: number }) => {
+    (opts?: { betAmount?: number; onFinish?: (res: any) => void }) => {
       const myNonce = ++playNonceRef.current;
 
       const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
@@ -411,7 +409,8 @@ export default function DartsPage() {
       const currentPattern = getSegmentPattern(currentRisk);
 
       if (bet <= 0 || bet > currentBalance || isPlayingRef.current) {
-        return null as null | { betAmount: number; multiplier: number; winAmount: number };
+        opts?.onFinish?.(null);
+        return;
       }
 
       isPlayingRef.current = true;
@@ -482,48 +481,53 @@ export default function DartsPage() {
       setShowArrow(true);
       setArrowPos({ x: finalX, y: startY, rot: -8, scale: 1.18 });
 
-      await sleep(100);
-      if (playNonceRef.current !== myNonce) return null;
-      setArrowPos({ x: finalX, y: finalY - 48, rot: -4, scale: 1.02 });
+      window.setTimeout(() => {
+        if (playNonceRef.current !== myNonce) return;
+        setArrowPos({ x: finalX, y: finalY - 48, rot: -4, scale: 1.02 });
 
-      await sleep(140);
-      if (playNonceRef.current !== myNonce) return null;
-      setArrowPos({ x: finalX, y: finalY - 18, rot: 6, scale: 0.96 });
+        window.setTimeout(() => {
+          if (playNonceRef.current !== myNonce) return;
+          setArrowPos({ x: finalX, y: finalY - 18, rot: 6, scale: 0.96 });
 
-      await sleep(140);
-      if (playNonceRef.current !== myNonce) return null;
-      setArrowPos({ x: finalX, y: finalY, rot: 14, scale: 0.86 });
+          window.setTimeout(() => {
+            if (playNonceRef.current !== myNonce) return;
+            setArrowPos({ x: finalX, y: finalY, rot: 14, scale: 0.86 });
 
-      await sleep(140);
-      if (playNonceRef.current !== myNonce) return null;
+            window.setTimeout(() => {
+              if (playNonceRef.current !== myNonce) return;
 
-      setIsFlying(false);
-      setLastHitColor(COLORS[outcome]);
-      setLastMultiplier(multiplier);
-      setDartPosition({ x, y });
+              setIsFlying(false);
+              setLastHitColor(COLORS[outcome]);
+              setLastMultiplier(multiplier);
+              setDartPosition({ x, y });
 
-      if (multiplier >= 1) {
-        playAudio(audioRef.current.win);
-      } else {
-        playAudio(audioRef.current.dartsLose);
-      }
+              if (multiplier >= 1) {
+                playAudio(audioRef.current.win);
+              } else {
+                playAudio(audioRef.current.dartsLose);
+              }
 
-      await sleep(220);
-      if (playNonceRef.current !== myNonce) return null;
+              window.setTimeout(() => {
+                if (playNonceRef.current !== myNonce) return;
 
-      if (winAmount > 0) {
-        addToBalance(winAmount);
-        setLastWin(winAmount);
-      } else {
-        finalizePendingLoss();
-        setLastWin(0);
-      }
-      setHistory((prev) => [{ multiplier, color: COLORS[outcome] }, ...prev].slice(0, 5));
+                if (winAmount > 0) {
+                  addToBalance(winAmount);
+                  setLastWin(winAmount);
+                } else {
+                  finalizePendingLoss();
+                  setLastWin(0);
+                }
+                setHistory((prev) => [{ multiplier, color: COLORS[outcome] }, ...prev].slice(0, 5));
 
-      isPlayingRef.current = false;
-      setIsPlaying(false);
+                isPlayingRef.current = false;
+                setIsPlaying(false);
 
-      return { betAmount: bet, multiplier, winAmount };
+                opts?.onFinish?.({ betAmount: bet, multiplier, winAmount });
+              }, 220);
+            }, 140);
+          }, 140);
+        }, 140);
+      }, 100);
     },
     [
       addToBalance,
@@ -538,8 +542,8 @@ export default function DartsPage() {
     ]
   );
 
-  const playGame = useCallback(async () => {
-    await playRound();
+  const playGame = useCallback(() => {
+    playRound();
   }, [playRound]);
 
   const stopAutoBet = useCallback(() => {
@@ -548,7 +552,7 @@ export default function DartsPage() {
     void syncBalance();
   }, [syncBalance]);
 
-  const startAutoBet = useCallback(async () => {
+  const startAutoBet = useCallback(() => {
     if (isAutoBettingRef.current) return;
 
     const startingBet = normalizeMoney(betAmountRef.current);
@@ -560,65 +564,85 @@ export default function DartsPage() {
 
     isAutoBettingRef.current = true;
     setIsAutoBetting(true);
-    while (isAutoBettingRef.current) {
+
+    const runAutoRound = () => {
+      if (!isAutoBettingRef.current) {
+        setIsAutoBetting(false);
+        void syncBalance();
+        return;
+      }
+
       const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
       const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
 
       const roundBet = normalizeMoney(betAmountRef.current);
-      if (roundBet <= 0) break;
-      if (roundBet > balanceRef.current) break;
-
-      const result = await playRound({ betAmount: roundBet });
-      if (!result) break;
-
-      if (result.winAmount > 0) {
-        setShowAutoWinFlash(true);
-        if (autoWinTimeoutRef.current) {
-          clearTimeout(autoWinTimeoutRef.current);
-          autoWinTimeoutRef.current = null;
-        }
-        autoWinTimeoutRef.current = window.setTimeout(() => {
-          setShowAutoWinFlash(false);
-          autoWinTimeoutRef.current = null;
-        }, 900);
+      if (roundBet <= 0 || roundBet > balanceRef.current) {
+        isAutoBettingRef.current = false;
+        setIsAutoBetting(false);
+        void syncBalance();
+        return;
       }
 
-      const lastNet = normalizeMoney(result.winAmount - result.betAmount);
-      const isWin = result.multiplier >= 1;
-      autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
+      playRound({
+        betAmount: roundBet,
+        onFinish: (result) => {
+          if (!result) {
+            isAutoBettingRef.current = false;
+            setIsAutoBetting(false);
+            void syncBalance();
+            return;
+          }
 
-      if (isWin) {
-        if (onWinMode === "reset") {
-          setBetBoth(autoOriginalBetRef.current);
-          betAmountRef.current = autoOriginalBetRef.current;
-        } else {
-          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
-          setBetBoth(next);
-          betAmountRef.current = next;
-        }
-      } else {
-        if (onLoseMode === "reset") {
-          setBetBoth(autoOriginalBetRef.current);
-          betAmountRef.current = autoOriginalBetRef.current;
-        } else {
-          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
-          setBetBoth(next);
-          betAmountRef.current = next;
-        }
-      }
-      await sleep(200);
-    }
+          if (result.winAmount > 0) {
+            setShowAutoWinFlash(true);
+            if (autoWinTimeoutRef.current) {
+              clearTimeout(autoWinTimeoutRef.current);
+              autoWinTimeoutRef.current = null;
+            }
+            autoWinTimeoutRef.current = window.setTimeout(() => {
+              setShowAutoWinFlash(false);
+              autoWinTimeoutRef.current = null;
+            }, 900);
+          }
 
-    isAutoBettingRef.current = false;
-    setIsAutoBetting(false);
-    void syncBalance();
+          const lastNet = normalizeMoney(result.winAmount - result.betAmount);
+          const isWin = result.multiplier >= 1;
+          autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
+
+          if (isWin) {
+            if (onWinMode === "reset") {
+              setBetBoth(autoOriginalBetRef.current);
+              betAmountRef.current = autoOriginalBetRef.current;
+            } else {
+              const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+              setBetBoth(next);
+              betAmountRef.current = next;
+            }
+          } else {
+            if (onLoseMode === "reset") {
+              setBetBoth(autoOriginalBetRef.current);
+              betAmountRef.current = autoOriginalBetRef.current;
+            } else {
+              const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+              setBetBoth(next);
+              betAmountRef.current = next;
+            }
+          }
+
+          window.setTimeout(() => {
+            runAutoRound();
+          }, 200);
+        },
+      });
+    };
+
+    runAutoRound();
   }, [
     onLoseMode,
     onLosePctInput,
     onWinMode,
     onWinPctInput,
     playRound,
-    stopAutoBet,
     syncBalance,
   ]);
 

@@ -23,7 +23,7 @@ export async function GET() {
   try {
     const status = await getWebsiteStatus();
     const res = NextResponse.json(status);
-    res.headers.set("Cache-Control", "no-store");
+    res.headers.set("Cache-Control", "public, s-maxage=10, stale-while-revalidate=59");
     return res;
   } catch (error) {
     console.error("Error fetching website status:", error);

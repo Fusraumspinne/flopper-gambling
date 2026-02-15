@@ -5,7 +5,12 @@ import { GAME_ROUTE_TO_KEY } from "./lib/gameStatus";
 
 async function handler(req: NextRequest) {
   try {
-    const pathname = req.nextUrl.pathname.replace(/\/+$/, "");
+    const pathname = req.nextUrl.pathname;
+    
+    if (pathname.includes('.') || pathname.startsWith('/api/')) {
+        return NextResponse.next();
+    }
+
     const parts = pathname.split("/").filter(Boolean);
     const baseRoute = parts.length ? `/${parts[0]}` : "/";
 
@@ -15,6 +20,7 @@ async function handler(req: NextRequest) {
     const statusUrl = new URL("/api/status", req.nextUrl.origin);
     const res = await fetch(statusUrl.toString(), {
       headers: { "x-middleware": "1" },
+      next: { revalidate: 60 }
     });
     if (!res.ok) return NextResponse.next();
     const json = await res.json();

@@ -120,8 +120,6 @@ export default function VaultPage() {
     return Number.isFinite(n) ? n : 0;
   };
 
-  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
   const [riskLevel, setRiskLevel] = useState<RiskLevel>("low");
@@ -292,19 +290,17 @@ export default function VaultPage() {
     setResultFx(null);
   };
 
-  const showFx = useCallback(async (fx: "win" | "lose") => {
+  const showFx = useCallback((fx: "win" | "lose", onFinish?: () => void) => {
     if (resultTimeoutRef.current) {
       clearTimeout(resultTimeoutRef.current);
       resultTimeoutRef.current = null;
     }
     setResultFx(fx);
-    await new Promise<void>((resolve) => {
-      resultTimeoutRef.current = window.setTimeout(() => {
-        setResultFx(null);
-        resultTimeoutRef.current = null;
-        resolve();
-      }, 900);
-    });
+    resultTimeoutRef.current = window.setTimeout(() => {
+      setResultFx(null);
+      resultTimeoutRef.current = null;
+      onFinish?.();
+    }, 900);
   }, []);
 
   const getValidPickOrder = useCallback((order: number[]) => {
@@ -510,7 +506,7 @@ export default function VaultPage() {
   };
 
   const playRound = useCallback(
-    async (opts?: { betAmount?: number }) => {
+    (opts?: { betAmount?: number; onFinish?: (res: any) => void }) => {
       const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
       const currentBalance = balanceRef.current;
       const risk = riskLevelRef.current;
@@ -518,15 +514,18 @@ export default function VaultPage() {
 
       const picks = getValidPickOrder(autoPickOrderRef.current);
       if (picks.length <= 0) {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        opts?.onFinish?.(null);
+        return;
       }
 
       if (currentState === "playing") {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        opts?.onFinish?.(null);
+        return;
       }
 
       if (bet <= 0 || bet > currentBalance) {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        opts?.onFinish?.(null);
+        return;
       }
 
       if (resultTimeoutRef.current) {
@@ -551,84 +550,101 @@ export default function VaultPage() {
       }));
 
       setGrid(gridLocal);
-      await sleep(120);
 
-      let revealedLocal = 0;
-      let multiplierLocal = 1;
+      const runStep = (index: number, currentRevealed: number, currentMultiplierLocal: number, currentGrid: Tile[]) => {
+        if (index >= picks.length) {
+          if (currentRevealed <= 0) {
+            setGameState("game_over");
+            const finalGrid = revealAllWithTease(currentGrid, null, 0);
+            setGrid(finalGrid);
+            finalizePendingLoss();
+            showFx("lose", () => {
+              opts?.onFinish?.({ betAmount: bet, winAmount: 0, didWin: false });
+            });
+            return;
+          }
 
-      for (const id of picks) {
-        if (gridLocal[id]?.isRevealed) continue;
+          const winAmount = normalizeMoney(bet * currentMultiplierLocal);
+          if (winAmount <= 0) {
+            setLastWin(0);
+            setGameState("game_over");
+            const finalGrid = revealAllWithTease(currentGrid, null, currentRevealed);
+            setGrid(finalGrid);
+            playMinePopSound();
+            finalizePendingLoss();
+            showFx("lose", () => {
+              opts?.onFinish?.({ betAmount: bet, winAmount: 0, didWin: false });
+            });
+            return;
+          }
+
+          addToBalance(winAmount);
+          setLastWin(winAmount);
+          setGameState("cashed_out");
+          playWinSound();
+          const finalGrid = revealAllWithTease(currentGrid, null, currentRevealed);
+          setGrid(finalGrid);
+          showFx("win", () => {
+            opts?.onFinish?.({ betAmount: bet, winAmount, didWin: true });
+          });
+          return;
+        }
+
+        const id = picks[index];
+        if (currentGrid[id]?.isRevealed) {
+          runStep(index + 1, currentRevealed, currentMultiplierLocal, currentGrid);
+          return;
+        }
 
         if (resultTimeoutRef.current) {
           clearTimeout(resultTimeoutRef.current);
           resultTimeoutRef.current = null;
         }
         setResultFx("rolling");
-        await sleep(120);
 
-        const outcome = getOutcome(risk);
-        const stepMultiplier = getStepMultiplier(outcome, revealedLocal);
+        window.setTimeout(() => {
+          const outcome = getOutcome(risk);
+          const stepMultiplier = getStepMultiplier(outcome, currentRevealed);
 
-        setLastPickIndex(revealedLocal);
+          setLastPickIndex(currentRevealed);
 
-        gridLocal = [...gridLocal];
-        gridLocal[id] = {
-          ...gridLocal[id],
-          isRevealed: true,
-          revealedByPlayer: true,
-          multiplier: stepMultiplier,
-        };
-        setGrid(gridLocal);
+          const newGrid = [...currentGrid];
+          newGrid[id] = {
+            ...newGrid[id],
+            isRevealed: true,
+            revealedByPlayer: true,
+            multiplier: stepMultiplier,
+          };
+          setGrid(newGrid);
 
-        if (stepMultiplier <= 0) {
-          setGameState("game_over");
-          gridLocal = revealAllWithTease(gridLocal, id, revealedLocal);
-          setGrid(gridLocal);
-          playMinePopSound();
-          finalizePendingLoss();
-          await showFx("lose");
-          return { betAmount: bet, winAmount: 0, didWin: false };
-        }
+          if (stepMultiplier <= 0) {
+            setGameState("game_over");
+            const finalGrid = revealAllWithTease(newGrid, id, currentRevealed);
+            setGrid(finalGrid);
+            playMinePopSound();
+            finalizePendingLoss();
+            showFx("lose", () => {
+              opts?.onFinish?.({ betAmount: bet, winAmount: 0, didWin: false });
+            });
+            return;
+          }
 
-        revealedLocal++;
-        multiplierLocal = normalizeMoney(multiplierLocal * stepMultiplier);
-        setRevealedCount(revealedLocal);
-        setCurrentMultiplier(multiplierLocal);
-        playRevealSound(revealedLocal, 25);
-        setResultFx(null);
+          const nextRevealed = currentRevealed + 1;
+          const nextMultiplierLocal = normalizeMoney(currentMultiplierLocal * stepMultiplier);
+          setRevealedCount(nextRevealed);
+          setCurrentMultiplier(nextMultiplierLocal);
+          playRevealSound(nextRevealed, 25);
+          setResultFx(null);
 
-        await sleep(120);
-      }
+          window.setTimeout(() => {
+            runStep(index + 1, nextRevealed, nextMultiplierLocal, newGrid);
+          }, 120);
+        }, 120);
+      };
 
-      if (revealedLocal <= 0) {
-        setGameState("game_over");
-        gridLocal = revealAllWithTease(gridLocal, null, 0);
-        setGrid(gridLocal);
-        finalizePendingLoss();
-        await showFx("lose");
-        return { betAmount: bet, winAmount: 0, didWin: false };
-      }
-
-      const winAmount = normalizeMoney(bet * multiplierLocal);
-      if (winAmount <= 0) {
-        setLastWin(0);
-        setGameState("game_over");
-        gridLocal = revealAllWithTease(gridLocal, null, revealedLocal);
-        setGrid(gridLocal);
-        playMinePopSound();
-        finalizePendingLoss();
-        await showFx("lose");
-        return { betAmount: bet, winAmount: 0, didWin: false };
-      }
-
-      addToBalance(winAmount);
-      setLastWin(winAmount);
-      setGameState("cashed_out");
-      playWinSound();
-      gridLocal = revealAllWithTease(gridLocal, null, revealedLocal);
-      setGrid(gridLocal);
-      await showFx("win");
-      return { betAmount: bet, winAmount, didWin: true };
+      window.setTimeout(() => {
+        runStep(0, 0, 1, gridLocal);
+      }, 120);
     },
     [
       addToBalance,
@@ -641,7 +657,7 @@ export default function VaultPage() {
     ]
   );
 
-  const startAutoBet = useCallback(async () => {
+  const startAutoBet = useCallback(() => {
     if (isAutoBettingRef.current) return;
 
     const startingBet = normalizeMoney(betAmountRef.current);
@@ -657,49 +673,73 @@ export default function VaultPage() {
     isAutoBettingRef.current = true;
     setIsAutoBetting(true);
 
-    while (isAutoBettingRef.current) {
+    const runAutoRound = () => {
+      if (!isAutoBettingRef.current) {
+        setIsAutoBetting(false);
+        void syncBalance();
+        return;
+      }
+
       const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
       const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
 
       const roundBet = normalizeMoney(betAmountRef.current);
-      if (roundBet <= 0) break;
-      if (roundBet > balanceRef.current) break;
-
-      const currentPicks = getValidPickOrder(autoPickOrderRef.current);
-      if (currentPicks.length <= 0) break;
-
-      const result = await playRound({ betAmount: roundBet });
-      if (!result) break;
-
-      const lastNet = normalizeMoney((result.winAmount ?? 0) - result.betAmount);
-      autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
-
-      if (result.didWin && result.winAmount > 0) {
-        if (onWinMode === "reset") {
-          setBetBoth(autoOriginalBetRef.current);
-          betAmountRef.current = autoOriginalBetRef.current;
-        } else {
-          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
-          setBetBoth(next);
-          betAmountRef.current = next;
-        }
-      } else {
-        if (onLoseMode === "reset") {
-          setBetBoth(autoOriginalBetRef.current);
-          betAmountRef.current = autoOriginalBetRef.current;
-        } else {
-          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
-          setBetBoth(next);
-          betAmountRef.current = next;
-        }
+      if (roundBet <= 0 || roundBet > balanceRef.current) {
+        isAutoBettingRef.current = false;
+        setIsAutoBetting(false);
+        void syncBalance();
+        return;
       }
 
-      await sleep(120);
-    }
+      const currentPicks = getValidPickOrder(autoPickOrderRef.current);
+      if (currentPicks.length <= 0) {
+        isAutoBettingRef.current = false;
+        setIsAutoBetting(false);
+        void syncBalance();
+        return;
+      }
 
-    isAutoBettingRef.current = false;
-    setIsAutoBetting(false);
-    void syncBalance();
+      playRound({
+        betAmount: roundBet,
+        onFinish: (result) => {
+          if (!result) {
+            isAutoBettingRef.current = false;
+            setIsAutoBetting(false);
+            void syncBalance();
+            return;
+          }
+
+          const lastNet = normalizeMoney((result.winAmount ?? 0) - result.betAmount);
+          autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
+
+          if (result.didWin && result.winAmount > 0) {
+            if (onWinMode === "reset") {
+              setBetBoth(autoOriginalBetRef.current);
+              betAmountRef.current = autoOriginalBetRef.current;
+            } else {
+              const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+              setBetBoth(next);
+              betAmountRef.current = next;
+            }
+          } else {
+            if (onLoseMode === "reset") {
+              setBetBoth(autoOriginalBetRef.current);
+              betAmountRef.current = autoOriginalBetRef.current;
+            } else {
+              const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+              setBetBoth(next);
+              betAmountRef.current = next;
+            }
+          }
+
+          window.setTimeout(() => {
+            runAutoRound();
+          }, 120);
+        },
+      });
+    };
+
+    runAutoRound();
   }, [
     getValidPickOrder,
     onLoseMode,

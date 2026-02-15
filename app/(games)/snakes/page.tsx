@@ -185,6 +185,7 @@ function cn(...parts: Array<string | false | null | undefined>) {
 }
 
 function sleep(ms: number) {
+  if (typeof window === "undefined") return Promise.resolve();
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
@@ -485,101 +486,122 @@ export default function SnakesPage() {
     [risk, handleCashout]
   );
 
-  const rollDice = useCallback(async () => {
-    if (isAnimatingRef.current) return;
-
-    isAnimatingRef.current = true;
-
-    let wasPlaying = gameStateRef.current === "playing";
-    let baseMult = totalMultiplierRef.current;
-
-    if (!wasPlaying) {
-      const ok = startNewRound();
-      if (!ok) return;
-      wasPlaying = false;
-      baseMult = 1;
-    }
-
-    setIsAnimating(true);
-    setIsRolling(true);
-    setCurrentPos(-1);
-    setResultFx("rolling");
-
-    playAudio(audioRef.current.rollDice);
-
-    const finalDie1 = Math.floor(Math.random() * 6) + 1;
-    const finalDie2 = Math.floor(Math.random() * 6) + 1;
-
-    for (let t = 0; t < 6; t++) {
-      const d1 = t < 4 ? Math.floor(Math.random() * 6) + 1 : finalDie1;
-      const d2 = t < 6 ? Math.floor(Math.random() * 6) + 1 : finalDie2;
-      setDice([d1, d2]);
-      await sleep(90);
-    }
-    setDice([finalDie1, finalDie2]);
-    setIsRolling(false);
-
-    const steps = finalDie1 + finalDie2;
-    const landing = (steps - 1) % board.length;
-
-    for (let s = 1; s <= steps; s++) {
-      const idx = (s - 1) % board.length;
-      setCurrentPos(idx);
-      playAudio(audioRef.current.kenoReveal);
-      await sleep(120);
-    }
-
-    const { nextMult, newState } = landOnTile(landing, baseMult);
-    const entry: RollEntry = {
-      die1: finalDie1,
-      die2: finalDie2,
-      steps,
-      landing,
-      value: board[landing],
-      multiplierAfter: nextMult,
-    };
-
-    setRolls((prev) => (wasPlaying ? [...prev, entry] : [entry]));
-    setCurrentPos(landing);
-    totalMultiplierRef.current = nextMult;
-    setTotalMultiplier(nextMult);
-
-    if (nextMult > baseMult) {
-      playAudio(audioRef.current.tick);
-    }
-
-    if (newState === "dead") {
-      gameStateRef.current = "dead";
-      setGameState("dead");
-      setDeadFx(true);
-      if (resultTimeoutRef.current) {
-        clearTimeout(resultTimeoutRef.current);
-        resultTimeoutRef.current = null;
+  const rollDice = useCallback(
+    (onFinish?: () => void) => {
+      if (isAnimatingRef.current) {
+        onFinish?.();
+        return;
       }
-      setResultFx("lose");
-      playAudio(audioRef.current.limboLose);
-      resultTimeoutRef.current = window.setTimeout(
-        () => setResultFx(null),
-        900
-      );
-      finalizePendingLoss();
-      isAnimatingRef.current = false;
-      setIsAnimating(false);
-      setIsRolling(false);
-      return;
-    }
 
-    gameStateRef.current = "playing";
-    setGameState("playing");
-    isAnimatingRef.current = false;
-    setIsAnimating(false);
-    setIsRolling(false);
-  }, [
-    board,
-    finalizePendingLoss,
-    landOnTile,
-    startNewRound,
-  ]);
+      isAnimatingRef.current = true;
+
+      let wasPlaying = gameStateRef.current === "playing";
+      let baseMult = totalMultiplierRef.current;
+
+      if (!wasPlaying) {
+        const ok = startNewRound();
+        if (!ok) {
+          onFinish?.();
+          return;
+        }
+        wasPlaying = false;
+        baseMult = 1;
+      }
+
+      setIsAnimating(true);
+      setIsRolling(true);
+      setCurrentPos(-1);
+      setResultFx("rolling");
+
+      playAudio(audioRef.current.rollDice);
+
+      const finalDie1 = Math.floor(Math.random() * 6) + 1;
+      const finalDie2 = Math.floor(Math.random() * 6) + 1;
+
+      const runDiceAnim = (t: number) => {
+        if (t >= 6) {
+          setDice([finalDie1, finalDie2]);
+          setIsRolling(false);
+
+          const steps = finalDie1 + finalDie2;
+          runWalkingAnim(1, steps);
+          return;
+        }
+
+        const d1 = t < 4 ? Math.floor(Math.random() * 6) + 1 : finalDie1;
+        const d2 = t < 6 ? Math.floor(Math.random() * 6) + 1 : finalDie2;
+        setDice([d1, d2]);
+        window.setTimeout(() => runDiceAnim(t + 1), 90);
+      };
+
+      const runWalkingAnim = (s: number, totalSteps: number) => {
+        if (s > totalSteps) {
+          finishRoll(totalSteps);
+          return;
+        }
+
+        const idx = (s - 1) % board.length;
+        setCurrentPos(idx);
+        playAudio(audioRef.current.kenoReveal);
+        window.setTimeout(() => runWalkingAnim(s + 1, totalSteps), 120);
+      };
+
+      const finishRoll = (steps: number) => {
+        const landing = (steps - 1) % board.length;
+
+        const { nextMult, newState } = landOnTile(landing, baseMult);
+        const entry: RollEntry = {
+          die1: finalDie1,
+          die2: finalDie2,
+          steps,
+          landing,
+          value: board[landing],
+          multiplierAfter: nextMult,
+        };
+
+        setRolls((prev) => (wasPlaying ? [...prev, entry] : [entry]));
+        setCurrentPos(landing);
+        totalMultiplierRef.current = nextMult;
+        setTotalMultiplier(nextMult);
+
+        if (nextMult > baseMult) {
+          playAudio(audioRef.current.tick);
+        }
+
+        if (newState === "dead") {
+          gameStateRef.current = "dead";
+          setGameState("dead");
+          setDeadFx(true);
+          if (resultTimeoutRef.current) {
+            clearTimeout(resultTimeoutRef.current);
+            resultTimeoutRef.current = null;
+          }
+          setResultFx("lose");
+          playAudio(audioRef.current.limboLose);
+          resultTimeoutRef.current = window.setTimeout(
+            () => setResultFx(null),
+            900
+          );
+          finalizePendingLoss();
+          isAnimatingRef.current = false;
+          setIsAnimating(false);
+          setIsRolling(false);
+          onFinish?.();
+          return;
+        }
+
+        gameStateRef.current = "playing";
+        setGameState("playing");
+        isAnimatingRef.current = false;
+        setIsAnimating(false);
+        setIsRolling(false);
+        onFinish?.();
+      };
+
+      runDiceAnim(0);
+    },
+    [board, finalizePendingLoss, landOnTile, startNewRound]
+  );
 
   const manualCashout = useCallback(() => {
     if (gameStateRef.current !== "playing") return;
@@ -614,15 +636,17 @@ export default function SnakesPage() {
   }, [syncBalance]);
 
   const playRound = useCallback(
-    async (opts?: { betAmount?: number; rollsToMake?: number }) => {
+    (opts?: { betAmount?: number; rollsToMake?: number; onFinish?: (res: any) => void }) => {
       const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
       const rollsToMake = Math.max(1, Math.floor(opts?.rollsToMake ?? 1));
 
       if (bet <= 0 || bet > balanceRef.current) {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        opts?.onFinish?.(null);
+        return;
       }
       if (isAnimatingRef.current) {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        opts?.onFinish?.(null);
+        return;
       }
 
       if (resultTimeoutRef.current) {
@@ -636,45 +660,42 @@ export default function SnakesPage() {
 
       const ok = startNewRound({ betAmount: bet });
       if (!ok) {
-        return null as null | { betAmount: number; winAmount: number; didWin: boolean };
+        opts?.onFinish?.(null);
+        return;
       }
 
-      let madeRolls = 0;
-      for (let i = 0; i < rollsToMake; i++) {
-        await rollDice();
-        madeRolls++;
-        if (gameStateRef.current === "dead") {
-          return { betAmount: bet, winAmount: 0, didWin: false };
+      const runBatchRolls = (i: number) => {
+        if (i >= rollsToMake) {
+          if (gameStateRef.current === "playing") {
+            const payout = normalizeMoney(bet * totalMultiplierRef.current);
+            handleCashout(totalMultiplierRef.current, true);
+            opts?.onFinish?.({ betAmount: bet, winAmount: payout, didWin: payout > 0 });
+            return;
+          }
+          opts?.onFinish?.({ betAmount: bet, winAmount: 0, didWin: false });
+          return;
         }
-      }
 
-      if (gameStateRef.current === "dead") {
-        return { betAmount: bet, winAmount: 0, didWin: false };
-      }
+        rollDice(() => {
+          if (gameStateRef.current === "dead") {
+            opts?.onFinish?.({ betAmount: bet, winAmount: 0, didWin: false });
+            return;
+          }
+          runBatchRolls(i + 1);
+        });
+      };
 
-      if (gameStateRef.current === "playing" && madeRolls > 0) {
-        const payout = normalizeMoney(bet * totalMultiplierRef.current);
-        handleCashout(totalMultiplierRef.current, true);
-        return { betAmount: bet, winAmount: payout, didWin: payout > 0 };
-      }
-
-      finalizePendingLoss();
-      gameStateRef.current = "dead";
-      setGameState("dead");
-      return { betAmount: bet, winAmount: 0, didWin: false };
+      runBatchRolls(0);
     },
-    [finalizePendingLoss, handleCashout, rollDice, startNewRound]
+    [handleCashout, rollDice, startNewRound]
   );
 
-  const startAutoBet = useCallback(async () => {
+  const startAutoBet = useCallback(() => {
     if (isAutoBettingRef.current) return;
 
     const startingBet = normalizeMoney(betAmountRef.current);
     if (startingBet <= 0 || startingBet > balanceRef.current) return;
     if (isAnimatingRef.current) return;
-
-    const rollsToMake = Math.max(1, Math.floor(parseNumberLoose(autoRollsInput)));
-    if (rollsToMake <= 0) return;
 
     autoOriginalBetRef.current = startingBet;
     autoNetRef.current = 0;
@@ -684,60 +705,67 @@ export default function SnakesPage() {
 
     stopRequestedRef.current = false;
 
-    while (isAutoBettingRef.current) {
+    const runAutoRound = () => {
+      if (!isAutoBettingRef.current || stopRequestedRef.current) {
+        isAutoBettingRef.current = false;
+        setIsAutoBetting(false);
+        void syncBalance();
+        return;
+      }
+
       const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
       const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
       const rollsPerRound = Math.max(1, Math.floor(parseNumberLoose(autoRollsInput)));
 
       const roundBet = normalizeMoney(betAmountRef.current);
-      if (stopRequestedRef.current) {
+      if (roundBet <= 0 || roundBet > balanceRef.current) {
         isAutoBettingRef.current = false;
-        break;
-      }
-      if (roundBet <= 0) break;
-      if (roundBet > balanceRef.current) break;
-      if (isAnimatingRef.current) {
-        await sleep(120);
-        continue;
-      }
-      if (gameStateRef.current === "playing") {
-        await sleep(120);
-        continue;
+        setIsAutoBetting(false);
+        void syncBalance();
+        return;
       }
 
-      const result = await playRound({ betAmount: roundBet, rollsToMake: rollsPerRound });
-      if (!result) break;
-
-      const lastNet = normalizeMoney((result.winAmount ?? 0) - result.betAmount);
-      autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
-
-      if (result.didWin && result.winAmount > 0) {
-        if (onWinMode === "reset") {
-          setBetBoth(autoOriginalBetRef.current);
-        } else {
-          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
-          setBetBoth(next);
-        }
-      } else {
-        if (onLoseMode === "reset") {
-          setBetBoth(autoOriginalBetRef.current);
-        } else {
-          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
-          setBetBoth(next);
-        }
+      if (isAnimatingRef.current || gameStateRef.current === "playing") {
+        window.setTimeout(runAutoRound, 120);
+        return;
       }
 
-      if (stopRequestedRef.current) {
-        isAutoBettingRef.current = false;
-        break;
-      }
+      playRound({
+        betAmount: roundBet,
+        rollsToMake: rollsPerRound,
+        onFinish: (result) => {
+          if (!result) {
+            isAutoBettingRef.current = false;
+            setIsAutoBetting(false);
+            void syncBalance();
+            return;
+          }
 
-      await sleep(800);
-    }
+          const lastNet = normalizeMoney((result.winAmount ?? 0) - result.betAmount);
+          autoNetRef.current = normalizeMoney(autoNetRef.current + lastNet);
 
-    isAutoBettingRef.current = false;
-    setIsAutoBetting(false);
-    void syncBalance();
+          if (result.didWin && result.winAmount > 0) {
+            if (onWinMode === "reset") {
+              setBetBoth(autoOriginalBetRef.current);
+            } else {
+              const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+              setBetBoth(next);
+            }
+          } else {
+            if (onLoseMode === "reset") {
+              setBetBoth(autoOriginalBetRef.current);
+            } else {
+              const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+              setBetBoth(next);
+            }
+          }
+
+          window.setTimeout(runAutoRound, 800);
+        },
+      });
+    };
+
+    runAutoRound();
   }, [
     autoRollsInput,
     onLoseMode,
@@ -745,7 +773,6 @@ export default function SnakesPage() {
     onWinMode,
     onWinPctInput,
     playRound,
-    stopAutoBet,
     syncBalance,
   ]);
 
@@ -910,7 +937,7 @@ export default function SnakesPage() {
             {gameState === "playing" ? (
             <div className="flex gap-2">
               <button
-                onClick={rollDice}
+                onClick={() => rollDice()}
                 disabled={!canRoll}
                 className="flex-1 bg-[#2f4553] hover:bg-[#3e5666] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
               >
@@ -927,7 +954,7 @@ export default function SnakesPage() {
             ) : (
             <div className="flex gap-2">
               <button
-                onClick={rollDice}
+                onClick={() => rollDice()}
                 disabled={!canRoll || betAmount <= 0}
                 className="flex-1 bg-[#00e701] hover:bg-[#00c201] disabled:opacity-50 disabled:cursor-not-allowed text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2"
               >

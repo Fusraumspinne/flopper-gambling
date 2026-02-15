@@ -302,6 +302,7 @@ function formatChance(chance: number) {
 }
 
 function sleep(ms: number) {
+  if (typeof window === "undefined") return Promise.resolve();
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
@@ -703,16 +704,28 @@ export default function ChickenPage() {
   };
 
   const playRound = useCallback(
-    async (opts?: { betAmount?: number; stepsTarget?: number }) => {
+    (opts?: { betAmount?: number; stepsTarget?: number; onFinish?: (res: any) => void }) => {
       const stepsArr = STEP_TABLE[riskRef.current];
       const stepsLen = stepsArr.length;
-      if (stepsLen <= 0) return null as null | RoundResult;
+      if (stepsLen <= 0) {
+        opts?.onFinish?.(null);
+        return;
+      }
 
-      if (gameStateRef.current === "walking") return null as null | RoundResult;
-      if (isAnimatingStepRef.current) return null as null | RoundResult;
+      if (gameStateRef.current === "walking") {
+        opts?.onFinish?.(null);
+        return;
+      }
+      if (isAnimatingStepRef.current) {
+        opts?.onFinish?.(null);
+        return;
+      }
 
       const bet = normalizeMoney(opts?.betAmount ?? betAmountRef.current);
-      if (bet <= 0 || bet > balanceRef.current) return null as null | RoundResult;
+      if (bet <= 0 || bet > balanceRef.current) {
+        opts?.onFinish?.(null);
+        return;
+      }
 
       const desiredSteps = Math.floor(
         parseNumberLoose(opts?.stepsTarget != null ? String(opts.stepsTarget) : autoStepsInput)
@@ -742,82 +755,122 @@ export default function ChickenPage() {
       }
       setResultFx("rolling");
 
-      for (let i = 0; i < stepsTarget; i++) {
-        setIsAnimatingStep(true);
-        isAnimatingStepRef.current = true;
-        await sleep(260);
-
-        const next = currentStepRef.current + 1;
-        const safeLimit = plannedSafeStepsRef.current ?? stepsLen;
-
-        if (next > stepsLen) {
-          setIsAnimatingStep(false);
-          isAnimatingStepRef.current = false;
-          break;
+      const runStep = (i: number) => {
+        if (i >= stepsTarget) {
+          const reached = currentStepRef.current;
+          if (reached > 0) {
+            handleCashout(true);
+            const mult = multiplierForStep({ step: reached, risk: riskRef.current });
+            const winAmount = normalizeMoney(bet * mult);
+            window.setTimeout(() => {
+              opts?.onFinish?.({
+                betAmount: bet,
+                winAmount,
+                stepsTarget,
+                stepsReached: reached,
+                didCrash: false,
+              });
+            }, 900);
+            return;
+          }
+          window.setTimeout(() => {
+            opts?.onFinish?.({
+              betAmount: bet,
+              winAmount: 0,
+              stepsTarget,
+              stepsReached: 0,
+              didCrash: true,
+            });
+          }, 900);
+          return;
         }
 
-        if (next > safeLimit) {
+        setIsAnimatingStep(true);
+        isAnimatingStepRef.current = true;
+        
+        window.setTimeout(() => {
+          const next = currentStepRef.current + 1;
+          const safeLimit = plannedSafeStepsRef.current ?? stepsLen;
+
+          if (next > stepsLen) {
+            setIsAnimatingStep(false);
+            isAnimatingStepRef.current = false;
+            
+            const reached = currentStepRef.current;
+            if (reached > 0) {
+                handleCashout(true);
+                const mult = multiplierForStep({ step: reached, risk: riskRef.current });
+                const winAmount = normalizeMoney(bet * mult);
+                window.setTimeout(() => {
+                    opts?.onFinish?.({
+                        betAmount: bet,
+                        winAmount,
+                        stepsTarget,
+                        stepsReached: reached,
+                        didCrash: false,
+                    });
+                }, 900);
+                return;
+            }
+            window.setTimeout(() => {
+                opts?.onFinish?.({
+                    betAmount: bet,
+                    winAmount: 0,
+                    stepsTarget,
+                    stepsReached: 0,
+                    didCrash: true,
+                });
+            }, 900);
+            return;
+          }
+
+          if (next > safeLimit) {
+            setCurrentStep(next);
+            currentStepRef.current = next;
+            setIsAnimatingStep(false);
+            isAnimatingStepRef.current = false;
+
+            handleCrash(next);
+            window.setTimeout(() => {
+              opts?.onFinish?.({
+                betAmount: bet,
+                winAmount: 0,
+                stepsTarget,
+                stepsReached: next,
+                didCrash: true,
+              });
+            }, 900);
+            return;
+          }
+
           setCurrentStep(next);
+          playAudio(audioRef.current.chickenJump);
+          playAudio(audioRef.current.barricade);
           currentStepRef.current = next;
           setIsAnimatingStep(false);
           isAnimatingStepRef.current = false;
 
-          handleCrash(next);
-          await sleep(900);
-          return {
-            betAmount: bet,
-            winAmount: 0,
-            stepsTarget,
-            stepsReached: next,
-            didCrash: true,
-          };
-        }
+          if (next === stepsLen && safeLimit >= stepsLen) {
+            handleCashout(true);
+            const mult = multiplierForStep({ step: next, risk: riskRef.current });
+            const winAmount = normalizeMoney(bet * mult);
+            window.setTimeout(() => {
+              opts?.onFinish?.({
+                betAmount: bet,
+                winAmount,
+                stepsTarget,
+                stepsReached: next,
+                didCrash: false,
+              });
+            }, 900);
+            return;
+          }
 
-        setCurrentStep(next);
-        playAudio(audioRef.current.chickenJump);
-        playAudio(audioRef.current.barricade);
-        currentStepRef.current = next;
-        setIsAnimatingStep(false);
-        isAnimatingStepRef.current = false;
-
-        if (next === stepsLen && safeLimit >= stepsLen) {
-          handleCashout(true);
-          const mult = multiplierForStep({ step: next, risk: riskRef.current });
-          const winAmount = normalizeMoney(bet * mult);
-          await sleep(900);
-          return {
-            betAmount: bet,
-            winAmount,
-            stepsTarget,
-            stepsReached: next,
-            didCrash: false,
-          };
-        }
-      }
-
-      const reached = currentStepRef.current;
-      if (reached > 0) {
-        handleCashout(true);
-        const mult = multiplierForStep({ step: reached, risk: riskRef.current });
-        const winAmount = normalizeMoney(bet * mult);
-        await sleep(900);
-        return {
-          betAmount: bet,
-          winAmount,
-          stepsTarget,
-          stepsReached: reached,
-          didCrash: false,
-        };
-      }
-
-      await sleep(900);
-      return {
-        betAmount: bet,
-        winAmount: 0,
-        stepsTarget,
-        stepsReached: 0,
-        didCrash: true,
+          runStep(i + 1);
+        }, 260);
       };
+
+      runStep(0);
     },
     [
       autoStepsInput,
@@ -836,7 +889,7 @@ export default function ChickenPage() {
     void syncBalance();
   }, [syncBalance]);
 
-  const startAutoBet = useCallback(async () => {
+  const startAutoBet = useCallback(() => {
     if (isAutoBettingRef.current) return;
     if (gameStateRef.current === "walking") return;
     if (isAnimatingStepRef.current) return;
@@ -849,7 +902,13 @@ export default function ChickenPage() {
     isAutoBettingRef.current = true;
     setIsAutoBetting(true);
 
-    while (isAutoBettingRef.current) {
+    const runAutoRound = () => {
+      if (!isAutoBettingRef.current) {
+        setIsAutoBetting(false);
+        void syncBalance();
+        return;
+      }
+
       const onWinPct = Math.max(0, parseNumberLoose(onWinPctInput));
       const onLosePct = Math.max(0, parseNumberLoose(onLosePctInput));
 
@@ -862,38 +921,52 @@ export default function ChickenPage() {
       );
 
       const roundBet = normalizeMoney(betAmountRef.current);
-      if (roundBet <= 0) break;
-      if (roundBet > balanceRef.current) break;
-
-      const result = await playRound({ betAmount: roundBet, stepsTarget });
-      if (!result) break;
-
-      const lastNet = normalizeMoney(result.winAmount - result.betAmount);
-
-      if (result.winAmount > 0) {
-        if (onWinMode === "reset") {
-          setBetBoth(autoOriginalBetRef.current);
-          betAmountRef.current = autoOriginalBetRef.current;
-        } else {
-          const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
-          setBetBoth(next);
-          betAmountRef.current = next;
-        }
-      } else {
-        if (onLoseMode === "reset") {
-          setBetBoth(autoOriginalBetRef.current);
-          betAmountRef.current = autoOriginalBetRef.current;
-        } else {
-          const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
-          setBetBoth(next);
-          betAmountRef.current = next;
-        }
+      if (roundBet <= 0 || roundBet > balanceRef.current) {
+        isAutoBettingRef.current = false;
+        setIsAutoBetting(false);
+        void syncBalance();
+        return;
       }
-    }
 
-    isAutoBettingRef.current = false;
-    setIsAutoBetting(false);
-    void syncBalance();
+      playRound({
+        betAmount: roundBet,
+        stepsTarget,
+        onFinish: (result) => {
+          if (!result) {
+            isAutoBettingRef.current = false;
+            setIsAutoBetting(false);
+            void syncBalance();
+            return;
+          }
+
+          if (result.winAmount > 0) {
+            if (onWinMode === "reset") {
+              setBetBoth(autoOriginalBetRef.current);
+              betAmountRef.current = autoOriginalBetRef.current;
+            } else {
+              const next = normalizeMoney(result.betAmount * (1 + onWinPct / 100));
+              setBetBoth(next);
+              betAmountRef.current = next;
+            }
+          } else {
+            if (onLoseMode === "reset") {
+              setBetBoth(autoOriginalBetRef.current);
+              betAmountRef.current = autoOriginalBetRef.current;
+            } else {
+              const next = normalizeMoney(result.betAmount * (1 + onLosePct / 100));
+              setBetBoth(next);
+              betAmountRef.current = next;
+            }
+          }
+
+          window.setTimeout(() => {
+            runAutoRound();
+          }, 120);
+        },
+      });
+    };
+
+    runAutoRound();
   }, [
     autoStepsInput,
     onLoseMode,
@@ -901,7 +974,6 @@ export default function ChickenPage() {
     onWinMode,
     onWinPctInput,
     playRound,
-    stopAutoBet,
     syncBalance,
   ]);
 
@@ -949,34 +1021,34 @@ export default function ChickenPage() {
     [resetVisuals, stopAutoBet]
   );
 
-  const walkOneStep = useCallback(async () => {
+  const walkOneStep = useCallback(() => {
     if (!canWalk) return;
     setIsAnimatingStep(true);
-    await sleep(260);
+    window.setTimeout(() => {
+      const nextStep = currentStep + 1;
+      const safeLimit = plannedSafeSteps ?? steps.length;
 
-    const nextStep = currentStep + 1;
-    const safeLimit = plannedSafeSteps ?? steps.length;
+      if (nextStep > steps.length) {
+        setIsAnimatingStep(false);
+        return;
+      }
 
-    if (nextStep > steps.length) {
-      setIsAnimatingStep(false);
-      return;
-    }
+      if (nextStep > safeLimit) {
+        setCurrentStep(nextStep);
+        setIsAnimatingStep(false);
+        handleCrash(nextStep);
+        return;
+      }
 
-    if (nextStep > safeLimit) {
       setCurrentStep(nextStep);
+      playAudio(audioRef.current.chickenJump);
+      playAudio(audioRef.current.barricade);
       setIsAnimatingStep(false);
-      handleCrash(nextStep);
-      return;
-    }
 
-    setCurrentStep(nextStep);
-    playAudio(audioRef.current.chickenJump);
-    playAudio(audioRef.current.barricade);
-    setIsAnimatingStep(false);
-
-    if (nextStep === steps.length && safeLimit >= steps.length) {
-      handleCashout(true);
-    }
+      if (nextStep === steps.length && safeLimit >= steps.length) {
+        handleCashout(true);
+      }
+    }, 260);
   }, [
     canWalk,
     currentStep,
