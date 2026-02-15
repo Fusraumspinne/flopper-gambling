@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment, PrivacyTip, Speed, Category, Logout, Phishing } from "@mui/icons-material";
+import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment, PrivacyTip, Speed, Category, Logout, Phishing, ArrowDownward } from "@mui/icons-material";
 import { useWallet } from "./WalletProvider";
 import LiveStatsPanel from "./LiveStatsPanel";
 import { signOut } from "next-auth/react";
@@ -36,6 +36,7 @@ const games: Game[] = [
   { name: "Cases", icon: <CardGiftcard className="w-5 h-5" />, href: "/cases" },
   { name: "Diamonds", icon: <Category className="w-5 h-5" />, href: "/diamonds" },
   { name: "Crash", icon: <FlightTakeoff className="w-5 h-5" />, href: "/crash" },
+  { name: "Drill", icon: <ArrowDownward className="w-5 h-5" />, href: "/drill" },
   { name: "Plinko", icon: <ScatterPlot className="w-5 h-5" />, href: "/plinko" },
   { name: "Bars", icon: <LocalBar className="w-5 h-5" />, href: "/bars" },
   { name: "Spinning Wheel", icon: <Cached className="w-5 h-5" />, href: "/spinningwheel" },

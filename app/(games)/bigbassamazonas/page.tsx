@@ -77,7 +77,7 @@ const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   bag: 3.8,
   toucan: 3.5,
   lure: 3,
-  fish: 1.6,      
+  fish: 2.2,      
   scatter: 1.1,   
   fisher: 0,
 };
@@ -91,12 +91,12 @@ const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   bag: 3.8,
   toucan: 3.5,
   lure: 3,
-  fish: 2.6,     
+  fish: 5,     
   scatter: 0,
   fisher: 1.2,   
 };
 const FISH_VALUES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000];
-const FISH_WEIGHTS = [ 24,  19, 15, 13, 9.5, 6.5, 3.5, 0.6, 0.18, 0.07, 0.02, 0.006   ];
+const FISH_WEIGHTS = [26,  21, 17, 14, 10, 7, 3.5, 0.35, 0.09, 0.03, 0.008, 0.002];
 const BASE_COLLECT_MULTIS = [1, 2, 3, 5, 8, 10, 15, 20, 30, 40, 50];
 const FS_MULTIPLIERS = [1, 2, 3, 10, 20, 30, 40, 50];
 const BOAT_WAKE_CHANCE_BASE = 0.1;
@@ -492,23 +492,35 @@ export default function BigBassAmazonasPage() {
   const isTenDollarFreeSpin = !anteBet && normalizeMoney(betAmount) === 10;
 
   React.useEffect(() => {
-    if (isAutospinning && phase === "idle" && !isExecutingSpin) {
-      if (!isTenDollarFreeSpin && balance < spinCost) {
-        setIsAutospinning(false);
-        return;
-      }
-
-      const timer = setTimeout(() => {
-        if (isAutospinning && phase === "idle" && !isExecutingSpin) {
-          startPaidSpin();
+    if (isAutospinning && !isExecutingSpin) {
+      if (phase === "idle") {
+        if (!isTenDollarFreeSpin && balance < spinCost) {
+          setIsAutospinning(false);
+          return;
         }
-      }, 350);
-      return () => clearTimeout(timer);
+        const timer = setTimeout(() => {
+          if (isAutospinning && phase === "idle" && !isExecutingSpin) {
+            startPaidSpin();
+          }
+        }, 350);
+        return () => clearTimeout(timer);
+      } else if (phase === "free") {
+        if (freeSpinsLeft > 0) {
+          const timer = setTimeout(() => {
+            if (isAutospinning && phase === "free" && !isExecutingSpin) {
+              spinFree();
+            }
+          }, 350);
+          return () => clearTimeout(timer);
+        } else {
+          setIsAutospinning(false);
+        }
+      }
     }
-    if (isAutospinning && (phase === "prefree" || phase === "pick" || phase === "free")) {
+    if (isAutospinning && (phase === "prefree" || phase === "pick")) {
       setIsAutospinning(false);
     }
-  }, [isAutospinning, phase, isExecutingSpin, balance, spinCost, isTenDollarFreeSpin]);
+  }, [isAutospinning, phase, isExecutingSpin, balance, spinCost, isTenDollarFreeSpin, freeSpinsLeft]);
 
   const audioRef = React.useRef<{
     bet: HTMLAudioElement | null;
@@ -904,6 +916,7 @@ export default function BigBassAmazonasPage() {
         if (leftAfter <= 0) {
           setPhase("idle");
           settleRound(pendingRoundStakeRef.current, updatedRoundPayout);
+          setIsAutospinning(false);
         }
         await sleep(250);
         return;
@@ -1159,10 +1172,10 @@ export default function BigBassAmazonasPage() {
           {!isAutospinning && (
             <button
               onClick={() => setIsAutospinning(true)}
-              disabled={phase !== "idle" || (!isTenDollarFreeSpin && balance < spinCost)}
+              disabled={(phase !== "idle" && phase !== "free") || (phase === "idle" && !isTenDollarFreeSpin && balance < spinCost)}
               className="w-full py-2 rounded-md font-bold text-xs transition-all flex items-center justify-center gap-2 bg-[#2f4553] hover:bg-[#3e5666] text-[#b1bad3] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Auto (Until Bonus)
+              {phase === "free" ? "Auto (Free Spins)" : "Auto (Normal Spins)"}
             </button>
           )}
 
@@ -1633,7 +1646,7 @@ export default function BigBassAmazonasPage() {
             </div>
           </div>
 
-          <GameRecordsPanel gameId="slot"/>
+          <GameRecordsPanel gameId="bigbassamazonas"/>
         </div>
       </div>
 

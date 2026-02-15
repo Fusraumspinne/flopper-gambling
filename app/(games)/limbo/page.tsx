@@ -170,10 +170,6 @@ export default function LimboPage() {
     };
   }, []);
 
-  const potentialProfit = useMemo(() => {
-    return betAmount * targetMultiplier - betAmount;
-  }, [betAmount, targetMultiplier]);
-
   const liveChancePercent = useMemo(() => {
     const raw = targetInput.trim();
     if (!raw) return Number.NaN;
@@ -206,10 +202,6 @@ export default function LimboPage() {
     setBetAmount(v);
     setBetInput(String(v));
     betAmountRef.current = v;
-  };
-
-  const roll = async () => {
-    await playRound();
   };
 
   const playRound = useCallback(

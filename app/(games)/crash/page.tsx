@@ -65,7 +65,7 @@ function growthMultiplier(elapsedMs: number): number {
   const K = 0.14;
   const EXP = 1.35;
   const m = Math.exp(K * Math.pow(t, EXP));
-  return clamp(m, 1.0, 1_000_000);
+  return m;
 }
 
 export default function CrashPage() {
@@ -81,7 +81,7 @@ export default function CrashPage() {
   const AXIS_TICKS = 6;
 
   const MIN_TARGET = 1.01;
-  const MAX_TARGET = 1_000_000;
+  const MAX_TARGET = Infinity;
 
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");

@@ -16,6 +16,7 @@ export const games = [
   { name: "Cases", href: "/cases", tagline: "Open and reveal rewards", image: "/images/Cases.png" },
   { name: "Diamonds", href: "/diamonds", tagline: "Draw 5 diamonds, hit combos", image: "/images/Diamonds.png" },
   { name: "Crash", href: "/crash", tagline: "Ride the curve and cash out", image: "/images/Crash.png" },
+  { name: "Drill", href: "/drill", tagline: "Pick a drill and hit your target", image: "/images/Drill.png" },
   { name: "Plinko", href: "/plinko", tagline: "Drop and win", image: "/images/Plinko.png" },
   { name: "Bars", href: "/bars", tagline: "Pick 1-5 tiles and sum multipliers", image: "/images/Bars.png" },
   { name: "Spinning Wheel", href: "/spinningwheel", tagline: "Spin and hit a multiplier", image: "/images/SpinningWheel.png" },

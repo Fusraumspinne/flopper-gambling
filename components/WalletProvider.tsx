@@ -44,6 +44,7 @@ export const GAME_OPTIONS = [
   { id: "cases", label: "Cases" },
   { id: "diamonds", label: "Diamonds" },
   { id: "crash", label: "Crash" },
+  { id: "drill", label: "Drill" },
   { id: "plinko", label: "Plinko" },
   { id: "bars", label: "Bars" },
   { id: "spinningwheel", label: "Spinning Wheel" },
