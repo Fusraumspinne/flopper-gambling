@@ -7,10 +7,11 @@ import { PlayArrow, SwapHoriz } from "@mui/icons-material";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
 
 type GameState = "idle" | "rolling" | "won" | "lost";
+type DiceMode = "classic" | "range" | "dual";
 
 const HOUSE_EDGE = 1.0;
-const MIN_THRESHOLD = 2;
-const MAX_THRESHOLD = 98;
+const MIN_VAL = 0;
+const MAX_VAL = 100;
 
 export default function DicePage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, syncBalance } = useWallet();
@@ -38,8 +39,9 @@ export default function DicePage() {
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
 
-  const [sliderValue, setSliderValue] = useState<number>(50);
-  const [thresholdInput, setThresholdInput] = useState<string>("50.00");
+  const [diceMode, setDiceMode] = useState<DiceMode>("classic");
+  const [values, setValues] = useState<number[]>([50]);
+  const [activeIndex, setActiveIndex] = useState<number>(0);
   const [rollOver, setRollOver] = useState<boolean>(true); 
 
   const [gameState, setGameState] = useState<GameState>("idle");
@@ -64,7 +66,8 @@ export default function DicePage() {
 
   const betAmountRef = useRef<number>(betAmount);
   const balanceRef = useRef<number>(balance);
-  const sliderValueRef = useRef<number>(sliderValue);
+  const valuesRef = useRef<number[]>(values);
+  const diceModeRef = useRef<DiceMode>(diceMode);
   const rollOverRef = useRef<boolean>(rollOver);
   const gameStateRef = useRef<GameState>(gameState);
   const isAutoBettingRef = useRef<boolean>(false);
@@ -136,16 +139,25 @@ export default function DicePage() {
   }, [volume]);
 
   const winChance = useMemo(() => {
-    if (rollOver) {
-      return 100 - sliderValue;
-    } else {
-      return sliderValue;
+    let baseChance = 0;
+    if (diceMode === "classic") {
+      baseChance = 100 - values[0];
+    } else if (diceMode === "range") {
+      baseChance = values[1] - values[0];
+    } else if (diceMode === "dual") {
+      baseChance = (values[1] - values[0]) + (values[3] - values[2]);
     }
-  }, [sliderValue, rollOver]);
+
+    if (rollOver) {
+      return baseChance;
+    } else {
+      return 100 - baseChance;
+    }
+  }, [values, diceMode, rollOver]);
 
   const multiplier = useMemo(() => {
-    if (winChance <= 0) return 0;
-    const rawMultiplier = (100 - HOUSE_EDGE) / winChance;
+    const rawChance = Math.max(0.01, Math.min(99.99, winChance));
+    const rawMultiplier = (100 - HOUSE_EDGE) / rawChance;
     return Math.max(1.01, rawMultiplier); 
   }, [winChance]);
 
@@ -163,46 +175,19 @@ export default function DicePage() {
   const clamp = (v: number, min: number, max: number) =>
     Math.max(min, Math.min(max, v));
 
-  const round2 = (v: number) => Math.round(v * 100) / 100;
-
-  const handleSliderInput = (e: React.FormEvent<HTMLInputElement>) => {
-    const val = Number(e.currentTarget.value);
-    const clamped = isPointerDraggingRef.current
-      ? clamp(Math.round(val), MIN_THRESHOLD, MAX_THRESHOLD)
-      : round2(clamp(val, MIN_THRESHOLD, MAX_THRESHOLD));
-    setSliderValue(clamped);
-    setThresholdInput(clamped.toFixed(2));
+  const handleValueChange = (idx: number, newVal: number) => {
+    const next = [...values];
+    let v = Math.round(newVal);
+    
+    const min = idx === 0 ? MIN_VAL : next[idx - 1] + 1;
+    const max = idx === next.length - 1 ? MAX_VAL : next[idx + 1] - 1;
+    
+    v = clamp(v, min, max);
+    next[idx] = v;
+    setValues(next);
   };
 
-  const handleThresholdBlur = () => {
-    const raw = thresholdInput.trim().replace(",", ".");
-    const num = Number(raw);
-    if (!Number.isFinite(num)) {
-      setThresholdInput(sliderValue.toFixed(2));
-      return;
-    }
-    const clamped = round2(clamp(num, MIN_THRESHOLD, MAX_THRESHOLD));
-    setSliderValue(clamped);
-    setThresholdInput(clamped.toFixed(2));
-  };
-
-  const liveThresholdNum = useMemo(() => {
-    const raw = thresholdInput.trim().replace(",", ".");
-    const num = Number(raw);
-    if (!Number.isFinite(num)) return NaN;
-    return round2(clamp(num, MIN_THRESHOLD, MAX_THRESHOLD));
-  }, [thresholdInput]);
-
-  const liveWinChance = useMemo(() => {
-    if (!Number.isFinite(liveThresholdNum)) return NaN;
-    return rollOver ? 100 - liveThresholdNum : liveThresholdNum;
-  }, [liveThresholdNum, rollOver]);
-
-  const liveMultiplier = useMemo(() => {
-    if (!Number.isFinite(liveWinChance) || liveWinChance <= 0) return Infinity;
-    const raw = (100 - HOUSE_EDGE) / liveWinChance;
-    return Math.max(1.01, raw);
-  }, [liveWinChance]);
+  const liveMultiplier = multiplier;
 
   const formatLiveMultiplier = (m: number) => {
     if (!Number.isFinite(m)) return "—";
@@ -214,9 +199,6 @@ export default function DicePage() {
   const toggleMode = () => {
     playAudio(audioRef.current.diceSelected);
     setRollOver(!rollOver);
-    const next = round2(100 - sliderValue);
-    setSliderValue(next);
-    setThresholdInput(next.toFixed(2));
   };
 
   useEffect(() => {
@@ -226,8 +208,11 @@ export default function DicePage() {
     balanceRef.current = balance;
   }, [balance]);
   useEffect(() => {
-    sliderValueRef.current = sliderValue;
-  }, [sliderValue]);
+    valuesRef.current = values;
+  }, [values]);
+  useEffect(() => {
+    diceModeRef.current = diceMode;
+  }, [diceMode]);
   useEffect(() => {
     rollOverRef.current = rollOver;
   }, [rollOver]);
@@ -241,7 +226,8 @@ export default function DicePage() {
   type RoundResult = {
     betAmount: number;
     roll: number;
-    threshold: number;
+    values: number[];
+    diceMode: DiceMode;
     rollOver: boolean;
     multiplier: number;
     winAmount: number;
@@ -258,10 +244,22 @@ export default function DicePage() {
         return null as null | RoundResult;
       }
 
-      const threshold = sliderValueRef.current;
+      const currentValues = valuesRef.current;
+      const currentMode = diceModeRef.current;
       const over = rollOverRef.current;
-      const winChance = over ? 100 - threshold : threshold;
-      const rawMult = winChance <= 0 ? 0 : (100 - HOUSE_EDGE) / winChance;
+      
+      let baseChance = 0;
+      if (currentMode === "classic") {
+        baseChance = 100 - currentValues[0];
+      } else if (currentMode === "range") {
+        baseChance = currentValues[1] - currentValues[0];
+      } else if (currentMode === "dual") {
+        baseChance = (currentValues[1] - currentValues[0]) + (currentValues[3] - currentValues[2]);
+      }
+
+      const currentWinChance = over ? baseChance : 100 - baseChance;
+      const rawChance = Math.max(0.01, Math.min(99.99, currentWinChance));
+      const rawMult = (100 - HOUSE_EDGE) / rawChance;
       const roundMultiplier = Math.max(1.01, rawMult);
       const fullWinAmount = normalizeMoney(bet * roundMultiplier);
 
@@ -309,7 +307,17 @@ export default function DicePage() {
       setDisplayNumber(roll);
       setLastResult(roll);
 
-      const isWin = over ? roll > threshold : roll < threshold;
+      let isWin = false;
+      if (currentMode === "classic") {
+        isWin = over ? roll > currentValues[0] : roll < currentValues[0];
+      } else if (currentMode === "range") {
+        const inside = roll > currentValues[0] && roll < currentValues[1];
+        isWin = over ? inside : !inside;
+      } else if (currentMode === "dual") {
+        const inside = (roll > currentValues[0] && roll < currentValues[1]) || (roll > currentValues[2] && roll < currentValues[3]);
+        isWin = over ? inside : !inside;
+      }
+
       const winAmount = isWin ? fullWinAmount : 0;
 
       setResultAnimNonce((n) => n + 1);
@@ -338,7 +346,8 @@ export default function DicePage() {
       return {
         betAmount: bet,
         roll,
-        threshold,
+        values: currentValues,
+        diceMode: currentMode,
         rollOver: over,
         multiplier: roundMultiplier,
         winAmount,
@@ -416,6 +425,17 @@ export default function DicePage() {
     syncBalance,
   ]);
 
+  const changeDiceMode = useCallback((newMode: DiceMode) => {
+    setDiceMode(newMode);
+    if (newMode === "classic") {
+      setValues([50]);
+    } else if (newMode === "range") {
+      setValues([25, 75]);
+    } else if (newMode === "dual") {
+      setValues([10, 40, 60, 90]);
+    }
+  }, []);
+
   const changePlayMode = useCallback(
     (mode: "manual" | "auto") => {
       try {
@@ -436,9 +456,9 @@ export default function DicePage() {
       betAmountRef.current = 100;
       setRollOver(true);
       rollOverRef.current = true;
-      setSliderValue(50);
-      sliderValueRef.current = 50;
-      setThresholdInput("50.00");
+      setDiceMode("classic");
+      setValues([50]);
+      valuesRef.current = [50];
 
       setOnWinMode("reset");
       setOnWinPctInput("0");
@@ -595,21 +615,26 @@ export default function DicePage() {
 
         <div className="space-y-2">
           <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-            Threshold
+            Dice Mode
           </label>
-          <input
-            type="number"
-            step="0.01"
-            min={MIN_THRESHOLD}
-            max={MAX_THRESHOLD}
-            value={thresholdInput}
-            onChange={(e) => setThresholdInput(e.target.value)}
-            onBlur={handleThresholdBlur}
-            disabled={isBusy}
-            className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 px-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
-          />
+          <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex flex-wrap gap-1">
+            {(["classic", "range", "dual"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => !isBusy && changeDiceMode(m)}
+                disabled={isBusy}
+                className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  diceMode === m
+                    ? "bg-[#213743] text-white shadow-sm"
+                    : "text-[#b1bad3] hover:text-white"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
           <div className="text-xs text-[#b1bad3] mt-1">
-            Multi: <span className="font-mono text-white">{formatLiveMultiplier(liveMultiplier)}x</span>
+            Multi: <span className="font-mono text-white">{formatLiveMultiplier(multiplier)}x</span>
           </div>
         </div>
 
@@ -774,65 +799,177 @@ export default function DicePage() {
         <div className="w-full max-w-4xl relative select-none">
           <div className="relative mx-4">
             <div className="h-3 bg-[#213743] rounded-full w-full relative overflow-hidden ring-1 ring-[#2f4553]">
-              <div
-                className="absolute top-0 bottom-0 bg-[#00e701] transition-all duration-200 ease-out opacity-90"
-                style={{
-                  left: rollOver ? `${sliderValue}%` : "0%",
-                  width: rollOver
-                    ? `${100 - sliderValue}%`
-                    : `${sliderValue}%`,
-                }}
-              />
-
-              <div
-                className="absolute top-0 bottom-0 bg-[#ef4444] transition-all duration-200 ease-out opacity-90"
-                style={{
-                  left: rollOver ? "0%" : `${sliderValue}%`,
-                  width: rollOver
-                    ? `${sliderValue}%`
-                    : `${100 - sliderValue}%`,
-                }}
-              />
+              {diceMode === "classic" && (
+                <>
+                  <div
+                    className="absolute top-0 bottom-0 transition-all duration-200 ease-out opacity-90"
+                    style={{
+                      left: "0%",
+                      width: `${values[0]}%`,
+                      backgroundColor: rollOver ? "#ef4444" : "#00e701",
+                    }}
+                  />
+                  <div
+                    className="absolute top-0 bottom-0 transition-all duration-200 ease-out opacity-90"
+                    style={{
+                      left: `${values[0]}%`,
+                      width: `${100 - values[0]}%`,
+                      backgroundColor: rollOver ? "#00e701" : "#ef4444",
+                    }}
+                  />
+                </>
+              )}
+              {diceMode === "range" && (
+                <>
+                  <div
+                    className="absolute top-0 bottom-0 transition-all duration-200 ease-out opacity-90"
+                    style={{
+                      left: "0%",
+                      width: `${values[0]}%`,
+                      backgroundColor: rollOver ? "#ef4444" : "#00e701",
+                    }}
+                  />
+                  <div
+                    className="absolute top-0 bottom-0 transition-all duration-200 ease-out opacity-90"
+                    style={{
+                      left: `${values[0]}%`,
+                      width: `${values[1] - values[0]}%`,
+                      backgroundColor: rollOver ? "#00e701" : "#ef4444",
+                    }}
+                  />
+                  <div
+                    className="absolute top-0 bottom-0 transition-all duration-200 ease-out opacity-90"
+                    style={{
+                      left: `${values[1]}%`,
+                      width: `${100 - values[1]}%`,
+                      backgroundColor: rollOver ? "#ef4444" : "#00e701",
+                    }}
+                  />
+                </>
+              )}
+              {diceMode === "dual" && (
+                <>
+                  <div
+                    className="absolute top-0 bottom-0 transition-all duration-200 ease-out opacity-90"
+                    style={{
+                      left: "0%",
+                      width: `${values[0]}%`,
+                      backgroundColor: rollOver ? "#ef4444" : "#00e701",
+                    }}
+                  />
+                  <div
+                    className="absolute top-0 bottom-0 transition-all duration-200 ease-out opacity-90"
+                    style={{
+                      left: `${values[0]}%`,
+                      width: `${values[1] - values[0]}%`,
+                      backgroundColor: rollOver ? "#00e701" : "#ef4444",
+                    }}
+                  />
+                  <div
+                    className="absolute top-0 bottom-0 transition-all duration-200 ease-out opacity-90"
+                    style={{
+                      left: `${values[1]}%`,
+                      width: `${values[2] - values[1]}%`,
+                      backgroundColor: rollOver ? "#ef4444" : "#00e701",
+                    }}
+                  />
+                  <div
+                    className="absolute top-0 bottom-0 transition-all duration-200 ease-out opacity-90"
+                    style={{
+                      left: `${values[2]}%`,
+                      width: `${values[3] - values[2]}%`,
+                      backgroundColor: rollOver ? "#00e701" : "#ef4444",
+                    }}
+                  />
+                  <div
+                    className="absolute top-0 bottom-0 transition-all duration-200 ease-out opacity-90"
+                    style={{
+                      left: `${values[3]}%`,
+                      width: `${100 - values[3]}%`,
+                      backgroundColor: rollOver ? "#ef4444" : "#00e701",
+                    }}
+                  />
+                </>
+              )}
             </div>
 
-            <input
-              type="range"
-              min={MIN_THRESHOLD}
-              max={MAX_THRESHOLD}
-              step="0.01"
-              value={sliderValue}
-              onInput={handleSliderInput}
-              onChange={handleSliderInput}
-              onPointerDown={() => {
-                isPointerDraggingRef.current = true;
+            <div 
+              className="absolute -top-2.5 left-0 right-0 h-8 w-full z-30"
+              onPointerMove={(e) => {
+                if (isPointerDraggingRef.current) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const pct = ((e.clientX - rect.left) / rect.width) * 100;
+                let closestIdx = 0;
+                let minDist = Math.abs(values[0] - pct);
+                for (let i = 1; i < values.length; i++) {
+                  const d = Math.abs(values[i] - pct);
+                  if (d < minDist) {
+                    minDist = d;
+                    closestIdx = i;
+                  }
+                }
+                if (closestIdx !== activeIndex) {
+                  setActiveIndex(closestIdx);
+                }
               }}
-              onPointerUp={() => {
-                isPointerDraggingRef.current = false;
-              }}
-              onPointerCancel={() => {
-                isPointerDraggingRef.current = false;
-              }}
-              disabled={isBusy}
-              className="absolute -top-2.5 left-0 right-0 h-8 w-full opacity-0 cursor-pointer z-30"
-            />
-
-            <div
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 bg-white border-4 border-[#2f4553] rounded-lg shadow-[0_4px_10px_rgba(0,0,0,0.3)] flex items-center justify-center pointer-events-none transition-all duration-100 z-20"
-              style={{ left: `${sliderValue}%` }}
             >
-              <SwapHoriz className="text-[#2f4553] text-lg" />
-
-              <div className="absolute -top-10 bg-[#2f4553] text-white text-xs font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap">
-                {sliderValue.toFixed(2)}
-              </div>
+              {values.map((v, i) => (
+                <input
+                  key={i}
+                  type="range"
+                  min={MIN_VAL}
+                  max={MAX_VAL}
+                  step="1"
+                  value={v}
+                  onChange={(e) => handleValueChange(i, Number(e.target.value))}
+                  onPointerDown={() => {
+                    isPointerDraggingRef.current = true;
+                    setActiveIndex(i);
+                  }}
+                  onPointerUp={() => {
+                    isPointerDraggingRef.current = false;
+                  }}
+                  onPointerCancel={() => {
+                    isPointerDraggingRef.current = false;
+                  }}
+                  disabled={isBusy}
+                  className="absolute inset-0 h-8 w-full opacity-0 cursor-pointer"
+                  style={{
+                    zIndex: activeIndex === i ? 50 : 30,
+                    pointerEvents: isBusy ? "none" : "auto",
+                  }}
+                />
+              ))}
             </div>
+
+            {values.map((v, i) => (
+              <div
+                key={i}
+                className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded shadow-[0_4px_10px_rgba(0,0,0,0.3)] flex items-center justify-center pointer-events-none transition-all duration-100 ${
+                  activeIndex === i ? "z-40 border-white scale-110 bg-[#4e94ff]" : "z-20 border-[#2f4553] bg-[#3b82f6]"
+                } border-2`}
+                style={{ left: `${v}%` }}
+              >
+                <span className="text-white text-[10px] select-none">
+                  {diceMode === "classic" ? (
+                    <SwapHoriz sx={{ fontSize: 16 }} />
+                  ) : i % 2 === 0 ? (
+                    rollOver ? "▶" : "◀"
+                  ) : (
+                    rollOver ? "◀" : "▶"
+                  )}
+                </span>
+                <div className="absolute -top-8 bg-[#2f4553] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-lg whitespace-nowrap">
+                  {v}
+                </div>
+              </div>
+            ))}
 
             <div
               className={`absolute top-1/2 -translate-y-1/2 w-1 h-8 rounded-full transition-all duration-75 z-10 ${
                 gameState === "idle" ? "opacity-0" : "opacity-100"
               } ${
-                (rollOver && displayNumber > sliderValue) ||
-                (!rollOver && displayNumber < sliderValue)
+                gameState === "won"
                   ? "bg-white shadow-[0_0_15px_#00e701]"
                   : "bg-white shadow-[0_0_15px_#ef4444]"
               }`}
@@ -840,12 +977,13 @@ export default function DicePage() {
             ></div>
           </div>
 
-          <div className="flex justify-between mt-6 text-[#557086] text-xs font-bold font-mono mx-4">
-            <span>0</span>
-            <span>25</span>
-            <span>50</span>
-            <span>75</span>
-            <span>100</span>
+          <div className="flex justify-between mt-6 text-[#557086] text-xs font-bold font-mono mx-4 relative">
+            {[0, 25, 50, 75, 100].map((m) => (
+              <div key={m} className="flex flex-col items-center">
+                <div className="h-2 w-0.5 bg-[#213743] mb-1" />
+                <span>{m}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

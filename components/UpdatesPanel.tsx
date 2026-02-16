@@ -4,9 +4,10 @@ import React, { useEffect, useState } from "react";
 export default function UpdatesPanel() {
   const [items] = useState<string[]>([
     "Live chat to chat with other players while playing games",
-    "Prime dice (game)",
-    "Slide (game)",
-    "Daily quests"
+    "Packs (game)",
+    "Daily quests",
+    "Gate of Olympus (slot)",
+    "Sugar Rush (slot)",
   ]);
 
   if(items.length === 0) return
