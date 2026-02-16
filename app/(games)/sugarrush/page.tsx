@@ -253,10 +253,10 @@ function ChocolateRiver() {
     <div className="absolute bottom-0 left-0 w-full h-32 sm:h-48 z-[1] pointer-events-none overflow-hidden">
        <div className="absolute top-0 left-0 w-[200%] h-full flex animate-river-flow">
           <svg viewBox="0 0 1200 100" preserveAspectRatio="none" className="w-[50%] h-full fill-[#5D4037]">
-             <path d="M0,40 C300,10 600,70 900,40 C1100,20 1200,40 1200,40 L1200,100 L0,100 Z" />
+             <path d="M0,40 Q300,10 600,40 Q900,70 1200,40 L1200,100 L0,100 Z" />
           </svg>
           <svg viewBox="0 0 1200 100" preserveAspectRatio="none" className="w-[50%] h-full fill-[#5D4037]">
-             <path d="M0,40 C300,10 600,70 900,40 C1100,20 1200,40 1200,40 L1200,100 L0,100 Z" />
+             <path d="M0,40 Q300,10 600,40 Q900,70 1200,40 L1200,100 L0,100 Z" />
           </svg>
        </div>
 
@@ -282,6 +282,37 @@ function CandyLand() {
           <path d="M0,70 C300,60 600,85 900,65 C1100,75 1200,60 L1200,100 L0,100 Z" fill="#F48FB1" opacity="0.5" />
        </svg>
     </div>
+  );
+}
+
+function FloatingClouds() {
+  const clouds = useMemo(() => {
+    return Array.from({ length: 8 }).map((_, i) => ({
+      type: (i % 3 + 1) as 1 | 2 | 3,
+      top: 5 + (i * 12) % 45,
+      duration: 35 + Math.random() * 45,
+      delay: -(Math.random() * 80), 
+      opacity: 0.3 + (i % 4) * 0.15,
+      scale: 0.5 + (i % 3) * 0.25
+    }));
+  }, []);
+
+  return (
+    <>
+      {clouds.map((cloud, idx) => (
+        <CandyCloud 
+          key={idx}
+          type={cloud.type}
+          style={{
+            top: `${cloud.top}%`,
+            width: `${180 * cloud.scale}px`,
+            animationDuration: `${cloud.duration}s`,
+            animationDelay: `${cloud.delay}s`,
+            opacity: cloud.opacity
+          }}
+        />
+      ))}
+    </>
   );
 }
 
@@ -884,11 +915,7 @@ export default function SugarRushPage() {
                   <PuddingMountains />
                   <GummyHills />
 
-                  <CandyCloud type={1} className="w-48 top-4 opacity-80" style={{ animationDuration: '45s', animationDelay: '0s' }} />
-                  <CandyCloud type={2} className="w-32 top-16 opacity-60" style={{ animationDuration: '35s', animationDelay: '8s' }} />
-                  <CandyCloud type={3} className="w-56 top-32 opacity-40" style={{ animationDuration: '60s', animationDelay: '15s' }} />
-                  <CandyCloud type={1} className="w-40 top-12 opacity-50" style={{ animationDuration: '50s', animationDelay: '25s' }} />
-                  <CandyCloud type={2} className="w-64 top-40 opacity-30" style={{ animationDuration: '55s', animationDelay: '35s' }} />
+                  <FloatingClouds />
                   
                   <FloatingCandyBg />
 
