@@ -455,6 +455,7 @@ export default function BigBassAmazonasPage() {
   const [pendingRoundPayout, setPendingRoundPayout] = useState(0);
   const [lastWin, setLastWin] = useState(0);
   const pendingRoundStakeRef = React.useRef(0);
+  const pendingMultiDenominatorRef = React.useRef(0);
   const pendingRoundPayoutRef = React.useRef(0);
   const [boatAwake, setBoatAwake] = useState(false);
   const [boatNetCast, setBoatNetCast] = useState(false);
@@ -576,13 +577,13 @@ export default function BigBassAmazonasPage() {
     return () => document.removeEventListener("pointerdown", prime);
   }, [volume]);
 
-  const settleRound = (stake: number, payout: number) => {
+  const settleRound = (stake: number, payout: number, multiDenominator: number) => {
     const p = normalizeMoney(payout);
     const s = normalizeMoney(stake);
     const isWinRound = p >= s;
 
     if (p > 0) {
-      addToBalance(p);
+      addToBalance(p, multiDenominator);
       setLastWin(p);
     } else {
       setLastWin(0);
@@ -658,6 +659,9 @@ export default function BigBassAmazonasPage() {
     let updatedRoundPayout = 0;
 
     const isFreeSpin = phase === "free" && freeSpinsLeft > 0;
+    if (isFreeSpin) {
+      setFreeSpinsLeft((s) => Math.max(0, s - 1));
+    }
     setSpinDisplayMultiplier(isFreeSpin ? currentFsMultiplier : 1);
     let gainedExtraSpinsThisCall = 0;
     setPhase(isFreeSpin ? "free" : "spinning");
@@ -699,80 +703,47 @@ export default function BigBassAmazonasPage() {
     setReelsSpinning([true, true, true, true, true]);
 
     const animateReels = (onReelsDone: () => void) => {
+      // Setup minimal frames for CSS infinite spin
+      // We need 2 sets of symbols to loop seamlessly.
+      // But actually, for Big Bass we can just use a large strip and blur it.
+      // Or stick to the plan: Double height reelFrames + CSS animation.
+      // The renderer maps reelFrames[reel], so if we double it, we get 2x items.
+      
+      const spinningFrames = Array.from({ length: REELS }, () => 
+         Array.from({ length: ROWS * 2 }, () => cellForSpin(phase === "free", anteBet, mods.removeLowestFish))
+      );
+      
+      // Update state to trigger CSS animation mode
+      setReelFrames(spinningFrames);
+      setReelsSpinning(Array(REELS).fill(true));
+      
       let stoppedCount = 0;
-      const stopTimes = [300, 450, 600, 750, 900];
-      const baseFrameRate = 90;
+      const stopTimes = [400, 650, 900, 1150, 1400]; // Longer delays for dramatic effect
 
       for (let reel = 0; reel < REELS; reel++) {
-        if (intervalRefs.current[reel]) clearInterval(intervalRefs.current[reel]!);
-        if (timeoutRefs.current[reel]) clearTimeout(timeoutRefs.current[reel]!);
-
-        let frameCount = 0;
-        let isStopping = false;
-        let stopProgress = 0;
-
-        intervalRefs.current[reel] = setInterval(() => {
-          frameCount += baseFrameRate;
-
-          if (isStopping) {
-            if (stopProgress < ROWS) {
-              const targetCell = nextGrid[ROWS - 1 - stopProgress][reel];
-              setReelFrames((prev) => {
-                const next = prev.map((f) => [...f]);
-                const currentCol = next[reel];
-                next[reel] = [
-                  { ...targetCell, highlight: false },
-                  currentCol[0],
-                  currentCol[1],
-                  currentCol[2],
-                ];
-                return next;
-              });
-              stopProgress++;
-            } else {
-              if (intervalRefs.current[reel]) {
-                clearInterval(intervalRefs.current[reel]!);
-                intervalRefs.current[reel] = null;
-              }
-              
-              setGrid((prevGrid) => {
-                const nextG = prevGrid.map((r) => [...r]);
-                for (let rr = 0; rr < ROWS; rr++) {
-                  nextG[rr][reel] = { ...nextGrid[rr][reel], highlight: false };
+        timeoutRefs.current[reel] = setTimeout(() => {
+             // Stop phase
+             // 1. Update grid state to show final result
+             setGrid((prev) => {
+                const next = prev.map(r => [...r]);
+                for(let r=0; r<ROWS; r++) {
+                   next[r][reel] = { ...nextGrid[r][reel], highlight: false };
                 }
-                return nextG;
-              });
+                return next;
+             });
 
-              setReelsSpinning((prev) => {
-                const nextS = [...prev];
-                nextS[reel] = false;
-                return nextS;
-              });
+             // 2. Turn off spinning mode -> this switches rendering to `grid`
+             setReelsSpinning((prev) => {
+                const next = [...prev];
+                next[reel] = false;
+                return next;
+             });
 
-              stoppedCount++;
-              if (stoppedCount === REELS) {
-                window.setTimeout(onReelsDone, 60);
-              }
-            }
-          } else {
-            setReelFrames((prev) => {
-              const next = prev.map((f) => [...f]);
-              const currentCol = next[reel];
-              const fresh = cellForSpin(isFreeSpin, anteBet, mods.removeLowestFish);
-              next[reel] = [
-                { ...fresh, highlight: false },
-                currentCol[0],
-                currentCol[1],
-                currentCol[2],
-              ];
-              return next;
-            });
-          }
-
-          if (frameCount >= stopTimes[reel] && !isStopping) {
-            isStopping = true;
-          }
-        }, baseFrameRate);
+             stoppedCount++;
+             if (stoppedCount === REELS) {
+                setTimeout(onReelsDone, 200);
+             }
+        }, stopTimes[reel]);
       }
     };
 
@@ -820,7 +791,6 @@ export default function BigBassAmazonasPage() {
               if (gained > 0) {
                 const extraSpins = gained * 10;
                 gainedExtraSpinsThisCall = extraSpins;
-                setFreeSpinsLeft((s) => s + extraSpins);
               }
               const cappedRetriggers = Math.min(nowRetriggers, maxIndex);
               setRetriggers(cappedRetriggers);
@@ -878,12 +848,12 @@ export default function BigBassAmazonasPage() {
           }
 
           if (isFreeSpin) {
-            const leftAfter = Math.max(0, freeSpinsLeft + gainedExtraSpinsThisCall - 1);
+            const leftAfter = Math.max(0, freeSpinsLeft - 1 + gainedExtraSpinsThisCall);
             setFreeSpinsLeft(leftAfter);
 
             if (leftAfter <= 0) {
               setPhase("idle");
-              settleRound(pendingRoundStakeRef.current, updatedRoundPayout);
+              settleRound(pendingRoundStakeRef.current, updatedRoundPayout, pendingMultiDenominatorRef.current);
               setIsAutospinning(false);
             }
             window.setTimeout(() => {
@@ -893,7 +863,7 @@ export default function BigBassAmazonasPage() {
           }
 
           setPhase("idle");
-          settleRound(pendingRoundStakeRef.current, updatedRoundPayout);
+          settleRound(pendingRoundStakeRef.current, updatedRoundPayout, pendingMultiDenominatorRef.current);
           finishExecution();
         };
 
@@ -963,9 +933,11 @@ export default function BigBassAmazonasPage() {
       subtractFromBalance(spinCost);
       playAudio(audioRef.current.bet);
       pendingRoundStakeRef.current = spinCost;
+      pendingMultiDenominatorRef.current = betAmount;
     } else {
       playAudio(audioRef.current.bet);
       pendingRoundStakeRef.current = 10;
+      pendingMultiDenominatorRef.current = 10;
     }
     pendingRoundPayoutRef.current = 0;
     setPendingRoundPayout(0);
@@ -976,7 +948,6 @@ export default function BigBassAmazonasPage() {
     if (isExecutingSpinRef.current) return;
     setLastWin(0);
     if (phase === "free") {
-      setFreeSpinsLeft((s) => Math.max(0, s - 1));
       spinFree();
     } else {
       startPaidSpin();
@@ -1050,6 +1021,7 @@ export default function BigBassAmazonasPage() {
     playAudio(audioRef.current.bet);
 
     pendingRoundStakeRef.current = buyBonusCost;
+    pendingMultiDenominatorRef.current = buyBonusCost;
     pendingRoundPayoutRef.current = 0;
     setPendingRoundPayout(0);
     setMods({ extraFreeSpins: 0, guaranteedFish: 0, collectedFishermen: 0, removeLowestFish: false });
@@ -1240,8 +1212,8 @@ export default function BigBassAmazonasPage() {
         </div>
 
         <div className="flex-1 flex flex-col gap-6">
-          <div className="rounded-2xl overflow-hidden p-4 sm:p-8 relative bg-[#0f212e]">
-            <div className="relative mx-auto pt-32 sm:pt-40 pb-3 sm:pb-4 px-3 sm:px-4 rounded-2xl overflow-hidden">
+          <div className="rounded-3xl overflow-hidden p-4 sm:p-8 relative bg-[#0f212e] transform-gpu">
+            <div className="relative mx-auto pt-32 sm:pt-40 pb-3 sm:pb-4 px-3 sm:px-4 rounded-2xl overflow-hidden transform-gpu">
               {phase === "free" && (
                 <div className="absolute top-4 sm:top-6 left-1/2 -translate-x-1/2 z-30 flex justify-center w-full px-4 pointer-events-none">
                   <div className="bg-[#07151a] border border-[#17313a] px-4 py-2 rounded-full flex items-center gap-5">
@@ -1262,8 +1234,8 @@ export default function BigBassAmazonasPage() {
                   </div>
                 </div>
               )}
-              <div className="absolute inset-0 pointer-events-none z-0">
-                <div className="absolute inset-0 jungle-underwater-bg" />
+              <div className="absolute inset-0 pointer-events-none z-0 rounded-2xl overflow-hidden">
+                <div className="absolute inset-0 jungle-underwater-bg rounded-2xl" />
 
                 <svg className="absolute inset-0 w-full h-full opacity-70" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden>
                   <defs>
@@ -1441,8 +1413,8 @@ export default function BigBassAmazonasPage() {
                   </svg>
                 </div>
 
-                <div className="absolute bottom-0 left-0 right-0 h-20 sm:h-24 seabed-layer">
-                  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 1200 140" preserveAspectRatio="none" aria-hidden>
+                <div className="absolute bottom-0 left-0 right-0 h-20 sm:h-24 seabed-layer rounded-b-2xl overflow-hidden">
+                  <svg className="absolute inset-0 w-full h-full rounded-b-2xl" viewBox="0 0 1200 140" preserveAspectRatio="none" aria-hidden>
                     <path d="M0 80 C120 60, 210 100, 320 84 C450 66, 520 112, 640 90 C780 65, 860 108, 980 86 C1075 70, 1145 92, 1200 84 L1200 140 L0 140 Z" fill="#6e5a35" fillOpacity="0.45" />
                     <path d="M0 94 C150 76, 250 110, 360 98 C490 84, 570 120, 680 100 C790 82, 900 116, 1020 98 C1080 90, 1145 100, 1200 96 L1200 140 L0 140 Z" fill="#8d7040" fillOpacity="0.5" />
                   </svg>
@@ -1629,28 +1601,29 @@ export default function BigBassAmazonasPage() {
                     <div className="absolute inset-x-0 top-4 sm:top-6 bottom-2 sm:bottom-4 overflow-hidden">
                       <div
                         key={`reel-container-${reel}`}
-                        className={`flex flex-col relative w-full ${reelsSpinning[reel] ? "slot-reel-rolling slot-rolling" : ""}`}
-                        style={reelsSpinning[reel] ? { ['--dur' as any]: `${reelDurations[reel]}ms` } : undefined}
+                        className={`flex flex-col relative w-full ${reelsSpinning[reel] ? "animate-spin-infinite-down will-change-transform" : ""}`}
                       >
                       {reelsSpinning[reel] ? (
+                        // Render buffer symbols during spin
                         reelFrames[reel].map((cell, rowIdx) => (
                           <div
                             key={`spin-${reel}-${rowIdx}-${spinKey}`}
                             className="h-24 sm:h-32 flex items-center justify-center shrink-0 w-full"
                           >
-                            <div className="transform-gpu">{renderSymbol(cell, displaySpinCost)}</div>
+                            <div className="transform-gpu filter blur-[1px]">{renderSymbol(cell, displaySpinCost)}</div>
                           </div>
                         ))
                       ) : (
-                        grid.map((row, rowIdx) => {
+                        // Render final grid static
+                        grid.map((row) => {
                           const cell = row[reel];
                           return (
                             <div
-                              key={`static-${reel}-${rowIdx}`}
+                              key={`static-${reel}-${cell.symbol}`}
                               className={`h-24 sm:h-32 flex items-center justify-center shrink-0 w-full relative z-0 ${
                                 cell.highlight
                                   ? "z-30 scale-115 transition-transform duration-300"
-                                  : "transition-transform duration-300"
+                                  : "animate-stop-bounce" 
                               }`}
                             >
                                 <div className={`${cell.highlight ? "slot-cell-pop" : ""}`}>{renderSymbol(cell, displaySpinCost)}</div>

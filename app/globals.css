@@ -1189,6 +1189,37 @@ html {
   }
 }
 
+/* Smooth Slot Machine Animations */
+@keyframes spin-infinite-down {
+  0% { transform: translateY(-50%); }
+  100% { transform: translateY(0%); }
+}
+
+.animate-spin-infinite-down {
+  animation: spin-infinite-down 0.15s linear infinite;
+  will-change: transform;
+}
+
+@keyframes spin-infinite {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+.animate-spin-infinite {
+  animation: spin-infinite 0.1s linear infinite;
+  will-change: transform;
+}
+
+@keyframes stop-bounce {
+  0% { transform: translateY(-20px); }
+  60% { transform: translateY(5px); }
+  100% { transform: translateY(0); }
+}
+
+.animate-stop-bounce {
+  animation: stop-bounce 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
 .animate-pump-lever {
   transform-origin: 10% 60%;
   animation: pump-lever-rock 280ms cubic-bezier(0.12, 0.9, 0.2, 1) both;

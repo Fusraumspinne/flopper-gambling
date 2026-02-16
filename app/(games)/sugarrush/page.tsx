@@ -27,11 +27,11 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
 };
 
 const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
-  "🍬": 0.0115,
-  "🍭": 0.023,
-  "🍰": 0.046,
-  "🧁": 0.069,
-  "🍫": 0.086,
+  "🍬": 0.025,
+  "🍭": 0.05,
+  "🍰": 0.1,
+  "🧁": 0.15,
+  "🍫": 0.2,
 };
 
 const normalizeMoney = (value: number) => {
@@ -200,7 +200,12 @@ function stageClass(stage: number) {
   if (stage === 1) return "bg-[#FFF9C4]";
   if (stage === 2) return "bg-[#FFE082]";
   if (stage === 3) return "bg-[#F48FB1]";
-  return "bg-[#CE93D8]";
+  if (stage === 4) return "bg-[#CE93D8]";
+  if (stage === 5) return "bg-[#BA68C8]";
+  if (stage === 6) return "bg-[#9575CD]";
+  if (stage === 7) return "bg-[#7986CB]";
+  if (stage === 8) return "bg-[#64B5F6]";
+  return "bg-[#4FC3F7]";
 }
 
 function stageBadge(stage: number) {
@@ -385,7 +390,6 @@ export default function SugarRushPage() {
   const [grid, setGrid] = useState<GridCell[][]>(() => buildGrid(false));
   const [reelFrames, setReelFrames] = useState<GridCell[][]>(() => gridToReelFrames(buildGrid(false)));
   const [reelsSpinning, setReelsSpinning] = useState<boolean[]>(() => Array(COLS).fill(false));
-  const [reelDurations, setReelDurations] = useState<number[]>(() => Array(COLS).fill(90));
   const [spinKey, setSpinKey] = useState(0);
 
   const [multiplierGrid, setMultiplierGrid] = useState<number[][]>(() => emptyMultiplierGrid());
@@ -399,6 +403,7 @@ export default function SugarRushPage() {
   const [lastDropIndices, setLastDropIndices] = useState<Set<string>>(new Set());
 
   const pendingRoundStakeRef = React.useRef(0);
+  const pendingMultiDenominatorRef = React.useRef(0);
   const pendingRoundPayoutRef = React.useRef(0);
   const isExecutingSpinRef = React.useRef(false);
   const intervalRefs = React.useRef<Array<ReturnType<typeof setInterval> | null>>(Array(COLS).fill(null));
@@ -467,13 +472,13 @@ export default function SugarRushPage() {
     return () => document.removeEventListener("pointerdown", prime);
   }, [volume]);
 
-  const settleRound = React.useCallback((stake: number, payout: number) => {
+  const settleRound = React.useCallback((stake: number, payout: number, multiDenominator: number) => {
     const p = normalizeMoney(payout);
     const s = normalizeMoney(stake);
     const isWinRound = p >= s;
 
     if (p > 0) {
-      addToBalance(p);
+      addToBalance(p, multiDenominator);
       setLastWin(p);
       playAudio(audioRef.current.win);
     } else {
@@ -501,6 +506,9 @@ export default function SugarRushPage() {
     setLastDropIndices(new Set());
     
     const isFreeSpin = phase === "free";
+    if (isFreeSpin) {
+      setFreeSpinsLeft((s) => Math.max(0, s - 1));
+    }
     if (!isFreeSpin) {
       setPhase("spinning");
       setMultiplierGrid(emptyMultiplierGrid());
@@ -519,86 +527,46 @@ export default function SugarRushPage() {
       return [fresh, ...col];
     });
     setReelFrames(startFrames);
-    setReelDurations(Array(COLS).fill(90));
     setReelsSpinning(Array(COLS).fill(true));
     
-    let stoppedCount = 0;
-    const baseFrameRate = 90;
-    const stopTimes = [300, 450, 600, 750, 900, 1050, 1200];
-
     const animateReels = new Promise<void>((resolve) => {
+      // Setup initial spin state with double headers for seamless animation
+      const spinningFrames = Array.from({ length: COLS }, () => 
+        Array.from({ length: ROWS * 2 }, () => randomSymbol(anteBet))
+      );
+      setReelFrames(spinningFrames);
+      setReelsSpinning(Array(COLS).fill(true));
+
+      let stoppedCount = 0;
+      const baseDelay = 400;     // Initial wait before first reel stops
+      const reelDelay = 120;     // Delay between each reel stop
+
       for (let col = 0; col < COLS; col++) {
-        if (intervalRefs.current[col]) clearInterval(intervalRefs.current[col]!);
-        
-        let frameCount = 0;
-        let isStopping = false;
-        let stopProgress = 0;
-        
-        intervalRefs.current[col] = setInterval(() => {
-          frameCount += baseFrameRate;
-          
-          if (isStopping) {
-             // Stop phase: lock in symbols one by one from top
-             if (stopProgress < ROWS) {
-                const targetSymbol = workingGrid[ROWS - 1 - stopProgress][col];
-                setReelFrames((prev) => {
-                  const next = [...prev];
-                  const currentReel = [...next[col]];
-                  // Shift down and insert target
-                  // We use an 8th symbol for smooth overflow if needed, but here 7 is fine for the stop snap
-                  next[col] = [
-                    targetSymbol,
-                    ...currentReel.slice(0, 7)
-                  ];
-                  return next;
-                });
-                stopProgress++;
-             } else {
-                if (intervalRefs.current[col]) {
-                  clearInterval(intervalRefs.current[col]!);
-                  intervalRefs.current[col] = null;
-                }
-
-                // Snap this column to the final grid state in the main view
-                setGrid((prevGrid) => {
-                  const nextG = prevGrid.map(r => [...r]);
-                  for(let r=0; r<ROWS; r++) {
+        setTimeout(() => {
+            // Check if we need to force update the working grid for this column just in case
+            // But we already have workingGrid computed above
+            
+            // Set the final state
+            setGrid((prevGrid) => {
+                const nextG = prevGrid.map(r => [...r]);
+                for(let r=0; r<ROWS; r++) {
                     nextG[r][col] = workingGrid[r][col];
-                  }
-                  return nextG;
-                });
-
-                setReelsSpinning((prev) => {
-                   const nextS = [...prev];
-                   nextS[col] = false;
-                   return nextS;
-                });
-
-                stoppedCount++;
-                if (stoppedCount === COLS) {
-                  // Small delay after all reels stop before evaluating
-                  setTimeout(resolve, 100);
                 }
-             }
-          } else {
-             // Spinning phase: churning symbols
-             setReelFrames((prev) => {
-                const next = [...prev];
-                const currentReel = [...next[col]];
-                const fresh = randomSymbol(anteBet);
-                // Keep 8 symbols for smooth animation during translation
-                next[col] = [
-                   fresh,
-                   ...currentReel.slice(0, 7)
-                ];
-                return next;
-             });
-          }
+                return nextG;
+            });
 
-          if (frameCount >= stopTimes[col] && !isStopping) {
-             isStopping = true;
-          }
-        }, baseFrameRate);
+            // Stop the animation
+            setReelsSpinning((prev) => {
+                const nextS = [...prev];
+                nextS[col] = false;
+                return nextS;
+            });
+
+            stoppedCount++;
+            if (stoppedCount === COLS) {
+                setTimeout(resolve, 200);
+            }
+        }, baseDelay + (col * reelDelay));
       }
     });
 
@@ -632,14 +600,19 @@ export default function SugarRushPage() {
         const clusterBaseWin = normalizeMoney(spinCost * baseMulti);
 
         let totalMultiplier = 0;
+        const perCellMultipliers: Array<{ row: number; col: number; stage: number; stageMultiplier: number }> = [];
         for (const [row, col] of cluster) {
-          const val = stageToMultiplier(workingMultipliers[row][col]);
+          const stage = workingMultipliers[row][col];
+          const val = stageToMultiplier(stage);
           if (val > 1) totalMultiplier += val;
+          perCellMultipliers.push({ row, col, stage, stageMultiplier: val });
           remove.add(toPosKey(row, col));
         }
 
         const effectiveMultiplier = totalMultiplier > 0 ? totalMultiplier : 1;
-        cascadeWin += normalizeMoney(clusterBaseWin * effectiveMultiplier);
+        const comboFinalValue = normalizeMoney(clusterBaseWin * effectiveMultiplier);
+
+        cascadeWin += comboFinalValue;
       }
 
       for (const pos of remove) {
@@ -677,29 +650,24 @@ export default function SugarRushPage() {
     if (isFreeSpin) {
       const scatters = countScatters(workingGrid);
       const retriggerCount = scatters >= 3 ? 5 + (scatters - 3) : 0;
+
       const leftAfter = Math.max(0, freeSpinsLeft - 1 + retriggerCount);
-      
       setFreeSpinsLeft(leftAfter);
+
       if (leftAfter <= 0) {
         setPhase("idle");
         setIsAutospinning(false);
-        settleRound(pendingRoundStakeRef.current, updatedRoundPayout);
+        settleRound(pendingRoundStakeRef.current, updatedRoundPayout, pendingMultiDenominatorRef.current);
       } else {
         setPhase("free");
       }
     } else {
       if (triggeredScatter) {
-        const scatters = countScatters(workingGrid);
-        const initialFS = 5 + (scatters - 3); // Base 3=5 logic, but actually user said 15 for start?
-        // Wait, user previously agreed 15 for the START of free spins (3 scatters).
-        // Let's re-read the request: "3 oder mehr an regenbögen ... für 3 bekommt man +5 und für jeden weiteren +1"
-        // This is specifically for RETRIGGER.
-        
         setPhase("free");
-        setFreeSpinsLeft(FREE_SPINS_AWARD); // We keep the 15 award for initial trigger as per earlier instructions
+        setFreeSpinsLeft(FREE_SPINS_AWARD);
       } else {
         setPhase("idle");
-        settleRound(pendingRoundStakeRef.current, updatedRoundPayout);
+        settleRound(pendingRoundStakeRef.current, updatedRoundPayout, pendingMultiDenominatorRef.current);
       }
     }
 
@@ -752,8 +720,10 @@ export default function SugarRushPage() {
     if (!isTenDollarFreeSpin) {
       subtractFromBalance(spinCost);
       pendingRoundStakeRef.current = spinCost;
+      pendingMultiDenominatorRef.current = betAmount;
     } else {
       pendingRoundStakeRef.current = 10;
+      pendingMultiDenominatorRef.current = 10;
     }
 
     playAudio(audioRef.current.bet);
@@ -778,6 +748,7 @@ export default function SugarRushPage() {
     playAudio(audioRef.current.bet);
 
     pendingRoundStakeRef.current = buyBonusCost;
+    pendingMultiDenominatorRef.current = buyBonusCost;
     pendingRoundPayoutRef.current = 0;
     setPendingRoundPayout(0);
     setMultiplierGrid(emptyMultiplierGrid());
@@ -916,7 +887,7 @@ export default function SugarRushPage() {
 
           {(phase === "free" || phase === "spinning") && (
             <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
-              <div className="text-[#b1bad3] text-sm">Current Round Win</div>
+              <div className="text-[#b1bad3] text-sm">Current Win</div>
               <div className="text-2xl font-bold text-[#00e701]">${pendingRoundPayout.toFixed(2)}</div>
             </div>
           )}
@@ -1036,12 +1007,11 @@ export default function SugarRushPage() {
 
                           {/* Spinning symbols overlay */}
                           {reelsSpinning[col] && (
-                            <div className={`flex flex-col gap-1 sm:gap-1.5 absolute top-0 left-0 w-full animate-reel-spin pointer-events-none z-20`} 
-                                style={{ ['--dur' as any]: `${reelDurations[col]}ms` }}>
+                            <div className={`flex flex-col gap-1 sm:gap-1.5 absolute top-0 left-0 w-full animate-spin-infinite-down pointer-events-none z-20`} >
                               {reelFrames[col].map((symbol, idx) => (
                                   <div key={`spin-${col}-${idx}-${spinKey}`} 
                                       className="aspect-square w-full flex items-center justify-center rounded-lg">
-                                    <span className="text-xl sm:text-3xl lg:text-4xl select-none leading-none filter blur-[0.5px]">{symbol}</span>
+                                    <span className="text-xl sm:text-3xl lg:text-4xl select-none leading-none filter blur-[1px]">{symbol}</span>
                                   </div>
                               ))}
                             </div>

@@ -548,9 +548,9 @@ export default function DrillPage() {
         const elapsed = now - start;
 
         const nextMults: Record<DrillId, number> = {
-          blue: elapsed >= drillDurations.blue ? sampled.blue : growthMultiplier(elapsed),
-          yellow: elapsed >= drillDurations.yellow ? sampled.yellow : growthMultiplier(elapsed),
-          green: elapsed >= drillDurations.green ? sampled.green : growthMultiplier(elapsed),
+          blue: elapsed >= drillDurations.blue ? sampled.blue : Math.min(sampled.blue, growthMultiplier(elapsed)),
+          yellow: elapsed >= drillDurations.yellow ? sampled.yellow : Math.min(sampled.yellow, growthMultiplier(elapsed)),
+          green: elapsed >= drillDurations.green ? sampled.green : Math.min(sampled.green, growthMultiplier(elapsed)),
         };
 
         setLiveMultipliers(nextMults);
@@ -865,7 +865,7 @@ export default function DrillPage() {
       </div>
 
       <div className="flex-1 min-w-0 flex flex-col gap-4">
-        <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-6 relative min-h-75 sm:min-h-140 overflow-hidden">
+        <div className="flex-1 flex flex-col items-center justify-center bg-[#0f212e] rounded-xl p-4 sm:p-6 relative min-h-[400px] sm:min-h-[550px] lg:min-h-[700px] overflow-hidden">
           {gameState === "drilling" && <div className="limbo-roll-glow" />}
           {gameState === "won" && <div className="limbo-win-flash" />}
           {gameState === "lost" && <div className="limbo-lose-flash" />}
@@ -896,22 +896,22 @@ export default function DrillPage() {
                 const depths = DRILLS.map(d => {
                   const val = Math.max(0, Math.log(Math.max(1, liveMultipliers[d.id])));
                   const boosted = val + 0.6;
-                  return Math.pow(boosted, 2.2) * 90;
+                  return Math.pow(boosted, 2.2) * 110;
                 });
                 const maxCurrentDepth = Math.max(...depths);
 
                 const startOffset = 5; 
-                const stopPoint = 50; 
+                const stopPoint = 65; 
 
                 const viewOffset = Math.max(0, maxCurrentDepth - stopPoint);
                 
                 const logVal = Math.max(0, Math.log(Math.max(1, live)));
                 const boosted = logVal + 0.6;
-                const myDepth = Math.min(Math.pow(boosted, 2.2) * 90, 20000);
+                const myDepth = Math.min(Math.pow(boosted, 2.2) * 110, 20000);
 
                 const visualY = (myDepth - viewOffset) + startOffset;
 
-                const isActive = gameState === "drilling" && live < (finalMultipliers?.[drill.id] ?? Infinity);
+                const isStillDrilling = gameState === "drilling" && live < (finalMultipliers?.[drill.id] ?? Infinity);
                 const isSelected = selectedDrill === drill.id;
                 
                 return (
@@ -928,7 +928,7 @@ export default function DrillPage() {
                       </span>
                     </div>
 
-                    <div className="relative w-full max-w-48 h-80 bg-[#0f172a] rounded-b-[4rem] rounded-t-3xl overflow-hidden border border-[#334155] shadow-inner">
+                    <div className="relative w-full max-w-48 h-80 sm:h-[400px] lg:h-[500px] bg-[#0f172a] rounded-b-[4rem] rounded-t-3xl overflow-hidden border border-[#334155] shadow-inner">
                        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-32 bg-[#1e293b]/50" />
 
                        {fossils[drill.id]
@@ -941,7 +941,7 @@ export default function DrillPage() {
                         className="absolute left-1/2 top-0 flex flex-col items-center z-10 w-full origin-top"
                         style={{
                           transform: `translate3d(-50%, ${visualY}px, 0)`,
-                          transition: isActive ? "none" : "transform 400ms cubic-bezier(0.1, 0.5, 0.1, 1)",
+                          transition: gameState === "drilling" ? "none" : "transform 400ms cubic-bezier(0.1, 0.5, 0.1, 1)",
                           willChange: 'transform'
                         }}
                       >
@@ -953,7 +953,7 @@ export default function DrillPage() {
                             <GemIcon type={drill.gem} color={drill.accent} />
                         </div>
 
-                        <DrillBit isSpinning={isActive} speedMultiplier={live} />
+                        <DrillBit isSpinning={isStillDrilling} speedMultiplier={live} />
                       </div>
                     </div>
                   </div>

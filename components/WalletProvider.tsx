@@ -78,7 +78,7 @@ interface WalletContextType {
   btcHoldings: number;
   btcCostUsd: number;
   accountMissing: boolean;
-  addToBalance: (amount: number) => void;
+  addToBalance: (amount: number, baseBetOverride?: number) => void;
   subtractFromBalance: (amount: number) => void;
   increaseBet: (amount: number) => void;
   creditBalance: (amount: number) => void;
@@ -601,7 +601,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     pendingBalanceDeltaRef.current = normalizeMoney(pendingBalanceDeltaRef.current + delta);
   };
 
-  const addToBalance = (amount: number) => {
+  const addToBalance = (amount: number, baseBetOverride?: number) => {
     const payout = normalizeMoney(amount);
     const pending = pendingBetsRef.current.shift();
     const hasBet = !!pending;
@@ -630,7 +630,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     if (hasBet) {
       if (roundNet > 0) {
         updateCurrentAndAll((s) => ({ ...s, wins: s.wins + 1 }), gameId);
-        queueUpdate({ game: gameId, profit: roundNet, multi: normalizeMoney(payout / bet) });
+        const multiDenom = baseBetOverride && baseBetOverride > 0 ? baseBetOverride : bet;
+        queueUpdate({ game: gameId, profit: roundNet, multi: normalizeMoney(payout / multiDenom) });
       } else if (roundNet < 0) {
         updateCurrentAndAll((s) => ({ ...s, losses: s.losses + 1 }), gameId);
         queueUpdate({ game: gameId, loss: Math.abs(roundNet) });
