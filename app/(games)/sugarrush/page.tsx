@@ -27,10 +27,18 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
 };
 
 const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
+  "🍬": 0.0025,
+  "🍭": 0.004,
+  "🍰": 0.0075,
+  "🧁": 0.01,
+  "🍫": 0.02,
+};
+
+const SYMBOL_FREESPIN_MULTIS: Record<CandySymbol, number> = {
   "🍬": 0.025,
-  "🍭": 0.05,
-  "🍰": 0.1,
-  "🧁": 0.15,
+  "🍭": 0.04,
+  "🍰": 0.075,
+  "🧁": 0.1,
   "🍫": 0.2,
 };
 
@@ -105,12 +113,6 @@ function toPosKey(row: number, col: number) {
 function stageToMultiplier(stage: number) {
   if (stage < 2) return 1;
   return 2 ** (stage - 1);
-}
-
-function clusterBaseMultiplier(symbol: CandySymbol, size: number) {
-  const base = SYMBOL_BASE_MULTIS[symbol];
-  const growth = Math.pow(1.75, Math.max(0, size - MIN_CLUSTER));
-  return base * growth;
 }
 
 function findClusters(grid: GridCell[][]): Position[][] {
@@ -599,22 +601,23 @@ export default function SugarRushPage() {
       for (const cluster of clusters) {
         const [firstRow, firstCol] = cluster[0];
         const symbol = workingGrid[firstRow][firstCol] as CandySymbol;
-        const baseMulti = clusterBaseMultiplier(symbol, cluster.length);
-        const clusterBaseWin = normalizeMoney(spinCost * baseMulti);
+        
+        // Jedes einzelne Symbol (Basiswert) zum Value addieren - in Freispielen 10x höher
+        const baseMultiTable = isFreeSpin ? SYMBOL_FREESPIN_MULTIS : SYMBOL_BASE_MULTIS;
+        const totalSymbolBaseWin = baseMultiTable[symbol] * spinCost * cluster.length;
 
-        let totalMultiplier = 0;
-        const perCellMultipliers: Array<{ row: number; col: number; stage: number; stageMultiplier: number }> = [];
+        let totalCellMultipliers = 0;
         for (const [row, col] of cluster) {
           const stage = workingMultipliers[row][col];
           const val = stageToMultiplier(stage);
-          if (val > 1) totalMultiplier += val;
-          perCellMultipliers.push({ row, col, stage, stageMultiplier: val });
+          // Nur Multiplikatoren >= 2 addieren
+          if (val >= 2) totalCellMultipliers += val;
           remove.add(toPosKey(row, col));
         }
 
-        const effectiveMultiplier = totalMultiplier > 0 ? totalMultiplier : 1;
-        const comboFinalValue = normalizeMoney(clusterBaseWin * effectiveMultiplier);
-
+        // Summe der Symbole * Summe der Multiplikatoren (Fallback auf 1, falls keine Multiplikatoren vorhanden sind)
+        const effectiveMultiplier = totalCellMultipliers > 0 ? totalCellMultipliers : 1;
+        const comboFinalValue = normalizeMoney(totalSymbolBaseWin * effectiveMultiplier);
         cascadeWin += comboFinalValue;
       }
 
@@ -889,7 +892,7 @@ export default function SugarRushPage() {
             )}
           </button>
 
-          {(phase === "free" || phase === "spinning") && (
+          {(phase === "free") && (
             <div className="bg-[#0f212e] p-4 rounded border border-[#2f4553] text-center">
               <div className="text-[#b1bad3] text-sm">Current Win</div>
               <div className="text-2xl font-bold text-[#00e701]">${pendingRoundPayout.toFixed(2)}</div>
