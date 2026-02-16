@@ -442,7 +442,7 @@ export default function SugarRushPage() {
 
   const spinCost = useMemo(() => normalizeMoney(betAmount * (anteBet ? 1.5 : 1)), [betAmount, anteBet]);
   const buyBonusCost = useMemo(() => normalizeMoney(betAmount * 100), [betAmount]);
-  const isTenDollarFreeSpin = !anteBet && normalizeMoney(betAmount) === 10;
+  const isHundredDollarFreeSpin = !anteBet && normalizeMoney(betAmount) === 100;
 
   const playAudio = (a: HTMLAudioElement | null) => {
     if (!a) return;
@@ -684,7 +684,7 @@ export default function SugarRushPage() {
     if (!isAutospinning || isExecutingSpin) return;
 
     if (phase === "idle") {
-      if (!isTenDollarFreeSpin && balance < spinCost) {
+      if (!isHundredDollarFreeSpin && balance < spinCost) {
         setIsAutospinning(false);
         return;
       }
@@ -712,7 +712,7 @@ export default function SugarRushPage() {
     if (phase === "spinning") {
       return;
     }
-  }, [isAutospinning, phase, isExecutingSpin, freeSpinsLeft, balance, spinCost, isTenDollarFreeSpin]);
+  }, [isAutospinning, phase, isExecutingSpin, freeSpinsLeft, balance, spinCost, isHundredDollarFreeSpin]);
 
   const canPaidSpin = phase === "idle";
 
@@ -720,15 +720,15 @@ export default function SugarRushPage() {
     if (!canPaidSpin) return;
     if (isExecutingSpinRef.current) return;
     if (betAmount <= 0) return;
-    if (!isTenDollarFreeSpin && balance < spinCost) return;
+    if (!isHundredDollarFreeSpin && balance < spinCost) return;
 
-    if (!isTenDollarFreeSpin) {
+    if (!isHundredDollarFreeSpin) {
       subtractFromBalance(spinCost);
       pendingRoundStakeRef.current = spinCost;
       pendingMultiDenominatorRef.current = betAmount;
     } else {
-      pendingRoundStakeRef.current = 10;
-      pendingMultiDenominatorRef.current = 10;
+      pendingRoundStakeRef.current = 100;
+      pendingMultiDenominatorRef.current = 100;
     }
 
     playAudio(audioRef.current.bet);
@@ -775,7 +775,7 @@ export default function SugarRushPage() {
     isExecutingSpin ||
     (phase === "free"
       ? freeSpinsLeft <= 0
-      : phase !== "idle" || (!isTenDollarFreeSpin && balance < spinCost) || betAmount <= 0);
+      : phase !== "idle" || (!isHundredDollarFreeSpin && balance < spinCost) || betAmount <= 0);
 
   return (
     <>
@@ -783,7 +783,7 @@ export default function SugarRushPage() {
         <div className="w-full lg:w-60 flex flex-col gap-3 bg-[#0f212e] p-2 sm:p-3 rounded-xl h-fit text-xs self-start">
           <div className="space-y-2">
             <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
-            <div className="text-[9px] text-[#93c8a8] font-semibold">Free spin with a $10 bet (no Ante)</div>
+            <div className="text-[9px] text-[#93c8a8] font-semibold">Free spin with a $100 bet (no Ante)</div>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3] font-mono">$</div>
               <input
@@ -792,7 +792,7 @@ export default function SugarRushPage() {
                 onChange={(e) => setBetInput(e.target.value)}
                 onBlur={() => {
                   const val = Number(betInput.replace(",", "."));
-                  const safe = Number.isFinite(val) ? Math.max(10, val) : 10;
+                  const safe = Number.isFinite(val) ? Math.max(100, val) : 100;
                   const normalized = normalizeMoney(safe);
                   setBetAmount(normalized);
                   setBetInput(String(normalized));
@@ -863,7 +863,7 @@ export default function SugarRushPage() {
           {!isAutospinning && (
             <button
               onClick={() => setIsAutospinning(true)}
-              disabled={(phase !== "idle" && phase !== "free") || (phase === "idle" && !isTenDollarFreeSpin && balance < spinCost)}
+              disabled={(phase !== "idle" && phase !== "free") || (phase === "idle" && !isHundredDollarFreeSpin && balance < spinCost)}
               className="w-full py-2 rounded-md font-bold text-xs transition-all flex items-center justify-center gap-2 bg-[#2f4553] hover:bg-[#3e5666] text-[#b1bad3] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {phase === "free" ? "Auto (Free Spins)" : "Auto (Normal Spins)"}

@@ -489,12 +489,12 @@ export default function BigBassAmazonasPage() {
 
   const spinCost = useMemo(() => normalizeMoney(betAmount * (anteBet ? 1.5 : 1)), [betAmount, anteBet]);
   const buyBonusCost = useMemo(() => normalizeMoney(betAmount * 100), [betAmount]);
-  const isTenDollarFreeSpin = !anteBet && normalizeMoney(betAmount) === 10;
+  const isHundredDollarFreeSpin = !anteBet && normalizeMoney(betAmount) === 100;
 
   React.useEffect(() => {
     if (isAutospinning && !isExecutingSpin) {
       if (phase === "idle") {
-        if (!isTenDollarFreeSpin && balance < spinCost) {
+        if (!isHundredDollarFreeSpin && balance < spinCost) {
           setIsAutospinning(false);
           return;
         }
@@ -520,7 +520,7 @@ export default function BigBassAmazonasPage() {
     if (isAutospinning && (phase === "prefree" || phase === "pick")) {
       setIsAutospinning(false);
     }
-  }, [isAutospinning, phase, isExecutingSpin, balance, spinCost, isTenDollarFreeSpin, freeSpinsLeft]);
+  }, [isAutospinning, phase, isExecutingSpin, balance, spinCost, isHundredDollarFreeSpin, freeSpinsLeft]);
 
   const audioRef = React.useRef<{
     bet: HTMLAudioElement | null;
@@ -916,18 +916,18 @@ export default function BigBassAmazonasPage() {
     if (!canPaidSpin) return;
     if (isExecutingSpinRef.current) return;
     if (betAmount <= 0) return;
-    if (!isTenDollarFreeSpin && balance < spinCost) {
+    if (!isHundredDollarFreeSpin && balance < spinCost) {
       return;
     }
-    if (!isTenDollarFreeSpin) {
+    if (!isHundredDollarFreeSpin) {
       subtractFromBalance(spinCost);
       playAudio(audioRef.current.bet);
       pendingRoundStakeRef.current = spinCost;
       pendingMultiDenominatorRef.current = betAmount;
     } else {
       playAudio(audioRef.current.bet);
-      pendingRoundStakeRef.current = 10;
-      pendingMultiDenominatorRef.current = 10;
+      pendingRoundStakeRef.current = 100;
+      pendingMultiDenominatorRef.current = 100;
     }
     pendingRoundPayoutRef.current = 0;
     setPendingRoundPayout(0);
@@ -944,7 +944,7 @@ export default function BigBassAmazonasPage() {
     }
   };
 
-  const mainDisabled = isExecutingSpin || (phase === "free" ? freeSpinsLeft <= 0 : phase !== "idle" || (!isTenDollarFreeSpin && balance < spinCost) || betAmount <= 0);
+  const mainDisabled = isExecutingSpin || (phase === "free" ? freeSpinsLeft <= 0 : phase !== "idle" || (!isHundredDollarFreeSpin && balance < spinCost) || betAmount <= 0);
 
   const spinFree = () => {
     if (phase !== "free" || freeSpinsLeft <= 0) return;
@@ -1075,7 +1075,7 @@ export default function BigBassAmazonasPage() {
           <div className="space-y-2">
             <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Bet Amount</label>
                 <div className="text-[9px] text-[#93c8a8] font-semibold">
-                Free spin with a $10 bet (no Ante)
+                Free spin with a $100 bet (no Ante)
                 </div>
             <div className="relative">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b1bad3] font-mono">$</div>
@@ -1085,7 +1085,7 @@ export default function BigBassAmazonasPage() {
                 onChange={(e) => setBetInput(e.target.value)}
                 onBlur={() => {
                   const val = Number(betInput.replace(",", "."));
-                  const safe = Number.isFinite(val) ? Math.max(10, val) : 10;
+                  const safe = Number.isFinite(val) ? Math.max(100, val) : 100;
                   setBetAmount(normalizeMoney(safe));
                   setBetInput(String(normalizeMoney(safe)));
                 }}
@@ -1155,7 +1155,7 @@ export default function BigBassAmazonasPage() {
           {!isAutospinning && (
             <button
               onClick={() => setIsAutospinning(true)}
-              disabled={(phase !== "idle" && phase !== "free") || (phase === "idle" && !isTenDollarFreeSpin && balance < spinCost)}
+              disabled={(phase !== "idle" && phase !== "free") || (phase === "idle" && !isHundredDollarFreeSpin && balance < spinCost)}
               className="w-full py-2 rounded-md font-bold text-xs transition-all flex items-center justify-center gap-2 bg-[#2f4553] hover:bg-[#3e5666] text-[#b1bad3] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {phase === "free" ? "Auto (Free Spins)" : "Auto (Normal Spins)"}
