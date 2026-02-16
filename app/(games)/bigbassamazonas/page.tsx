@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 import GameRecordsPanel from "@/components/GameRecordsPanel";
+import { PlayArrow } from "@mui/icons-material";
 
 type GamePhase = "idle" | "spinning" | "pick" | "prefree" | "free";
 type SymbolId =
@@ -1208,7 +1209,15 @@ export default function BigBassAmazonasPage() {
                 : "bg-[#00e701] hover:bg-[#00c201] text-black shadow-[0_0_20px_rgba(0,231,1,0.2)]"
             } disabled:opacity-50 disabled:cursor-not-allowed py-3 rounded-md font-bold text-lg transition-all active:scale-95 flex items-center justify-center gap-2`}
           >
-            {isAutospinning ? "STOP" : (isExecutingSpin ? "Playing" : "Bet")}
+            {isAutospinning ? (
+              "Stop"
+            ) : isExecutingSpin ? (
+              "Playing"
+            ) : (
+              <>
+                <PlayArrow /> Bet
+              </>
+            )}
           </button>
 
           {phase === "free" && (
@@ -1232,7 +1241,7 @@ export default function BigBassAmazonasPage() {
 
         <div className="flex-1 flex flex-col gap-6">
           <div className="rounded-2xl overflow-hidden p-4 sm:p-8 relative bg-[#0f212e]">
-            <div className="relative mx-auto max-w-200 pt-32 sm:pt-40 pb-3 sm:pb-4 px-3 sm:px-4 rounded-2xl overflow-hidden">
+            <div className="relative mx-auto pt-32 sm:pt-40 pb-3 sm:pb-4 px-3 sm:px-4 rounded-2xl overflow-hidden">
               {phase === "free" && (
                 <div className="absolute top-4 sm:top-6 left-1/2 -translate-x-1/2 z-30 flex justify-center w-full px-4 pointer-events-none">
                   <div className="bg-[#07151a] border border-[#17313a] px-4 py-2 rounded-full flex items-center gap-5">
