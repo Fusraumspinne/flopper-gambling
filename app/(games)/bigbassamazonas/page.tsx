@@ -702,28 +702,19 @@ export default function BigBassAmazonasPage() {
     setReelDurations(Array(REELS).fill(90));
     setReelsSpinning([true, true, true, true, true]);
 
-    const animateReels = (onReelsDone: () => void) => {
-      // Setup minimal frames for CSS infinite spin
-      // We need 2 sets of symbols to loop seamlessly.
-      // But actually, for Big Bass we can just use a large strip and blur it.
-      // Or stick to the plan: Double height reelFrames + CSS animation.
-      // The renderer maps reelFrames[reel], so if we double it, we get 2x items.
-      
+    const animateReels = (onReelsDone: () => void) => {      
       const spinningFrames = Array.from({ length: REELS }, () => 
          Array.from({ length: ROWS * 2 }, () => cellForSpin(phase === "free", anteBet, mods.removeLowestFish))
       );
       
-      // Update state to trigger CSS animation mode
       setReelFrames(spinningFrames);
       setReelsSpinning(Array(REELS).fill(true));
       
       let stoppedCount = 0;
-      const stopTimes = [400, 650, 900, 1150, 1400]; // Longer delays for dramatic effect
+      const stopTimes = [400, 650, 900, 1150, 1400];
 
       for (let reel = 0; reel < REELS; reel++) {
         timeoutRefs.current[reel] = setTimeout(() => {
-             // Stop phase
-             // 1. Update grid state to show final result
              setGrid((prev) => {
                 const next = prev.map(r => [...r]);
                 for(let r=0; r<ROWS; r++) {
@@ -732,7 +723,6 @@ export default function BigBassAmazonasPage() {
                 return next;
              });
 
-             // 2. Turn off spinning mode -> this switches rendering to `grid`
              setReelsSpinning((prev) => {
                 const next = [...prev];
                 next[reel] = false;
@@ -1604,7 +1594,6 @@ export default function BigBassAmazonasPage() {
                         className={`flex flex-col relative w-full ${reelsSpinning[reel] ? "animate-spin-infinite-down will-change-transform" : ""}`}
                       >
                       {reelsSpinning[reel] ? (
-                        // Render buffer symbols during spin
                         reelFrames[reel].map((cell, rowIdx) => (
                           <div
                             key={`spin-${reel}-${rowIdx}-${spinKey}`}
@@ -1614,7 +1603,6 @@ export default function BigBassAmazonasPage() {
                           </div>
                         ))
                       ) : (
-                        // Render final grid static
                         grid.map((row, rowIdx) => {
                           const cell = row[reel];
                           return (

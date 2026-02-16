@@ -10,8 +10,8 @@ type GameState = "idle" | "rolling" | "won" | "lost";
 type DiceMode = "classic" | "range" | "dual";
 
 const HOUSE_EDGE = 1.0;
-const MIN_VAL = 0;
-const MAX_VAL = 100;
+const MIN_VAL = 1;
+const MAX_VAL = 99;
 
 export default function DicePage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, syncBalance } = useWallet();
@@ -973,12 +973,12 @@ export default function DicePage() {
                   ? "bg-white shadow-[0_0_15px_#00e701]"
                   : "bg-white shadow-[0_0_15px_#ef4444]"
               }`}
-              style={{ left: `${clamp(displayNumber, 0, 100)}%` }}
+              style={{ left: `${clamp(displayNumber, MIN_VAL, MAX_VAL)}%` }}
             ></div>
           </div>
 
           <div className="flex justify-between mt-6 text-[#557086] text-xs font-bold font-mono mx-4 relative">
-            {[0, 25, 50, 75, 100].map((m) => (
+            {[1, 25, 50, 75, 99].map((m) => (
               <div key={m} className="flex flex-col items-center">
                 <div className="h-2 w-0.5 bg-[#213743] mb-1" />
                 <span>{m}</span>

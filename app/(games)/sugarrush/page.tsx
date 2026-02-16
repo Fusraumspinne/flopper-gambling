@@ -86,7 +86,6 @@ function buildGrid(anteBet: boolean): GridCell[][] {
 }
 
 function gridToReelFrames(sourceGrid: GridCell[][]) {
-  // Convert rows->cols for animation
   return Array.from({ length: COLS }, (_, col) =>
     Array.from({ length: ROWS }, (_, row) => sourceGrid[row][col])
   );
@@ -165,7 +164,6 @@ function tumble(grid: GridCell[][], remove: Set<string>, anteBet: boolean) {
   const droppedIndices = new Set<string>();
 
   for (let col = 0; col < COLS; col++) {
-    // Collect survivors along with their original row mapping
     const survivors: { symbol: GridCell; oldRow: number }[] = [];
     for (let row = 0; row < ROWS; row++) {
       if (!remove.has(toPosKey(row, col))) {
@@ -173,21 +171,16 @@ function tumble(grid: GridCell[][], remove: Set<string>, anteBet: boolean) {
       }
     }
     
-    // new symbols at top
     const numberOfNew = ROWS - survivors.length;
     
-    // Fill new (at top)
     for (let i = 0; i < numberOfNew; i++) {
         nextGrid[i][col] = randomSymbol(anteBet);
-        // New symbols always drop in
         droppedIndices.add(toPosKey(i, col));
     }
     
-    // Fill survivors (below new)
     for (let i = 0; i < survivors.length; i++) {
         const newRow = i + numberOfNew;
         nextGrid[newRow][col] = survivors[i].symbol;
-        // Only drop-animate if the symbol's row actually shifted
         if (newRow !== survivors[i].oldRow) {
            droppedIndices.add(toPosKey(newRow, col));
         }
@@ -258,7 +251,6 @@ function PuddingMountains() {
 function ChocolateRiver() {
   return (
     <div className="absolute bottom-0 left-0 w-full h-32 sm:h-48 z-[1] pointer-events-none overflow-hidden">
-       {/* Flowing Water (Chocolate) - Two segments for seamless looping */}
        <div className="absolute top-0 left-0 w-[200%] h-full flex animate-river-flow">
           <svg viewBox="0 0 1200 100" preserveAspectRatio="none" className="w-[50%] h-full fill-[#5D4037]">
              <path d="M0,40 C300,10 600,70 900,40 C1100,20 1200,40 1200,40 L1200,100 L0,100 Z" />
@@ -268,7 +260,6 @@ function ChocolateRiver() {
           </svg>
        </div>
 
-       {/* Surface ripples */}
        <div className="absolute top-2 left-0 w-[200%] h-full flex animate-river-flow-slow opacity-30">
           <svg viewBox="0 0 1200 100" preserveAspectRatio="none" className="w-[50%] h-full fill-none stroke-[#8D6E63] stroke-[2px]">
              <path d="M0,50 Q300,30 600,50 Q900,70 1200,50" />
@@ -288,7 +279,6 @@ function CandyLand() {
     <div className="absolute bottom-0 left-0 w-full h-24 sm:h-32 z-[2] pointer-events-none">
        <svg viewBox="0 0 1200 100" preserveAspectRatio="none" className="w-full h-full fill-[#F8BBD0] drop-shadow-[0_-8px_15px_rgba(183,28,28,0.2)]">
           <path d="M0,40 C200,20 400,60 600,30 C800,10 1000,50 1200,20 L1200,100 L0,100 Z" />
-          {/* Add some "dirt/cake" texture layers at the bottom */}
           <path d="M0,70 C300,60 600,85 900,65 C1100,75 1200,60 L1200,100 L0,100 Z" fill="#F48FB1" opacity="0.5" />
        </svg>
     </div>
@@ -299,13 +289,9 @@ function CandyCane({ className }: { className?: string }) {
   return (
     <div className={`absolute pointer-events-none ${className}`}>
       <svg viewBox="0 0 30 100" className="w-full h-full drop-shadow-lg">
-         {/* Shadow */}
          <path d="M22,100 L22,30 C22,10 2,10 2,30" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="10" transform="translate(2,2)" />
-         {/* Main Cane */}
          <path d="M20,100 L20,30 C20,10 0,10 0,30" fill="none" stroke="#FF5252" strokeWidth="10" />
-         {/* White Stripes */}
          <path d="M20,100 L20,30 C20,10 0,10 0,30" fill="none" stroke="#FFF" strokeWidth="10" strokeDasharray="8 8" />
-         {/* Gloss */}
          <path d="M18,95 L18,30 C18,15 5,15 5,30" fill="none" stroke="#FFF" strokeWidth="2" opacity="0.5" />
       </svg>
     </div>
@@ -325,9 +311,7 @@ function LollipopTree({ className }: { className?: string }) {
    return (
      <div className={`absolute bottom-20 z-0 pointer-events-none ${className}`}>
         <svg  viewBox="0 0 100 200" className="h-32 sm:h-48 drop-shadow-lg">
-           {/* Stick */}
            <rect x="45" y="80" width="10" height="120" fill="#FFF" />
-           {/* Swirl */}
            <circle cx="50" cy="50" r="40" fill="#FF4081" />
            <path d="M50,10 A40,40 0 0,1 90,50" fill="none" stroke="#FFF" strokeWidth="8" strokeLinecap="round" opacity="0.4" />
            <path d="M50,90 A40,40 0 0,1 10,50" fill="none" stroke="#FFF" strokeWidth="8" strokeLinecap="round" opacity="0.4" />
@@ -349,7 +333,6 @@ function CandyGrass({ className }: { className?: string }) {
 }
 
 function FloatingCandyBg() {
-  // Generate random floating items
   const items = useMemo(() => {
     return Array.from({ length: 15 }).map((_, i) => ({
       left: Math.random() * 100,
@@ -521,12 +504,9 @@ export default function SugarRushPage() {
     setSpinKey((v) => v + 1);
     playAudio(audioRef.current.spin);
     
-    // Prepare next grid content
     let workingGrid = buildGrid(anteBet);
     
-    // Start reel animations
     const startFrames = gridToReelFrames(grid).map((col) => {
-      // Prepend a random symbol for the "roll in" visual
       const fresh = randomSymbol(anteBet);
       return [fresh, ...col];
     });
@@ -534,7 +514,6 @@ export default function SugarRushPage() {
     setReelsSpinning(Array(COLS).fill(true));
     
     const animateReels = new Promise<void>((resolve) => {
-      // Setup initial spin state with double headers for seamless animation
       const spinningFrames = Array.from({ length: COLS }, () => 
         Array.from({ length: ROWS * 2 }, () => randomSymbol(anteBet))
       );
@@ -542,15 +521,11 @@ export default function SugarRushPage() {
       setReelsSpinning(Array(COLS).fill(true));
 
       let stoppedCount = 0;
-      const baseDelay = 400;     // Initial wait before first reel stops
-      const reelDelay = 250;     // Higher delay for soft/dramatic stop like BBA
+      const baseDelay = 400;     
+      const reelDelay = 250;    
 
       for (let col = 0; col < COLS; col++) {
         setTimeout(() => {
-            // Check if we need to force update the working grid for this column just in case
-            // But we already have workingGrid computed above
-            
-            // Set the final state
             setGrid((prevGrid) => {
                 const nextG = prevGrid.map(r => [...r]);
                 for(let r=0; r<ROWS; r++) {
@@ -559,7 +534,6 @@ export default function SugarRushPage() {
                 return nextG;
             });
 
-            // Stop the animation
             setReelsSpinning((prev) => {
                 const nextS = [...prev];
                 nextS[col] = false;
@@ -574,7 +548,6 @@ export default function SugarRushPage() {
       }
     });
 
-    // Wait for reels to spin and stop
     await animateReels;
 
     let workingMultipliers = isFreeSpin
@@ -587,7 +560,6 @@ export default function SugarRushPage() {
     let triggeredScatter = false;
     let spinWin = 0;
 
-    // Tumble Loop
     while (true) {
       if (countScatters(workingGrid) >= 3) triggeredScatter = true;
 
@@ -602,7 +574,6 @@ export default function SugarRushPage() {
         const [firstRow, firstCol] = cluster[0];
         const symbol = workingGrid[firstRow][firstCol] as CandySymbol;
         
-        // Jedes einzelne Symbol (Basiswert) zum Value addieren - in Freispielen 10x höher
         const baseMultiTable = isFreeSpin ? SYMBOL_FREESPIN_MULTIS : SYMBOL_BASE_MULTIS;
         const totalSymbolBaseWin = baseMultiTable[symbol] * spinCost * cluster.length;
 
@@ -610,12 +581,10 @@ export default function SugarRushPage() {
         for (const [row, col] of cluster) {
           const stage = workingMultipliers[row][col];
           const val = stageToMultiplier(stage);
-          // Nur Multiplikatoren >= 2 addieren
           if (val >= 2) totalCellMultipliers += val;
           remove.add(toPosKey(row, col));
         }
 
-        // Summe der Symbole * Summe der Multiplikatoren (Fallback auf 1, falls keine Multiplikatoren vorhanden sind)
         const effectiveMultiplier = totalCellMultipliers > 0 ? totalCellMultipliers : 1;
         const comboFinalValue = normalizeMoney(totalSymbolBaseWin * effectiveMultiplier);
         cascadeWin += comboFinalValue;
@@ -631,7 +600,6 @@ export default function SugarRushPage() {
       spinWin = normalizeMoney(spinWin + cascadeWin);
       setLastCascadeWin(cascadeWin);
       
-      // Highlight/Pop animation step
       setHighlighted(new Set(remove));
       setMultiplierGrid(workingMultipliers.map((row) => [...row]));
 
@@ -640,13 +608,12 @@ export default function SugarRushPage() {
       const tumbleResult = tumble(workingGrid, remove, anteBet);
       workingGrid = tumbleResult.nextGrid;
       
-      // Mark dropping indices for animation
       setLastDropIndices(tumbleResult.droppedIndices);
       setGrid(workingGrid.map((row) => [...row]));
       setHighlighted(new Set());
       
-      await sleep(700); // Wait for slower drop animation
-      setLastDropIndices(new Set()); // Clear drop markers
+      await sleep(700);
+      setLastDropIndices(new Set());
     }
 
     const updatedRoundPayout = normalizeMoney(pendingRoundPayoutRef.current + spinWin);
@@ -911,7 +878,6 @@ export default function SugarRushPage() {
         <div className="flex-1 flex flex-col gap-6">
           <div className="bg-[#0f212e] p-4 sm:p-8 rounded-3xl self-center w-full">
             <div className="rounded-3xl overflow-hidden relative bg-[#a5f3fc] h-145 sm:h-170 p-2 sm:p-4">
-              {/* Background World */}
               <div className="absolute inset-0 pointer-events-none z-0">
                   <div className="absolute inset-0 bg-linear-to-b from-[#a5f3fc] to-[#fbcfe8]" />
                   
@@ -926,7 +892,6 @@ export default function SugarRushPage() {
                   
                   <FloatingCandyBg />
 
-                  {/* Sky Stars */}
                   <CandyStar className="left-[10%] top-[10%]" delay={0} />
                   <CandyStar className="left-[25%] top-[15%]" delay={1.2} />
                   <CandyStar className="left-[40%] top-[8%]" delay={0.5} />
@@ -938,13 +903,11 @@ export default function SugarRushPage() {
                   
                   <CandyLand />
 
-                  {/* Foreground items - Pushed to the sides */}
                   <LollipopTree className="-left-5 sm:left-4 z-[3] bottom-0 sm:bottom-4" />
                   <LollipopTree className="-right-5 sm:right-4 transform scale-x-[-1] z-[3] bottom-0 sm:bottom-4" />
                   <LollipopTree className="left-[5%] bottom-2 sm:bottom-4 transform scale-[0.7] opacity-80 z-[3]" />
                   <LollipopTree className="right-[8%] bottom-1 sm:bottom-2 transform scale-[0.85] scale-x-[-1] opacity-90 z-[3]" />
 
-                  {/* Candy Canes - Pushed to the sides */}
                   <CandyCane className="w-8 h-24 left-[2%] bottom-6 z-[3] rotate-[-15deg]" />
                   <CandyCane className="w-6 h-20 right-[4%] bottom-8 z-[3] rotate-[10deg] scale-x-[-1]" />
                   <CandyCane className="w-5 h-16 left-[12%] bottom-4 z-[3] rotate-[5deg] opacity-70" />
@@ -954,7 +917,6 @@ export default function SugarRushPage() {
                   <CandyGrass className="left-[4%] bottom-1 opacity-40 scale-75 z-[3]" />
               </div>
 
-              {/* Game Grid Container */}
               <div className="relative z-10 flex flex-col items-center justify-center h-full">
                 {phase === "free" && (
                   <div className="absolute top-4 sm:top-6 left-1/2 -translate-x-1/2 z-30 flex justify-center w-full px-4 pointer-events-none">
@@ -970,10 +932,8 @@ export default function SugarRushPage() {
                 <div className="p-1.5 sm:p-2 rounded-2xl w-full max-w-125">
                   <div className="grid grid-cols-7 gap-1 sm:gap-1.5 mx-auto w-full">
 
-                    {/* We render columns primarily now, or we can just iterate grid row-major but use CSS for spin */}
                     {Array.from({ length: COLS }, (_, col) => (
                       <div key={`col-${col}`} className="flex flex-col gap-1 sm:gap-1.5 relative overflow-hidden">
-                          {/* Fields (Multipliers and Backgrounds) - Always visible */}
                           {Array.from({ length: ROWS }, (_, rowIdx) => {
                               const symbol = grid[rowIdx][col];
                               const key = toPosKey(rowIdx, col);
@@ -999,7 +959,6 @@ export default function SugarRushPage() {
                                     </div>
                                   )}
                                   
-                                  {/* Show static symbol only if not spinning */}
                                   {!isSpinning && (
                                     <span className={`relative z-10 text-xl sm:text-3xl lg:text-4xl select-none leading-none transform-gpu filter
                                       ${isHit ? "animate-pop" : isDropping ? "animate-drop-in" : (!isTumbling && isExecutingSpin ? "animate-stop-bounce" : "")}
@@ -1011,7 +970,6 @@ export default function SugarRushPage() {
                               );
                           })}
 
-                          {/* Spinning symbols overlay */}
                           {reelsSpinning[col] && (
                             <div className={`flex flex-col gap-1 sm:gap-1.5 absolute top-0 left-0 w-full animate-spin-infinite-down pointer-events-none z-20`} >
                               {reelFrames[col].map((symbol, idx) => (
