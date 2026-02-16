@@ -397,6 +397,7 @@ export default function SugarRushPage() {
   const [freeSpinsLeft, setFreeSpinsLeft] = useState(0);
   const [isAutospinning, setIsAutospinning] = useState(false);
   const [isExecutingSpin, setIsExecutingSpin] = useState(false);
+  const [isTumbling, setIsTumbling] = useState(false);
   const [pendingRoundPayout, setPendingRoundPayout] = useState(0);
   const [lastWin, setLastWin] = useState(0);
   const [lastCascadeWin, setLastCascadeWin] = useState(0);
@@ -502,6 +503,7 @@ export default function SugarRushPage() {
     if (isExecutingSpinRef.current) return;
     isExecutingSpinRef.current = true;
     setIsExecutingSpin(true);
+    setIsTumbling(false);
     setLastCascadeWin(0);
     setLastDropIndices(new Set());
     
@@ -539,7 +541,7 @@ export default function SugarRushPage() {
 
       let stoppedCount = 0;
       const baseDelay = 400;     // Initial wait before first reel stops
-      const reelDelay = 120;     // Delay between each reel stop
+      const reelDelay = 250;     // Higher delay for soft/dramatic stop like BBA
 
       for (let col = 0; col < COLS; col++) {
         setTimeout(() => {
@@ -590,6 +592,7 @@ export default function SugarRushPage() {
       const clusters = findClusters(workingGrid);
       if (clusters.length === 0) break;
 
+      setIsTumbling(true);
       const remove = new Set<string>();
       let cascadeWin = 0;
 
@@ -673,6 +676,7 @@ export default function SugarRushPage() {
 
     isExecutingSpinRef.current = false;
     setIsExecutingSpin(false);
+    setIsTumbling(false);
   }, [phase, multiplierGrid, anteBet, spinCost, freeSpinsLeft, settleRound, grid]);
 
   React.useEffect(() => {
@@ -995,8 +999,7 @@ export default function SugarRushPage() {
                                   {/* Show static symbol only if not spinning */}
                                   {!isSpinning && (
                                     <span className={`relative z-10 text-xl sm:text-3xl lg:text-4xl select-none leading-none transform-gpu filter
-                                      ${isHit ? "animate-pop" : ""}
-                                      ${isDropping ? "animate-drop-in" : ""}
+                                      ${isHit ? "animate-pop" : isDropping ? "animate-drop-in" : (!isTumbling && isExecutingSpin ? "animate-stop-bounce" : "")}
                                     `}>
                                       {symbol ?? ""}
                                     </span>
@@ -1054,6 +1057,14 @@ export default function SugarRushPage() {
         }
         .animate-pop {
           animation: pop 0.2s ease-in-out;
+        }
+        @keyframes stop-bounce {
+          0% { transform: translateY(-20px); }
+          60% { transform: translateY(5px); }
+          100% { transform: translateY(0); }
+        }
+        .animate-stop-bounce {
+          animation: stop-bounce 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
         }
 
         @keyframes riverFlow {

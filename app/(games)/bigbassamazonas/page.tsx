@@ -1600,7 +1600,7 @@ export default function BigBassAmazonasPage() {
                     )}
                     <div className="absolute inset-x-0 top-4 sm:top-6 bottom-2 sm:bottom-4 overflow-hidden">
                       <div
-                        key={`reel-container-${reel}`}
+                        key={`reel-container-${reel}-${spinKey}`}
                         className={`flex flex-col relative w-full ${reelsSpinning[reel] ? "animate-spin-infinite-down will-change-transform" : ""}`}
                       >
                       {reelsSpinning[reel] ? (
@@ -1615,11 +1615,11 @@ export default function BigBassAmazonasPage() {
                         ))
                       ) : (
                         // Render final grid static
-                        grid.map((row) => {
+                        grid.map((row, rowIdx) => {
                           const cell = row[reel];
                           return (
                             <div
-                              key={`static-${reel}-${cell.symbol}`}
+                              key={`static-${reel}-${rowIdx}-${spinKey}`}
                               className={`h-24 sm:h-32 flex items-center justify-center shrink-0 w-full relative z-0 ${
                                 cell.highlight
                                   ? "z-30 scale-115 transition-transform duration-300"
