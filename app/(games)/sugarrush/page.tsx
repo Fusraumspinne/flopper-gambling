@@ -7,7 +7,7 @@ import GameRecordsPanel from "@/components/GameRecordsPanel";
 import PlayArrow from "@mui/icons-material/PlayArrow";
 
 type GamePhase = "idle" | "spinning" | "free";
-type CandySymbol = "🍬" | "🍭" | "🍰" | "🧁" | "🍥" | "🍡" | "🍫";
+type CandySymbol = "🍬" | "🍭" | "🍰" | "🧁" | "🍫";
 type SymbolId = CandySymbol | "🌈";
 type GridCell = SymbolId | null;
 type Position = [number, number];
@@ -18,24 +18,20 @@ const MIN_CLUSTER = 5;
 const FREE_SPINS_AWARD = 15;
 
 const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "🍬": 16,
-  "🍭": 16,
-  "🍰": 14,
-  "🧁": 14,
-  "🍥": 11,
-  "🍡": 11,
-  "🍫": 5,
-  "🌈": 1.8,
+  "🍬": 21,
+  "🍭": 20,
+  "🍰": 20,
+  "🧁": 19,
+  "🍫": 19,
+  "🌈": 0.55,
 };
 
 const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
-  "🍬": 0.03,
-  "🍭": 0.04,
-  "🍰": 0.055,
-  "🧁": 0.075,
-  "🍥": 0.105,
-  "🍡": 0.15,
-  "🍫": 0.22,
+  "🍬": 0.0115,
+  "🍭": 0.023,
+  "🍰": 0.046,
+  "🧁": 0.069,
+  "🍫": 0.086,
 };
 
 const normalizeMoney = (value: number) => {
@@ -49,8 +45,6 @@ const formatMoney = (v: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-
-const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -71,8 +65,6 @@ function randomSymbol(anteBet: boolean): SymbolId {
     ["🍭", SYMBOL_WEIGHTS["🍭"]],
     ["🍰", SYMBOL_WEIGHTS["🍰"]],
     ["🧁", SYMBOL_WEIGHTS["🧁"]],
-    ["🍥", SYMBOL_WEIGHTS["🍥"]],
-    ["🍡", SYMBOL_WEIGHTS["🍡"]],
     ["🍫", SYMBOL_WEIGHTS["🍫"]],
     ["🌈", scatterWeight],
   ];
@@ -808,12 +800,6 @@ export default function SugarRushPage() {
     (phase === "free"
       ? freeSpinsLeft <= 0
       : phase !== "idle" || (!isTenDollarFreeSpin && balance < spinCost) || betAmount <= 0);
-
-  const displayTotalMultiplier = useMemo(() => {
-    return multiplierGrid.reduce((acc, row) => {
-      return acc + row.reduce((rowAcc, stage) => rowAcc + Math.max(1, stageToMultiplier(stage)) - 1, 0);
-    }, 0);
-  }, [multiplierGrid]);
 
   return (
     <>
