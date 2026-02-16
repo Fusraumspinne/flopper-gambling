@@ -10,8 +10,8 @@ type GameState = "idle" | "rolling" | "won" | "lost";
 type DiceMode = "classic" | "range" | "dual";
 
 const HOUSE_EDGE = 1.0;
-const MIN_VAL = 1;
-const MAX_VAL = 99;
+const MIN_VAL = 2;
+const MAX_VAL = 98;
 
 export default function DicePage() {
   const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, syncBalance } = useWallet();
@@ -951,13 +951,15 @@ export default function DicePage() {
                 style={{ left: `${v}%` }}
               >
                 <span className="text-white text-[10px] select-none">
-                  {diceMode === "classic" ? (
-                    <SwapHoriz sx={{ fontSize: 16 }} />
-                  ) : i % 2 === 0 ? (
-                    rollOver ? "▶" : "◀"
-                  ) : (
-                    rollOver ? "◀" : "▶"
-                  )}
+                  <PlayArrow
+                    sx={{
+                      fontSize: 16,
+                      transform: (i % 2 === 0 ? rollOver : !rollOver)
+                        ? "rotate(0deg)"
+                        : "rotate(180deg)",
+                      transition: "transform 0.2s",
+                    }}
+                  />
                 </span>
                 <div className="absolute -top-8 bg-[#2f4553] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-lg whitespace-nowrap">
                   {v}

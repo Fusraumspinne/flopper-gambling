@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useWallet } from "./WalletProvider";
 import { fetchJsonCached, invalidateFetchCache } from "@/lib/fetchCache";
+import { PlayArrow } from "@mui/icons-material";
 
 type LeaderboardUser = {
   _id: string;
@@ -186,7 +187,7 @@ export default function Leaderboard() {
             className="flex items-center gap-2 text-[#b1bad3] hover:text-white transition-colors mb-2 text-sm font-medium cursor-pointer"
           >
             <span className={`transition-transform duration-200 ${showSettings ? "rotate-90" : ""}`}>
-              ▶
+              <PlayArrow sx={{ fontSize: 18 }} />
             </span>
             {showSettings ? "Hide Account Settings" : "Show Account Settings"}
           </button>

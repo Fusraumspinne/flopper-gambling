@@ -40,9 +40,17 @@ function formatNumber(value: number | undefined | null, digits = 2): string {
 
 export default function GameRecordsPanel({ gameId }: { gameId: string }) {
   const [data, setData] = useState<HighscoreResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [hasRequested, setHasRequested] = useState(false);
 
   useEffect(() => {
+    setHasRequested(false);
+    setData(null);
+  }, [gameId]);
+
+  useEffect(() => {
+    if (!hasRequested) return;
+
     let cancelled = false;
     setLoading(true);
 
@@ -71,10 +79,30 @@ export default function GameRecordsPanel({ gameId }: { gameId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [gameId]);
+  }, [gameId, hasRequested]);
+
+  const title = toTitleCaseFromId(gameId);
+
+  if (!hasRequested) {
+    return (
+      <section className="bg-[#213743] border border-[#2f4553]/60 rounded-xl p-3 flex flex-col items-center justify-center min-h-[180px]">
+        <h3 className="text-white font-semibold text-lg mb-4">{title} Records</h3>
+        <button
+          onClick={() => setHasRequested(true)}
+          className="bg-[#0f212e] hover:bg-[#1a2c38] text-white px-6 py-2 rounded-lg font-semibold border border-[#2f4553]/60 transition-colors shadow-sm"
+        >
+          Records laden
+        </button>
+      </section>
+    );
+  }
 
   if (loading) {
-    return <div className="text-white/50">Loading records…</div>;
+    return (
+      <section className="bg-[#213743] border border-[#2f4553]/60 rounded-xl p-3 flex items-center justify-center min-h-[180px]">
+        <div className="text-white/50 animate-pulse">Loading records…</div>
+      </section>
+    );
   }
 
   const profit = data?.highestProfit ?? null;
@@ -84,7 +112,6 @@ export default function GameRecordsPanel({ gameId }: { gameId: string }) {
   const multiValue = formatNumber(data?.highestMultiplier?.multiplier, 2);
   const lossUser = formatName(data?.highestLoss?.username);
   const lossValue = formatNumber(data?.highestLoss?.loss, 2);
-  const title = toTitleCaseFromId(gameId);
 
   return (
     <section className="bg-[#213743] border border-[#2f4553]/60 rounded-xl p-3">
