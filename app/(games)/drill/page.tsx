@@ -484,14 +484,6 @@ export default function DrillPage() {
   const isLocked = gameState === "drilling";
   const isBusy = isLocked || isAutoBetting;
 
-  const handleBetBlur = useCallback(() => {
-    const raw = betInput.trim();
-    const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
-    const value = normalizeMoney(Math.max(0, parseNumberLoose(sanitized)));
-    setBetAmount(value);
-    setBetInput(value.toFixed(2));
-  }, [betInput]);
-
   const handleTargetBlur = useCallback(() => {
     const raw = targetInput.trim();
     const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
@@ -504,7 +496,7 @@ export default function DrillPage() {
   const setBetBoth = (next: number) => {
     const v = normalizeMoney(next);
     setBetAmount(v);
-    setBetInput(v.toFixed(2));
+    setBetInput(String(v));
     betAmountRef.current = v;
   };
 
@@ -687,8 +679,17 @@ export default function DrillPage() {
             <input
               type="number"
               value={betInput}
-              onChange={(e) => setBetInput(e.target.value)}
-              onBlur={handleBetBlur}
+              onChange={(e) => {
+                let v = e.target.value;
+                if (parseFloat(v) < 0) v = "0";
+                setBetInput(v);
+              }}
+              onBlur={() => {
+                const raw = betInput.trim();
+                const sanitized = raw.replace(/^0+(?=\d)/, "") || "0";
+                const num = Number(sanitized.replace(",", "."));
+                setBetBoth(Number.isFinite(num) ? num : 0);
+              }}
               disabled={isBusy}
               className="w-full bg-[#0f212e] border border-[#2f4553] rounded-md py-2 pl-7 pr-4 text-white font-mono focus:outline-none focus:border-[#00e701] transition-colors disabled:opacity-50"
             />
@@ -696,9 +697,8 @@ export default function DrillPage() {
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => {
-                const next = normalizeMoney(betAmount / 2);
-                setBetAmount(next);
-                setBetInput(next.toFixed(2));
+                const newBet = Number((betAmount / 2).toFixed(2));
+                setBetBoth(newBet);
               }}
               disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
@@ -707,9 +707,8 @@ export default function DrillPage() {
             </button>
             <button
               onClick={() => {
-                const next = normalizeMoney(betAmount * 2);
-                setBetAmount(next);
-                setBetInput(next.toFixed(2));
+                const newBet = Number((betAmount * 2).toFixed(2));
+                setBetBoth(newBet);
               }}
               disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"
@@ -718,9 +717,8 @@ export default function DrillPage() {
             </button>
             <button
               onClick={() => {
-                const next = normalizeMoney(balance);
-                setBetAmount(next);
-                setBetInput(next.toFixed(2));
+                const newBet = Number(balance.toFixed(2));
+                setBetBoth(newBet);
               }}
               disabled={isBusy}
               className="bg-[#2f4553] hover:bg-[#3e5666] text-xs py-1 rounded text-[#b1bad3] disabled:opacity-50"

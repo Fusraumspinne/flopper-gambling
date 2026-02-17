@@ -22,8 +22,8 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   "🍭": 20,
   "🍰": 20,
   "🧁": 19,
-  "🍫": 19,
-  "🌈": 0.55,
+  "🍫": 18,
+  "🌈": 0.6,
 };
 
 const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
@@ -35,11 +35,11 @@ const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
 };
 
 const SYMBOL_FREESPIN_MULTIS: Record<CandySymbol, number> = {
-  "🍬": 0.025,
-  "🍭": 0.04,
-  "🍰": 0.075,
-  "🧁": 0.1,
-  "🍫": 0.2,
+  "🍬": 0.01,
+  "🍭": 0.02,
+  "🍰": 0.04,
+  "🧁": 0.05,
+  "🍫": 0.1,
 };
 
 const normalizeMoney = (value: number) => {
@@ -669,6 +669,7 @@ export default function SugarRushPage() {
       if (triggeredScatter) {
         setPhase("free");
         setFreeSpinsLeft(FREE_SPINS_AWARD);
+        setIsAutospinning(false);
       } else {
         setPhase("idle");
         settleRound(pendingRoundStakeRef.current, updatedRoundPayout, pendingMultiDenominatorRef.current);

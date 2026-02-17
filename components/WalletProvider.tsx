@@ -126,28 +126,6 @@ function createEmptyLiveStatsByGame(): LiveStatsByGame {
   return empty;
 }
 
-function computeWeeklyPotFromHistory(history: LiveStatsPoint[], lastClaim: number) {
-  if (!Array.isArray(history) || history.length === 0) return 0;
-
-  let baseNet = 0;
-  for (const point of history) {
-    if (point.t <= lastClaim) baseNet = point.net;
-    else break;
-  }
-
-  let prevNet = baseNet;
-  let pot = 0;
-
-  for (const point of history) {
-    if (point.t <= lastClaim) continue;
-    const delta = point.net - prevNet;
-    if (delta < 0) pot += Math.abs(delta) * PAYBACK_RATE;
-    prevNet = point.net;
-  }
-
-  return normalizeMoney(pot);
-}
-
 export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const [balance, setBalance] = useState<number>(0);
   const [btcHoldings, setBtcHoldings] = useState<number>(0);

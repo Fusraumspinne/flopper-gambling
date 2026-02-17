@@ -894,11 +894,12 @@ export default function DicePage() {
             </div>
 
             <div 
-              className="absolute -top-2.5 left-0 right-0 h-8 w-full z-30"
-              onPointerMove={(e) => {
-                if (isPointerDraggingRef.current) return;
+              className="absolute -top-2.5 left-0 right-0 h-8 w-full z-30 touch-none"
+              onPointerDown={(e) => {
+                if (isBusy) return;
                 const rect = e.currentTarget.getBoundingClientRect();
                 const pct = ((e.clientX - rect.left) / rect.width) * 100;
+                
                 let closestIdx = 0;
                 let minDist = Math.abs(values[0] - pct);
                 for (let i = 1; i < values.length; i++) {
@@ -908,9 +909,44 @@ export default function DicePage() {
                     closestIdx = i;
                   }
                 }
-                if (closestIdx !== activeIndex) {
-                  setActiveIndex(closestIdx);
+                setActiveIndex(closestIdx);
+                isPointerDraggingRef.current = true;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                handleValueChange(closestIdx, pct);
+              }}
+              onPointerMove={(e) => {
+                if (isBusy) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const pct = ((e.clientX - rect.left) / rect.width) * 100;
+
+                if (isPointerDraggingRef.current) {
+                  handleValueChange(activeIndex, pct);
+                } else {
+                  let closestIdx = 0;
+                  let minDist = Math.abs(values[0] - pct);
+                  for (let i = 1; i < values.length; i++) {
+                    const d = Math.abs(values[i] - pct);
+                    if (d < minDist) {
+                      minDist = d;
+                      closestIdx = i;
+                    }
+                  }
+                  if (closestIdx !== activeIndex) {
+                    setActiveIndex(closestIdx);
+                  }
                 }
+              }}
+              onPointerUp={(e) => {
+                isPointerDraggingRef.current = false;
+                try {
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                } catch {}
+              }}
+              onPointerCancel={(e) => {
+                isPointerDraggingRef.current = false;
+                try {
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                } catch {}
               }}
             >
               {values.map((v, i) => (
@@ -921,22 +957,11 @@ export default function DicePage() {
                   max={MAX_VAL}
                   step="1"
                   value={v}
-                  onChange={(e) => handleValueChange(i, Number(e.target.value))}
-                  onPointerDown={() => {
-                    isPointerDraggingRef.current = true;
-                    setActiveIndex(i);
-                  }}
-                  onPointerUp={() => {
-                    isPointerDraggingRef.current = false;
-                  }}
-                  onPointerCancel={() => {
-                    isPointerDraggingRef.current = false;
-                  }}
+                  readOnly
                   disabled={isBusy}
-                  className="absolute inset-0 h-8 w-full opacity-0 cursor-pointer"
+                  className="absolute inset-0 h-8 w-full opacity-0 cursor-pointer pointer-events-none"
                   style={{
                     zIndex: activeIndex === i ? 50 : 30,
-                    pointerEvents: isBusy ? "none" : "auto",
                   }}
                 />
               ))}
