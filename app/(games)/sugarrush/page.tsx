@@ -23,7 +23,7 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   "🍰": 20,
   "🧁": 19,
   "🍫": 18,
-  "🌈": 0.75,
+  "🌈": 1,
 };
 
 const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
