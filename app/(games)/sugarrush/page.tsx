@@ -15,7 +15,7 @@ type Position = [number, number];
 const ROWS = 7;
 const COLS = 7;
 const MIN_CLUSTER = 5;
-const FREE_SPINS_AWARD = 15;
+const FREE_SPINS_AWARD = 20;
 
 const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   "🍬": 21,
