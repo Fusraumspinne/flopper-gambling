@@ -79,7 +79,7 @@ const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   toucan: 3.5,
   lure: 3,
   fish: 3,      
-  scatter: 2,   
+  scatter: 3,   
   fisher: 0,
 };
 const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
