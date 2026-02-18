@@ -69,30 +69,30 @@ const PAYLINES: number[][] = [
 
 const HIGH_SYMBOLS: SymbolId[] = ["rod", "bag", "toucan", "lure"];
 const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "10": 13,
-  J: 13,
-  Q: 12,
-  K: 11,
+  "10": 15,
+  J: 15,
+  Q: 15,
+  K: 10,
   A: 10,
-  rod: 4,
-  bag: 3.8,
-  toucan: 3.5,
-  lure: 3,
-  fish: 3,      
-  scatter: 1.5,   
+  rod: 10,
+  bag: 5,
+  toucan: 5,
+  lure: 5,
+  fish: 4,      
+  scatter: 2.25,   
   fisher: 0,
 };
 const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "10": 12,
-  J: 12,
-  Q: 11,
+  "10": 15,
+  J: 15,
+  Q: 15,
   K: 10,
-  A: 9,
-  rod: 4,
-  bag: 3.8,
-  toucan: 3.5,
-  lure: 3,
-  fish: 5,     
+  A: 10,
+  rod: 10,
+  bag: 5,
+  toucan: 5,
+  lure: 8,
+  fish: 5.75,     
   scatter: 0,
   fisher: 1.25,   
 };
@@ -800,6 +800,7 @@ export default function BigBassAmazonasPage() {
           };
 
           if (!isFreeSpin && scatter >= 3) {
+            setAnteBet(false);
             let startBoats = 0;
             if (scatter === 4) startBoats = 1;
             if (scatter >= 5) startBoats = 2;
@@ -1005,7 +1006,8 @@ export default function BigBassAmazonasPage() {
   };
 
   const buyBonus = async () => {
-    if (anteBet || phase !== "idle" || betAmount <= 0 || balance < buyBonusCost) return;
+    if (phase !== "idle" || betAmount <= 0 || balance < buyBonusCost) return;
+    setAnteBet(false);
     setLastWin(0);
     subtractFromBalance(buyBonusCost);
     playAudio(audioRef.current.bet);
@@ -1141,15 +1143,13 @@ export default function BigBassAmazonasPage() {
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${anteBet ? "left-5.5" : "left-0.5"}`} />
               </button>
             </div>
-            {!anteBet && (
-                <button
+            <button
                 onClick={buyBonus}
-                disabled={anteBet || phase !== "idle" || isAutospinning || betAmount <= 0 || balance < buyBonusCost}
+                disabled={phase !== "idle" || isAutospinning || betAmount <= 0 || balance < buyBonusCost}
                 className="w-full py-1 text-[9px] font-bold uppercase bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20 rounded hover:bg-[#f59e0b]/20"
-                >
+            >
                 {`Bonus Buy $${formatMoney(buyBonusCost)}`}
-                </button>
-            )}
+            </button>
           </div>
 
           {!isAutospinning && (

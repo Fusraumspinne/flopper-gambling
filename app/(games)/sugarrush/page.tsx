@@ -22,8 +22,8 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   "🍭": 20,
   "🍰": 20,
   "🧁": 20,
-  "🍫": 19,
-  "🌈": 0.5,
+  "🍫": 20,
+  "🌈": 0.8,
 };
 
 const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
@@ -667,6 +667,7 @@ export default function SugarRushPage() {
       }
     } else {
       if (triggeredScatter) {
+        setAnteBet(false);
         setPhase("free");
         setFreeSpinsLeft(FREE_SPINS_AWARD);
         setIsAutospinning(false);
@@ -746,10 +747,11 @@ export default function SugarRushPage() {
   };
 
   const buyBonus = () => {
-    if (anteBet || phase !== "idle" || betAmount <= 0 || balance < buyBonusCost) return;
+    if (phase !== "idle" || betAmount <= 0 || balance < buyBonusCost) return;
     if (isExecutingSpinRef.current) return;
 
     setLastWin(0);
+    setAnteBet(false);
     subtractFromBalance(buyBonusCost);
     playAudio(audioRef.current.bet);
 
@@ -850,15 +852,13 @@ export default function SugarRushPage() {
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${anteBet ? "left-5.5" : "left-0.5"}`} />
               </button>
             </div>
-            {!anteBet && (
-              <button
+            <button
                 onClick={buyBonus}
-                disabled={anteBet || phase !== "idle" || isAutospinning || betAmount <= 0 || balance < buyBonusCost}
+                disabled={phase !== "idle" || isAutospinning || betAmount <= 0 || balance < buyBonusCost}
                 className="w-full py-1 text-[9px] font-bold uppercase bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20 rounded hover:bg-[#f59e0b]/20"
               >
                 {`Bonus Buy $${formatMoney(buyBonusCost)}`}
-              </button>
-            )}
+            </button>
           </div>
 
           {!isAutospinning && (
