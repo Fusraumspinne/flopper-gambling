@@ -79,7 +79,7 @@ const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   toucan: 3.5,
   lure: 3,
   fish: 3,      
-  scatter: 2.5,   
+  scatter: 4,   
   fisher: 0,
 };
 const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
@@ -92,7 +92,7 @@ const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   bag: 3.8,
   toucan: 3.5,
   lure: 3,
-  fish: 4,     
+  fish: 5,     
   scatter: 0,
   fisher: 1.1,   
 };
@@ -624,7 +624,7 @@ export default function BigBassAmazonasPage() {
         }
       }
 
-      const fishToAdd = Math.floor(Math.random() * 4) + 1;
+      const fishToAdd = Math.floor(Math.random() * 5) + 2;
       for (let i = 0; i < Math.min(fishToAdd, spots.length); i++) {
         const idx = Math.floor(Math.random() * spots.length);
         const [row, reel] = spots.splice(idx, 1)[0];
