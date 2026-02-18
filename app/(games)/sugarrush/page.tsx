@@ -18,12 +18,12 @@ const MIN_CLUSTER = 5;
 const FREE_SPINS_AWARD = 15;
 
 const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "🍬": 21,
+  "🍬": 20,
   "🍭": 20,
   "🍰": 20,
-  "🧁": 19,
-  "🍫": 18,
-  "🌈": 1,
+  "🧁": 20,
+  "🍫": 19,
+  "🌈": 0.5,
 };
 
 const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
