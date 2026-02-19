@@ -32,7 +32,7 @@ const SYMBOL_WEIGHTS: Record<WeightedSymbol, number> = {
 };
 
 const MULTIPLIER_WEIGHT_NORMAL = 0.5;
-const MULTIPLIER_WEIGHT_FREE = 3;
+const MULTIPLIER_WEIGHT_FREE = 5;
 
 const SYMBOL_BASE_MULTIS: Record<BaseSymbol, number> = {
   "🌿": 0.003,
@@ -222,7 +222,6 @@ function MultiplierIcon({ value }: { value: number }) {
   return (
     <div className="relative w-full h-full flex items-center justify-center p-0.5 pointer-events-none">
       <svg viewBox="0 0 100 100" className="w-[105%] h-[105%] drop-shadow-[0_4px_4px_rgba(0,0,0,0.4)]">
-        {/* Golden Aura/Glow behind everything */}
         <circle cx="50" cy="50" r="45" fill="url(#multiRadiance)" opacity="0.2" />
         <defs>
           <radialGradient id="multiRadiance">
@@ -232,36 +231,29 @@ function MultiplierIcon({ value }: { value: number }) {
           </radialGradient>
         </defs>
 
-        {/* White Marble Pedestal (Centered Bottom) */}
         <g transform="translate(0, 5)">
-          <rect x="25" y="65" width="50" height="16" rx="1.5" fill="#f9fafb" /> {/* Upper Tier */}
-          <rect x="20" y="78" width="60" height="8" rx="1" fill="#e5e7eb" />   {/* Middle Tier */}
-          <rect x="15" y="84" width="70" height="10" rx="1" fill="#d1d5db" />  {/* Base Step */}
+          <rect x="25" y="65" width="50" height="16" rx="1.5" fill="#f9fafb" />
+          <rect x="20" y="78" width="60" height="8" rx="1" fill="#e5e7eb" />  
+          <rect x="15" y="84" width="70" height="10" rx="1" fill="#d1d5db" /> 
           
-          {/* Detailed Red Banner draped from the top block */}
           <path d="M32 68 H68 V92 L50 100 L32 92 Z" fill="#991b1b" />
-          <path d="M32 68 H68 V72 H32 Z" fill="#7f1d1d" /> {/* Banner Lip */}
+          <path d="M32 68 H68 V72 H32 Z" fill="#7f1d1d" /> 
           
-          {/* Tiny Golden SPQR text on the banner */}
           <text x="50" y="85" fontSize="7" fill="#fbbf24" textAnchor="middle" fontWeight="black" opacity="0.8" letterSpacing="0.05em">SPQR</text>
           <path d="M42 88 H58" stroke="#fbbf24" strokeWidth="0.5" opacity="0.4" />
         </g>
 
-        {/* Majestic Golden Laurel Wreath (Classic Roman Symbol) */}
         <g id="laurel-wreath" fill="#fbbf24">
-          {/* Left Side */}
           <path d="M42 65 Q 15 55 12 25 Q 22 45 42 55 Z" opacity="0.9" />
           {[20, 30, 42, 55].map((y, i) => (
             <ellipse key={`l-${i}`} cx={15 + i * 5} cy={y} rx="3" ry="5" transform={`rotate(${-30 + i * 15} ${15 + i * 5} ${y})`} />
           ))}
-          {/* Right Side */}
           <path d="M58 65 Q 85 55 88 25 Q 78 45 58 55 Z" opacity="0.9" />
           {[20, 30, 42, 55].map((y, i) => (
             <ellipse key={`r-${i}`} cx={85 - i * 5} cy={y} rx="3" ry="5" transform={`rotate(${30 - i * 15} ${85 - i * 5} ${y})`} />
           ))}
         </g>
 
-        {/* The Multiplier Value - Large and Impactful */}
         <text 
           x="50" 
           y="48" 
@@ -281,7 +273,6 @@ function MultiplierIcon({ value }: { value: number }) {
           x{value}
         </text>
 
-        {/* Floating Particles for extra "magic" effect */}
         {[...Array(5)].map((_, i) => (
           <circle key={i} cx={20 + Math.random() * 60} cy={15 + Math.random() * 40} r="0.8" fill="white">
             <animate attributeName="opacity" values="0;1;0" dur={`${1 + Math.random()}s`} repeatCount="indefinite" />
@@ -301,13 +292,10 @@ function renderCellContent(cell: Cell) {
 function ColosseumBackground() {
   return (
     <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-      {/* Sky and distant stands */}
       <div className="absolute inset-0 bg-[#87CEEB]" />
       <div className="absolute bottom-0 left-0 right-0 h-6/7 bg-[#e5e7eb] clip-tribunes" />
       
-      {/* Stone Texture / Tribunes SVG */}
       <svg viewBox="0 0 1200 800" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
-        {/* Distant Arches */}
         <path d="M0 400 L1200 400 L1200 800 L0 800 Z" fill="#d1d5db" />
         {Array.from({ length: 12 }).map((_, i) => (
           <path
@@ -317,45 +305,35 @@ function ColosseumBackground() {
             opacity="0.5"
           />
         ))}
-        {/* Seating Rows */}
         <path d="M0 600 L1200 600 L1200 800 L0 800 Z" fill="#e5e5e5" />
         <line x1="0" y1="650" x2="1200" y2="650" stroke="#d4d4d4" strokeWidth="2" />
         <line x1="0" y1="700" x2="1200" y2="700" stroke="#d4d4d4" strokeWidth="2" />
         <line x1="0" y1="750" x2="1200" y2="750" stroke="#d4d4d4" strokeWidth="2" />
         
-        {/* Sandy Arena Floor (Ground) */}
         <path d="M0 760 L1200 760 L1200 800 L0 800 Z" fill="#d4b483" />
         <path d="M0 760 Q 600 750 1200 760 L1200 770 L0 770 Z" fill="#c4a473" opacity="0.3" />
       </svg>
 
-      {/* Pillars and Banners (Foreground) */}
       <div className="absolute inset-0 flex justify-between px-4 sm:px-10">
-         {/* Left Pillar Group */}
         <div className="relative w-24 sm:w-40 h-full flex flex-col justify-end">
           <svg viewBox="0 0 100 400" preserveAspectRatio="none" className="w-full h-full absolute bottom-0">
-             {/* Column */}
             <rect x="20" y="50" width="60" height="350" fill="#f3f4f6" />
             <rect x="15" y="50" width="70" height="20" fill="#e5e7eb" /> {/* Capital */}
             <rect x="15" y="380" width="70" height="20" fill="#e5e7eb" /> {/* Base */}
-            {/* Fluting */}
             <line x1="30" y1="70" x2="30" y2="380" stroke="#d1d5db" strokeWidth="2" />
             <line x1="50" y1="70" x2="50" y2="380" stroke="#d1d5db" strokeWidth="2" />
             <line x1="70" y1="70" x2="70" y2="380" stroke="#d1d5db" strokeWidth="2" />
-             {/* Base Shadow */}
              <ellipse cx="50" cy="395" rx="40" ry="5" fill="black" opacity="0.1" />
           </svg>
           
-          {/* Detailed Red Banner */}
           <div className="absolute top-[12%] left-1/2 -translate-x-1/2 w-16 sm:w-28 h-56 sm:h-72 animate-banner-sway origin-top z-10">
             <svg viewBox="0 0 100 160" className="w-full h-full drop-shadow-2xl">
               <path d="M10 0 H90 V140 L50 150 L10 140 Z" fill="#991b1b" /> {/* Main body */}
               <path d="M10 0 H90 V10 H10 Z" fill="#7f1d1d" /> {/* Top fold */}
               <path d="M15 15 H85 V135 L50 143 L15 135 Z" fill="none" stroke="#fbbf24" strokeWidth="2" opacity="0.6" /> {/* Inner border */}
-              {/* SPQR / Eagle Emblem */}
               <circle cx="50" cy="65" r="20" fill="none" stroke="#fbbf24" strokeWidth="1.5" opacity="0.8" />
               <path d="M40 65 L50 55 L60 65 L50 75 Z" fill="#fbbf24" opacity="0.8" />
               <text x="50" y="110" fontFamily="serif" fontSize="12" fill="#fbbf24" textAnchor="middle" fontWeight="bold" opacity="0.8">SPQR</text>
-              {/* Denser Golden Tassels (Fringes) */}
               {Array.from({ length: 21 }).map((_, i) => {
                 const x = 10 + i * 4; // 10 to 90
                 const edgeY = x <= 50 ? 140 + (x - 10) * 0.25 : 150 - (x - 50) * 0.25;
@@ -374,10 +352,8 @@ function ColosseumBackground() {
             </svg>
           </div>
 
-          {/* Cypress Trees - Anchored with a base */}
           <div className="absolute bottom-0 left-[-30%] w-[160%] flex items-end justify-center pointer-events-none">
             <div className="relative w-full h-full flex items-end justify-center">
-              {/* Shadow/Base on ground */}
               <div className="absolute bottom-1 w-32 h-6 bg-black/30 blur-md rounded-full" />
               
               <svg viewBox="0 0 60 180" className="w-14 sm:w-24 h-full overflow-visible drop-shadow-xl z-20 translate-y-1 sm:translate-y-2">
@@ -396,22 +372,17 @@ function ColosseumBackground() {
           </div>
         </div>
 
-        {/* Right Pillar Group */}
         <div className="relative w-24 sm:w-40 h-full flex flex-col justify-end">
            <svg viewBox="0 0 100 400" preserveAspectRatio="none" className="w-full h-full absolute bottom-0">
-            {/* Column */}
             <rect x="20" y="50" width="60" height="350" fill="#f3f4f6" />
             <rect x="15" y="50" width="70" height="20" fill="#e5e7eb" /> {/* Capital */}
             <rect x="15" y="380" width="70" height="20" fill="#e5e7eb" /> {/* Base */}
-            {/* Fluting */}
             <line x1="30" y1="70" x2="30" y2="380" stroke="#d1d5db" strokeWidth="2" />
             <line x1="50" y1="70" x2="50" y2="380" stroke="#d1d5db" strokeWidth="2" />
             <line x1="70" y1="70" x2="70" y2="380" stroke="#d1d5db" strokeWidth="2" />
-             {/* Base Shadow */}
              <ellipse cx="50" cy="395" rx="40" ry="5" fill="black" opacity="0.1" />
           </svg>
 
-           {/* Detailed Red Banner */}
            <div className="absolute top-[12%] left-1/2 -translate-x-1/2 w-16 sm:w-28 h-56 sm:h-72 animate-banner-sway-delayed origin-top z-10">
             <svg viewBox="0 0 100 160" className="w-full h-full drop-shadow-2xl">
               <path d="M10 0 H90 V140 L50 150 L10 140 Z" fill="#991b1b" />
@@ -420,7 +391,6 @@ function ColosseumBackground() {
               <circle cx="50" cy="65" r="20" fill="none" stroke="#fbbf24" strokeWidth="1.5" opacity="0.8" />
               <path d="M40 65 L50 55 L60 65 L50 75 Z" fill="#fbbf24" opacity="0.8" />
               <text x="50" y="110" fontFamily="serif" fontSize="12" fill="#fbbf24" textAnchor="middle" fontWeight="bold" opacity="0.8">SPQR</text>
-              {/* Denser Golden Tassels (Fringes) */}
               {Array.from({ length: 21 }).map((_, i) => {
                 const x = 10 + i * 4; // 10 to 90
                 const edgeY = x <= 50 ? 140 + (x - 10) * 0.25 : 150 - (x - 50) * 0.25;
@@ -439,10 +409,8 @@ function ColosseumBackground() {
             </svg>
           </div>
 
-           {/* Cypress Trees - Anchored with a base */}
            <div className="absolute bottom-0 right-[-30%] w-[160%] flex items-end justify-center pointer-events-none">
             <div className="relative w-full h-full flex items-end justify-center">
-              {/* Shadow/Base on ground */}
               <div className="absolute bottom-1 w-32 h-6 bg-black/30 blur-md rounded-full" />
 
               <svg viewBox="0 0 60 180" className="w-12 sm:w-22 h-full overflow-visible drop-shadow-xl z-20 translate-y-1 sm:translate-y-2">
@@ -666,20 +634,16 @@ export default function GatesOfOlympusPage() {
 
       const newMultiplierCollection = collectUncountedMultiplierSum(workingGrid, countedMultiplierKeys);
 
-      // For normal spins: apply only already-stored multipliers (from previous cascades)
-      // New multipliers found in this cascade are added afterwards and affect subsequent cascades.
       const storedMulti = storedMultiplierRef.current;
       let cascadeWin = normalizeMoney(symbolValueSum);
 
       if (isFreeSpin) {
-        // In free spins, new multipliers apply immediately to the same cascade
         const totalMulti = storedMulti + newMultiplierCollection.sum;
         if (totalMulti > 0) cascadeWin = normalizeMoney(cascadeWin * totalMulti);
       } else {
         if (storedMulti > 0) cascadeWin = normalizeMoney(cascadeWin * storedMulti);
       }
 
-      // Now collect any newly found multipliers so they affect subsequent cascades in this spin
       if (newMultiplierCollection.foundAny) {
         storedMultiplierRef.current += newMultiplierCollection.sum;
         setStoredMultiplier(storedMultiplierRef.current);
@@ -734,7 +698,6 @@ export default function GatesOfOlympusPage() {
     } else {
       if (triggeredScatter) {
         setAnteBet(false);
-        // clear stored multipliers so they don't carry into the awarded free spins
         resetStoredMultiplier();
         setPhase("free");
         setFreeSpinsLeft(FREE_SPINS_AWARD);
