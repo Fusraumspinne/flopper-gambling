@@ -31,6 +31,7 @@ export type LiveStatsState = {
 export const GAME_OPTIONS = [
   { id: "bigbassamazonas", label: "Big Bass Amazonas" },
   { id: "sugarrush", label: "Sugar Rush" },
+  { id: "gatesofolympus", label: "Gates Of Olympus" },
   { id: "coinflip", label: "Coinflip" },
   { id: "poker", label: "Poker" },
   { id: "livepoker", label: "Live Poker" },

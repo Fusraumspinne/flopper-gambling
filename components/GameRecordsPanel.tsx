@@ -86,12 +86,12 @@ export default function GameRecordsPanel({ gameId }: { gameId: string }) {
   if (!hasRequested) {
     return (
       <section className="bg-[#213743] border border-[#2f4553]/60 rounded-xl p-3 flex flex-col items-center justify-center min-h-[180px]">
-        <h3 className="text-white font-semibold text-lg mb-4">{title} Records</h3>
+        <h3 className="text-white font-semibold text-lg mb-4">Records</h3>
         <button
           onClick={() => setHasRequested(true)}
           className="bg-[#0f212e] hover:bg-[#1a2c38] text-white px-6 py-2 rounded-lg font-semibold border border-[#2f4553]/60 transition-colors shadow-sm"
         >
-          Records laden
+          Load Records
         </button>
       </section>
     );
@@ -115,7 +115,7 @@ export default function GameRecordsPanel({ gameId }: { gameId: string }) {
 
   return (
     <section className="bg-[#213743] border border-[#2f4553]/60 rounded-xl p-3">
-      <h3 className="text-white font-semibold text-lg">{title} Records</h3>
+      <h3 className="text-white font-semibold text-lg">Records</h3>
 
       <div className="mt-3 grid grid-cols-1 gap-3">
         <div className="bg-[#0f212e] border border-[#2f4553]/60 rounded-lg p-2">

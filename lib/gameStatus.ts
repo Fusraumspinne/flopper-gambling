@@ -1,6 +1,7 @@
 export const GAME_STATUS_KEYS = [
   "bigbassamazonas",
   "sugarrush",
+  "gatesofolympus",
   "coinflip",
   "poker",
   "mines",
@@ -32,6 +33,7 @@ export const GAME_STATUS_KEYS = [
 export const GAME_LABELS: Record<string, string> = {
   bigbassamazonas: "Big Bass Amazonas",
   sugarrush: "Sugar Rush",
+  gatesofolympus: "Gates of Olympus",
   coinflip: "Coin Flip",
   poker: "Poker",
   mines: "Mines",
@@ -63,6 +65,7 @@ export const GAME_LABELS: Record<string, string> = {
 export const GAME_ROUTE_TO_KEY: Record<string, string> = {
   "/bigbassamazonas": "bigbassamazonas",
   "/sugarrush": "sugarrush",
+  "/gatesofolympus": "gatesofolympus",
   "/coinflip": "coinflip",
   "/poker": "poker",
   "/livepoker": "poker",

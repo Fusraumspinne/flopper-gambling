@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment, PrivacyTip, Speed, Category, Logout, Phishing, ArrowDownward, Cake } from "@mui/icons-material";
+import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment, PrivacyTip, Speed, Category, Logout, Phishing, ArrowDownward, Cake, AccountBalance } from "@mui/icons-material";
 import { useWallet } from "./WalletProvider";
 import LiveStatsPanel from "./LiveStatsPanel";
 import { signOut } from "next-auth/react";
@@ -21,6 +21,7 @@ interface Game {
 const games: Game[] = [
   { name: "Big Bass Amazonas", icon: <Phishing className="w-5 h-5" />, href: "/bigbassamazonas" },
   { name: "Sugar Rush", icon: <Cake className="w-5 h-5" />, href: "/sugarrush" },
+  { name: "Gates of Olympus", icon: <AccountBalance className="w-5 h-5" />, href: "/gatesofolympus" },
   { name: "Coin Flip", icon: <MonetizationOn className="w-5 h-5" />, href: "/coinflip" },
   { name: "Poker", icon: <Toll className="w-5 h-5" />, href: "/poker" },
   { name: "Mines", icon: <Diamond className="w-5 h-5" />, href: "/mines" },

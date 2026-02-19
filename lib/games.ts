@@ -1,6 +1,7 @@
 export const games = [
   { name: "Big Bass Amazonas", href: "/bigbassamazonas", tagline: "Catch the biggest Fishes", image: "/images/BigBassAmazonas.png" },
   { name: "Sugar Rush", href: "/sugarrush", tagline: "Connect candies and stack multipliers", image: "/images/SugarRush.png" },
+  { name: "Gates of Olympus", href: "/gatesofolympus", tagline: "Stack multis and defeat Ceaser", image: "/images/GatesOfOlympus.png" },
   { name: "Coin Flip", href: "/coinflip", tagline: "Build a streak multiplier", image: "/images/Coinflip.png" },
   { name: "Poker", href: "/poker", tagline: "Read your enemies", image: "/images/Poker.png" },
   { name: "Mines", href: "/mines", tagline: "Find diamonds, avoid mines", image: "/images/Mines.png" },
@@ -22,7 +23,7 @@ export const games = [
   { name: "Chicken", href: "/chicken", tagline: "Cross safely for rewards", image: "/images/Chicken.png" },
   { name: "Snakes", href: "/snakes", tagline: "Climb high, dodge snakes", image: "/images/Snakes.png" },
   { name: "Plinko", href: "/plinko", tagline: "Drop and win", image: "/images/Plinko.png" },
-  { name: "HiLo", href: "/hilo", tagline: "Wette, ob die nächste Karte höher oder niedriger ist", image: "/images/HiLo.png" },
+  { name: "HiLo", href: "/hilo", tagline: "Read the next Card", image: "/images/HiLo.png" },
   { name: "Rock Paper Scissors", href: "/rps", tagline: "Build a streak and cash out", image: "/images/RPS.png" },
   { name: "Bars", href: "/bars", tagline: "Pick 1-5 tiles and sum multipliers", image: "/images/Bars.png" },
   { name: "Vault", href: "/vault", tagline: "Crack the vault and stack multipliers", image: "/images/Vault.png" },
