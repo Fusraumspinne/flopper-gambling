@@ -92,9 +92,9 @@ const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   bag: 10,
   toucan: 5,
   lure: 5,
-  fish: 6,     
+  fish: 7,     
   scatter: 0,
-  fisher: 2.5,   
+  fisher: 2,   
 };
 const FISH_VALUES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000];
 const FISH_WEIGHTS = [26,  21, 17, 14, 10, 7, 3.5, 0.35, 0.09, 0.03, 0.008, 0.002];
