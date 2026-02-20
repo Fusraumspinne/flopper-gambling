@@ -28,7 +28,7 @@ const SYMBOL_WEIGHTS: Record<WeightedSymbol, number> = {
   "🪙": 15,
   "🔱": 10,
   "👑": 10,
-  "⚡": 1.5,
+  "⚡": 1.25,
 };
 
 const MULTIPLIER_WEIGHT_NORMAL = 0.5;
@@ -36,12 +36,12 @@ const MULTIPLIER_WEIGHT_FREE = 5;
 
 const SYMBOL_BASE_MULTIS: Record<BaseSymbol, number> = {
   "🌿": 0.003,
-  "🍇": 0.005,
-  "⚔️": 0.007,
-  "🏛️": 0.007,
-  "🪙": 0.009,
-  "🔱": 0.015,
-  "👑": 0.025,
+  "🍇": 0.004,
+  "⚔️": 0.005,
+  "🏛️": 0.006,
+  "🪙": 0.008,
+  "🔱": 0.01,
+  "👑": 0.015,
 };
 
 const SYMBOL_FREESPIN_MULTIS: Record<BaseSymbol, number> = {

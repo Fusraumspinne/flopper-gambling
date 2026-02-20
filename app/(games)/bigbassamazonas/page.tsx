@@ -69,17 +69,17 @@ const PAYLINES: number[][] = [
 
 const HIGH_SYMBOLS: SymbolId[] = ["rod", "bag", "toucan", "lure"];
 const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "10": 15,
+  "10": 20,
   J: 15,
   Q: 15,
   K: 10,
   A: 10,
   rod: 10,
-  bag: 5,
+  bag: 10,
   toucan: 5,
   lure: 5,
   fish: 4,      
-  scatter: 2.25,   
+  scatter: 2.35,   
   fisher: 0,
 };
 const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
@@ -94,7 +94,7 @@ const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   lure: 5,
   fish: 6,     
   scatter: 0,
-  fisher: 2,   
+  fisher: 2.5,   
 };
 const FISH_VALUES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000];
 const FISH_WEIGHTS = [26,  21, 17, 14, 10, 7, 3.5, 0.35, 0.09, 0.03, 0.008, 0.002];
