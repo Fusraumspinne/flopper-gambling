@@ -916,7 +916,7 @@ export default function BigBassAmazonasPage() {
   const startPaidSpin = () => {
     if (!canPaidSpin) return;
     if (isExecutingSpinRef.current) return;
-    if (betAmount <= 0) return;
+    if (betAmount < 100) return;
     if (!isHundredDollarFreeSpin && balance < spinCost) {
       return;
     }
@@ -945,7 +945,7 @@ export default function BigBassAmazonasPage() {
     }
   };
 
-  const mainDisabled = isExecutingSpin || (phase === "free" ? freeSpinsLeft <= 0 : phase !== "idle" || (!isHundredDollarFreeSpin && balance < spinCost) || betAmount <= 0);
+  const mainDisabled = isExecutingSpin || (phase === "free" ? freeSpinsLeft <= 0 : phase !== "idle" || (!isHundredDollarFreeSpin && balance < spinCost) || betAmount < 100);
 
   const spinFree = () => {
     if (phase !== "free" || freeSpinsLeft <= 0) return;
@@ -1098,7 +1098,7 @@ export default function BigBassAmazonasPage() {
             <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => {
-                  const n = normalizeMoney(Math.max(10, betAmount / 2));
+                  const n = normalizeMoney(Math.max(100, betAmount / 2));
                   setBetAmount(n);
                   setBetInput(String(n));
                 }}
@@ -1120,7 +1120,7 @@ export default function BigBassAmazonasPage() {
               </button>
               <button
                 onClick={() => {
-                  const n = normalizeMoney(Math.max(10, balance));
+                  const n = normalizeMoney(Math.max(100, balance));
                   setBetAmount(n);
                   setBetInput(String(n));
                 }}
@@ -1145,7 +1145,7 @@ export default function BigBassAmazonasPage() {
             </div>
             <button
                 onClick={buyBonus}
-                disabled={phase !== "idle" || isAutospinning || betAmount <= 0 || balance < buyBonusCost}
+                disabled={phase !== "idle" || isAutospinning || betAmount < 100 || balance < buyBonusCost}
                 className="w-full py-1 text-[9px] font-bold uppercase bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20 rounded hover:bg-[#f59e0b]/20"
             >
                 {`Bonus Buy $${formatMoney(buyBonusCost)}`}

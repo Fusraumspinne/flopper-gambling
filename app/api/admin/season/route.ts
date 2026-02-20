@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { connectMongoDB } from "@/lib/mongodb";
 import User from "@/models/user";
 import Gift from "@/models/gift";
+import HighestLoss from "@/models/highestLoss";
+import HighestMultiplier from "@/models/highestMultiplier";
+import HighestProfit from "@/models/highestProfit";
+import WebsiteStatus from "@/models/websiteStatus";
 
 export async function POST() {
   try {
@@ -72,7 +76,12 @@ export async function POST() {
       }
     );
 
-    await Gift.deleteMany({});
+    await Promise.all([
+      Gift.deleteMany({}),
+      HighestLoss.deleteMany({}),
+      HighestMultiplier.deleteMany({}),
+      HighestProfit.deleteMany({}),
+    ]);
 
     return NextResponse.json({ message: "Season rewards processed and accounts reset successfully" });
   } catch (error) {

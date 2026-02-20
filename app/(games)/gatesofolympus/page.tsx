@@ -752,7 +752,7 @@ export default function GatesOfOlympusPage() {
   const startPaidSpin = () => {
     if (!canPaidSpin) return;
     if (isExecutingSpinRef.current) return;
-    if (betAmount <= 0) return;
+    if (betAmount < 100) return;
     if (!isHundredDollarFreeSpin && balance < spinCost) return;
 
     if (!isHundredDollarFreeSpin) {
@@ -779,7 +779,7 @@ export default function GatesOfOlympusPage() {
   };
 
   const buyBonus = () => {
-    if (phase !== "idle" || betAmount <= 0 || balance < buyBonusCost) return;
+    if (phase !== "idle" || betAmount < 100 || balance < buyBonusCost) return;
     if (isExecutingSpinRef.current) return;
 
     setLastWin(0);
@@ -810,7 +810,7 @@ export default function GatesOfOlympusPage() {
     isExecutingSpin ||
     (phase === "free"
       ? freeSpinsLeft <= 0
-      : phase !== "idle" || (!isHundredDollarFreeSpin && balance < spinCost) || betAmount <= 0);
+      : phase !== "idle" || (!isHundredDollarFreeSpin && balance < spinCost) || betAmount < 100);
 
   return (
     <>
@@ -839,7 +839,7 @@ export default function GatesOfOlympusPage() {
             <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => {
-                  const n = normalizeMoney(Math.max(10, betAmount / 2));
+                  const n = normalizeMoney(Math.max(100, betAmount / 2));
                   setBetAmount(n);
                   setBetInput(String(n));
                 }}
@@ -861,7 +861,7 @@ export default function GatesOfOlympusPage() {
               </button>
               <button
                 onClick={() => {
-                  const n = normalizeMoney(Math.max(10, balance));
+                  const n = normalizeMoney(Math.max(100, balance));
                   setBetAmount(n);
                   setBetInput(String(n));
                 }}
