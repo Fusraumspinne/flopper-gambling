@@ -117,8 +117,22 @@ function randomCell(anteBet: boolean, isFreeSpin?: boolean): Cell {
   return { kind: "symbol", symbol: picked as BaseSymbol };
 }
 
-function buildGrid(anteBet: boolean, isFreeSpin?: boolean): Cell[][] {
-  return Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => randomCell(anteBet, isFreeSpin)));
+function buildGrid(anteBet: boolean, isFreeSpin?: boolean, forceScatters: boolean = false): Cell[][] {
+  const grid = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => randomCell(anteBet, isFreeSpin)));
+  
+  if (forceScatters) {
+    const scatterPositions: [number, number][] = [];
+    while (scatterPositions.length < 3) {
+      const row = Math.floor(Math.random() * ROWS);
+      const col = Math.floor(Math.random() * COLS);
+      if (!scatterPositions.some(([r, c]) => r === row && c === col)) {
+        scatterPositions.push([row, col]);
+        grid[row][col] = { kind: "scatter" };
+      }
+    }
+  }
+  
+  return grid;
 }
 
 function gridToReelFrames(sourceGrid: Cell[][], anteBet: boolean, isFreeSpin?: boolean) {
@@ -552,7 +566,7 @@ export default function GatesOfOlympusPage() {
     [addToBalance, finalizePendingLoss, resetStoredMultiplier]
   );
 
-  const executeSpin = React.useCallback(async () => {
+  const executeSpin = React.useCallback(async (isBonusBuy: boolean = false) => {
     if (isExecutingSpinRef.current) return;
     isExecutingSpinRef.current = true;
     setIsExecutingSpin(true);
@@ -571,7 +585,7 @@ export default function GatesOfOlympusPage() {
     setSpinKey((v) => v + 1);
     playAudio(audioRef.current.spin);
 
-    let workingGrid = buildGrid(anteBet);
+    let workingGrid = buildGrid(anteBet, isFreeSpin, isBonusBuy);
     const countedMultiplierKeys = new Set<string>();
 
     const startFrames = gridToReelFrames(grid, anteBet, isFreeSpin);
@@ -684,7 +698,7 @@ export default function GatesOfOlympusPage() {
 
     if (isFreeSpin) {
       const scatters = countScatters(workingGrid);
-      const retriggerCount = scatters >= 3 ? 5 + Math.max(0, scatters - 3) : 0;
+      const retriggerCount = scatters >= 3 ? 5 + 2 * Math.max(0, scatters - 3) : 0;
       const leftAfter = Math.max(0, freeSpinsLeft - 1 + retriggerCount);
       setFreeSpinsLeft(leftAfter);
 
@@ -697,10 +711,12 @@ export default function GatesOfOlympusPage() {
       }
     } else {
       if (triggeredScatter) {
+        const scatters = countScatters(workingGrid);
+        const extra = Math.max(0, scatters - 3) * 2;
         setAnteBet(false);
         resetStoredMultiplier();
         setPhase("free");
-        setFreeSpinsLeft(FREE_SPINS_AWARD);
+        setFreeSpinsLeft(FREE_SPINS_AWARD + extra);
         setIsAutospinning(false);
       } else {
         setPhase("idle");
@@ -793,8 +809,7 @@ export default function GatesOfOlympusPage() {
     setPendingRoundPayout(0);
     setHighlighted(new Set());
     resetStoredMultiplier();
-    setPhase("free");
-    setFreeSpinsLeft(FREE_SPINS_AWARD);
+    void executeSpin(true);
   };
 
   const handleMainSpin = () => {

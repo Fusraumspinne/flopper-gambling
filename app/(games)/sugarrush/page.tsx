@@ -79,10 +79,24 @@ function randomSymbol(anteBet: boolean): SymbolId {
   return pickWeighted(table);
 }
 
-function buildGrid(anteBet: boolean): GridCell[][] {
-  return Array.from({ length: ROWS }, () =>
+function buildGrid(anteBet: boolean, forceScatters: boolean = false): GridCell[][] {
+  const grid = Array.from({ length: ROWS }, () =>
     Array.from({ length: COLS }, () => randomSymbol(anteBet))
   );
+
+  if (forceScatters) {
+    const scatterPositions: [number, number][] = [];
+    while (scatterPositions.length < 3) {
+      const row = Math.floor(Math.random() * ROWS);
+      const col = Math.floor(Math.random() * COLS);
+      if (!scatterPositions.some(([r, c]) => r === row && c === col)) {
+        scatterPositions.push([row, col]);
+        grid[row][col] = "🌈";
+      }
+    }
+  }
+
+  return grid;
 }
 
 function gridToReelFrames(sourceGrid: GridCell[][]) {
@@ -515,7 +529,7 @@ export default function SugarRushPage() {
     setPendingRoundPayout(0);
   }, [addToBalance, finalizePendingLoss]);
 
-  const executeSpin = React.useCallback(async () => {
+  const executeSpin = React.useCallback(async (isBonusBuy: boolean = false) => {
     if (isExecutingSpinRef.current) return;
     isExecutingSpinRef.current = true;
     setIsExecutingSpin(true);
@@ -535,7 +549,7 @@ export default function SugarRushPage() {
     setSpinKey((v) => v + 1);
     playAudio(audioRef.current.spin);
     
-    let workingGrid = buildGrid(anteBet);
+    let workingGrid = buildGrid(anteBet, isBonusBuy);
     
     const startFrames = gridToReelFrames(grid).map((col) => {
       const fresh = randomSymbol(anteBet);
@@ -653,7 +667,7 @@ export default function SugarRushPage() {
 
     if (isFreeSpin) {
       const scatters = countScatters(workingGrid);
-      const retriggerCount = scatters >= 3 ? 5 + (scatters - 3) : 0;
+      const retriggerCount = scatters >= 3 ? 5 + 2 * Math.max(0, scatters - 3) : 0;
 
       const leftAfter = Math.max(0, freeSpinsLeft - 1 + retriggerCount);
       setFreeSpinsLeft(leftAfter);
@@ -667,9 +681,11 @@ export default function SugarRushPage() {
       }
     } else {
       if (triggeredScatter) {
+        const scatters = countScatters(workingGrid);
+        const extra = Math.max(0, scatters - 3) * 2;
         setAnteBet(false);
         setPhase("free");
-        setFreeSpinsLeft(FREE_SPINS_AWARD);
+        setFreeSpinsLeft(FREE_SPINS_AWARD + extra);
         setIsAutospinning(false);
       } else {
         setPhase("idle");
@@ -761,8 +777,7 @@ export default function SugarRushPage() {
     setPendingRoundPayout(0);
     setMultiplierGrid(emptyMultiplierGrid());
     setHighlighted(new Set());
-    setPhase("free");
-    setFreeSpinsLeft(FREE_SPINS_AWARD);
+    void executeSpin(true);
   };
 
   const handleMainSpin = () => {
@@ -852,13 +867,15 @@ export default function SugarRushPage() {
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${anteBet ? "left-5.5" : "left-0.5"}`} />
               </button>
             </div>
-            <button
-                onClick={buyBonus}
-                disabled={phase !== "idle" || isAutospinning || betAmount <= 0 || balance < buyBonusCost}
-                className="w-full py-1 text-[9px] font-bold uppercase bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20 rounded hover:bg-[#f59e0b]/20"
-              >
-                {`Bonus Buy $${formatMoney(buyBonusCost)}`}
-            </button>
+            {!anteBet && (
+              <button
+                  onClick={buyBonus}
+                  disabled={phase !== "idle" || isAutospinning || betAmount <= 0 || balance < buyBonusCost}
+                  className="w-full py-1 text-[9px] font-bold uppercase bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20 rounded hover:bg-[#f59e0b]/20"
+                >
+                  {`Bonus Buy $${formatMoney(buyBonusCost)}`}
+              </button>
+            )}
           </div>
 
           {!isAutospinning && (

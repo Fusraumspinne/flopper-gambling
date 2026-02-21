@@ -83,16 +83,16 @@ const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   fisher: 0,
 };
 const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "10": 20,
+  "10": 15,
   J: 15, 
-  Q: 15,
+  Q: 10,
   K: 10,
   A: 10,
   rod: 10,
   bag: 10,
   toucan: 5,
-  lure: 5,
-  fish: 7,     
+  lure: 3,
+  fish: 10,     
   scatter: 0,
   fisher: 2,   
 };
@@ -186,7 +186,7 @@ function fishValue(removeLowest: boolean) {
   return picked;
 }
 
-function buildRandomGrid(isFreeSpin: boolean, anteBet: boolean, removeLowestFish: boolean): Cell[][] {
+function buildRandomGrid(isFreeSpin: boolean, anteBet: boolean, removeLowestFish: boolean, forceScatters: boolean = false): Cell[][] {
   const grid: Cell[][] = Array.from({ length: ROWS }, () =>
     Array.from({ length: REELS }, () => ({ symbol: "10" as SymbolId }))
   );
@@ -198,6 +198,18 @@ function buildRandomGrid(isFreeSpin: boolean, anteBet: boolean, removeLowestFish
         symbol === "fish"
           ? { symbol, fishValue: fishValue(removeLowestFish) }
           : { symbol };
+    }
+  }
+
+  if (forceScatters) {
+    const scatterPositions: [number, number][] = [];
+    while (scatterPositions.length < 3) {
+      const row = Math.floor(Math.random() * ROWS);
+      const reel = Math.floor(Math.random() * REELS);
+      if (!scatterPositions.some(([r, c]) => r === row && c === reel)) {
+        scatterPositions.push([row, reel]);
+        grid[row][reel] = { symbol: "scatter" };
+      }
     }
   }
 
@@ -647,7 +659,7 @@ export default function BigBassAmazonasPage() {
     return { finalGrid, waterfallTriggered };
   };
 
-  const executeSpin = (onFinish?: (payout: number) => void) => {
+  const executeSpin = (isBonusBuy: boolean = false, onFinish?: (payout: number) => void) => {
     if (isExecutingSpinRef.current) return;
     isExecutingSpinRef.current = true;
     setIsExecutingSpin(true);
@@ -668,7 +680,7 @@ export default function BigBassAmazonasPage() {
     setSpinKey((v) => v + 1);
     playAudio(audioRef.current.spin);
 
-    let nextGrid = buildRandomGrid(isFreeSpin, anteBet, mods.removeLowestFish);
+    let nextGrid = buildRandomGrid(isFreeSpin, anteBet, mods.removeLowestFish, isBonusBuy);
     if (isFreeSpin && mods.guaranteedFish > 0) {
       guaranteeFish(nextGrid, mods.guaranteedFish, mods.removeLowestFish);
     }
@@ -801,33 +813,12 @@ export default function BigBassAmazonasPage() {
 
           if (!isFreeSpin && scatter >= 3) {
             setAnteBet(false);
-            let startBoats = 0;
-            if (scatter === 4) startBoats = 1;
-            if (scatter >= 5) startBoats = 2;
-
-            if (startBoats > 0) {
-              setPhase("pick");
-              setPickState({
-                revealed: new Array(12).fill(false),
-                tokens: buildPickTokens(startBoats, 3),
-                boatsFound: startBoats,
-                boatsTarget: 3,
-                modifiers: {
-                  extraFreeSpins: 0,
-                  guaranteedFish: 0,
-                  collectedFishermen: 0,
-                  removeLowestFish: false,
-                },
-              });
-              finishExecution();
-              return;
-            }
-
+            const extraFromScatters = Math.max(0, scatter - 3) * 2;
             setPhase("prefree");
             setPreFreeState({
               revealed: new Array(PREFREE_TOKEN_POOL.length).fill(false),
               tokens: buildPreFreeTokens(),
-              extraSpins: 0,
+              extraSpins: extraFromScatters,
               extraFishers: 0,
               done: false,
             });
@@ -1021,14 +1012,7 @@ export default function BigBassAmazonasPage() {
     setRetriggers(0);
     setCurrentFsMultiplier(1);
     setFreeSpinsLeft(0);
-    setPreFreeState({
-      revealed: new Array(PREFREE_TOKEN_POOL.length).fill(false),
-      tokens: buildPreFreeTokens(),
-      extraSpins: 0,
-      extraFishers: 0,
-      done: false,
-    });
-    setPhase("prefree");
+    executeSpin(true);
   };
 
   const displaySpinCost = spinCost * spinDisplayMultiplier;
@@ -1143,13 +1127,15 @@ export default function BigBassAmazonasPage() {
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${anteBet ? "left-5.5" : "left-0.5"}`} />
               </button>
             </div>
-            <button
-                onClick={buyBonus}
-                disabled={phase !== "idle" || isAutospinning || betAmount < 100 || balance < buyBonusCost}
-                className="w-full py-1 text-[9px] font-bold uppercase bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20 rounded hover:bg-[#f59e0b]/20"
-            >
-                {`Bonus Buy $${formatMoney(buyBonusCost)}`}
-            </button>
+            {!anteBet && (
+              <button
+                  onClick={buyBonus}
+                  disabled={phase !== "idle" || isAutospinning || betAmount < 100 || balance < buyBonusCost}
+                  className="w-full py-1 text-[9px] font-bold uppercase bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20 rounded hover:bg-[#f59e0b]/20"
+              >
+                  {`Bonus Buy $${formatMoney(buyBonusCost)}`}
+              </button>
+            )}
           </div>
 
           {!isAutospinning && (
