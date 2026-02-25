@@ -187,7 +187,6 @@ const ARCHETYPE_PERSONAS: BotPersona[] = [
   },
 ];
 
-
 const getCardValue = (rank: Rank): number => {
   if (rank === "A") return 14;
   if (rank === "K") return 13;
@@ -317,9 +316,7 @@ const scoreFive = (cards: Card[]): HandScore => {
   }
   if (byCountDesc[0]?.c === 2) {
     const pair = byCountDesc[0].v;
-    const kickers = values
-      .filter((v) => v !== pair)
-      .sort((a, b) => b - a);
+    const kickers = values.filter((v) => v !== pair).sort((a, b) => b - a);
     return { cat: "Pair", catRank: 2, kickers: [pair, ...kickers.slice(0, 3)] };
   }
   return { cat: "High Card", catRank: 1, kickers: values.slice(0, 5) };
@@ -392,7 +389,7 @@ const estimateEquityMonteCarlo = (
   hole: Card[],
   board: Card[],
   opponents: number,
-  iterations = 250
+  iterations = 250,
 ): number => {
   if (opponents <= 0) return 1;
   if (hole.length < 2) return 0;
@@ -492,7 +489,7 @@ const getCardColor = (suit: Suit) =>
 
 const choosePersonas = (count: number): BotPersona[] => {
   const availableNames = BOT_NAMES.filter(
-    (n) => !ARCHETYPE_PERSONAS.some((a) => a.name === n)
+    (n) => !ARCHETYPE_PERSONAS.some((a) => a.name === n),
   );
 
   const shuffle = <T,>(arr: T[]) => {
@@ -657,8 +654,14 @@ const HAND_EXAMPLES: { name: string; cards: { rank: Rank; suit: Suit }[] }[] = [
 ];
 
 export default function PokerPage() {
-  const { balance, subtractFromBalance, addToBalance, finalizePendingLoss, debitBalance, creditBalance } =
-    useWallet();
+  const {
+    balance,
+    subtractFromBalance,
+    addToBalance,
+    finalizePendingLoss,
+    debitBalance,
+    creditBalance,
+  } = useWallet();
   const { volume } = useSoundVolume();
 
   const [playerMemory, setPlayerMemory] = useState<PlayerMemory>({
@@ -673,7 +676,7 @@ export default function PokerPage() {
   const [betAmount, setBetAmount] = useState<number>(100);
   const [betInput, setBetInput] = useState<string>("100");
   const [customRaiseAmount, setCustomRaiseAmount] = useState<number>(0);
-  const [numBots, setNumBots] = useState<number>(2);
+  const [numBots, setNumBots] = useState<number>(5);
   const [stage, setStage] = useState<Stage>("setup");
   const [deck, setDeck] = useState<Card[]>([]);
   const [board, setBoard] = useState<Card[]>([]);
@@ -695,7 +698,7 @@ export default function PokerPage() {
   const [playerAllIn, setPlayerAllIn] = useState<boolean>(false);
   const [actionLog, setActionLog] = useState<string[]>([]);
   const [resultFx, setResultFx] = useState<"rolling" | "win" | "lose" | null>(
-    null
+    null,
   );
   const [lastWin, setLastWin] = useState<number>(0);
   const [handLabel, setHandLabel] = useState<string>("");
@@ -747,7 +750,14 @@ export default function PokerPage() {
     remove: HTMLAudioElement | null;
     win: HTMLAudioElement | null;
     Lose: HTMLAudioElement | null;
-  }>({ bet: null, deal: null, flip: null, remove: null, win: null, Lose: null });
+  }>({
+    bet: null,
+    deal: null,
+    flip: null,
+    remove: null,
+    win: null,
+    Lose: null,
+  });
 
   const ensureAudio = () => {
     if (audioRef.current.bet) return;
@@ -757,7 +767,7 @@ export default function PokerPage() {
       flip: new Audio("/sounds/FlipCards.mp3"),
       remove: new Audio("/sounds/RemoveCards.mp3"),
       win: new Audio("/sounds/Win.mp3"),
-    Lose: new Audio("/sounds/LimboLose.mp3"),
+      Lose: new Audio("/sounds/LimboLose.mp3"),
     };
   };
 
@@ -796,7 +806,7 @@ export default function PokerPage() {
       try {
         ensureAudio();
         const items = Object.values(audioRef.current).filter(
-          Boolean
+          Boolean,
         ) as HTMLAudioElement[];
         for (const a of items) {
           try {
@@ -906,7 +916,7 @@ export default function PokerPage() {
     idx: number,
     botList: BotState[],
     pFolded: boolean,
-    pAllIn: boolean
+    pAllIn: boolean,
   ) => {
     if (!isAlive(idx, botList, pFolded)) return false;
     if (idx === 0) return !pAllIn;
@@ -917,7 +927,7 @@ export default function PokerPage() {
   const getRoundContribution = (
     idx: number,
     botList: BotState[],
-    pRound: number
+    pRound: number,
   ) => {
     if (idx === 0) return pRound;
     return botList[idx - 1]?.roundContribution ?? 0;
@@ -926,7 +936,7 @@ export default function PokerPage() {
   const getTotalContribution = (
     idx: number,
     botList: BotState[],
-    pTotal: number
+    pTotal: number,
   ) => {
     if (idx === 0) return pTotal;
     return botList[idx - 1]?.contribution ?? 0;
@@ -947,7 +957,7 @@ export default function PokerPage() {
       });
     }
     const levels = Array.from(
-      new Set(contribs.map((c) => c.amount).filter((x) => x > 0))
+      new Set(contribs.map((c) => c.amount).filter((x) => x > 0)),
     ).sort((a, b) => a - b);
 
     let prev = 0;
@@ -964,7 +974,7 @@ export default function PokerPage() {
   const findFirstActiveLeftOf = (
     startIdx: number,
     botList: BotState[],
-    pFolded: boolean
+    pFolded: boolean,
   ) => {
     const pc = getPlayerCountForHand(botList);
     if (pc <= 0) return -1;
@@ -978,7 +988,7 @@ export default function PokerPage() {
   const countActors = (
     botList: BotState[],
     pFolded: boolean,
-    pAllIn0: boolean
+    pAllIn0: boolean,
   ) => {
     let n = 0;
     const pc = getPlayerCountForHand(botList);
@@ -1000,7 +1010,7 @@ export default function PokerPage() {
     pAllIn: boolean,
     pRoundContribution: number,
     pActed: boolean,
-    currentBet: number
+    currentBet: number,
   ) => {
     if (!pFolded && !pAllIn) {
       if (pRoundContribution < currentBet) return false;
@@ -1020,7 +1030,7 @@ export default function PokerPage() {
     from: number,
     botList: BotState[],
     pFolded: boolean,
-    pAllIn0: boolean
+    pAllIn0: boolean,
   ) => {
     const pc = getPlayerCountForHand(botList);
     if (pc <= 0) return -1;
@@ -1051,7 +1061,7 @@ export default function PokerPage() {
       addToBalance(payout);
       return;
     } else {
-        return;
+      return;
     }
 
     if (payout > 0) {
@@ -1066,7 +1076,7 @@ export default function PokerPage() {
   const finishHandEarly = (
     botList: BotState[],
     pFolded: boolean,
-    pTotal: number
+    pTotal: number,
   ) => {
     const potValue = recomputePot(botList, pTotal);
     const aliveInfo = botList.reduce(
@@ -1074,7 +1084,7 @@ export default function PokerPage() {
         if (!b.folded) acc.push(i + 1);
         return acc;
       },
-      !pFolded ? [0] : ([] as number[])
+      !pFolded ? [0] : ([] as number[]),
     );
     const aliveCount = aliveInfo.length;
 
@@ -1101,7 +1111,7 @@ export default function PokerPage() {
       }
       resultTimeoutRef.current = window.setTimeout(
         () => setResultFx(null),
-        900
+        900,
       );
       setBoardRevealCount(5);
       setPot(potValue);
@@ -1117,7 +1127,7 @@ export default function PokerPage() {
   const resolveShowdown = (
     botList: BotState[],
     pFolded: boolean,
-    pTotal: number
+    pTotal: number,
   ) => {
     const potValue = recomputePot(botList, pTotal);
     setPot(potValue);
@@ -1128,13 +1138,13 @@ export default function PokerPage() {
     botList.forEach((b) => {
       if (!b.folded) activeParticipants.push("bot");
     });
-    
+
     let flipDelay = 0;
     activeParticipants.forEach(() => {
-        setTimeout(() => playAudio(audioRef.current.flip, true), flipDelay);
-        flipDelay += 100;
-        setTimeout(() => playAudio(audioRef.current.flip, true), flipDelay);
-        flipDelay += 100;
+      setTimeout(() => playAudio(audioRef.current.flip, true), flipDelay);
+      flipDelay += 100;
+      setTimeout(() => playAudio(audioRef.current.flip, true), flipDelay);
+      flipDelay += 100;
     });
 
     const pc = getPlayerCountForHand(botList);
@@ -1147,7 +1157,7 @@ export default function PokerPage() {
     }
 
     const levels = Array.from(
-      new Set(contribs.map((c) => c.amount).filter((x) => x > 0))
+      new Set(contribs.map((c) => c.amount).filter((x) => x > 0)),
     ).sort((a, b) => a - b);
     let prev = 0;
     let playerPayout = 0;
@@ -1158,12 +1168,11 @@ export default function PokerPage() {
     const getScore = (idx: number): HandScore => {
       const existing = scoreByIdx.get(idx);
       if (existing) return existing;
-      const hole = idx === 0 ? playerHole : nextBots[idx - 1]?.hole ?? [];
+      const hole = idx === 0 ? playerHole : (nextBots[idx - 1]?.hole ?? []);
       const s = evaluateSeven(hole, board);
       scoreByIdx.set(idx, s);
       return s;
     };
-
 
     for (const lvl of levels) {
       const inPot = contribs.filter((c) => c.amount >= lvl).length;
@@ -1225,7 +1234,7 @@ export default function PokerPage() {
     addLog(
       playerWon
         ? `Showdown: You win $${playerPayout.toFixed(0)}`
-        : "Showdown: You lose"
+        : "Showdown: You lose",
     );
 
     const aliveIdxs = contribs
@@ -1244,7 +1253,9 @@ export default function PokerPage() {
           bestIdxs.push(idx);
         }
       }
-      setWinners(bestIdxs.map((idx) => (idx === 0 ? nextBots.length : idx - 1)));
+      setWinners(
+        bestIdxs.map((idx) => (idx === 0 ? nextBots.length : idx - 1)),
+      );
     } else {
       setWinners([]);
     }
@@ -1259,7 +1270,9 @@ export default function PokerPage() {
 
     const showSeatSet = new Set<number>();
     if (firstToShowIdx >= 0) {
-      showSeatSet.add(firstToShowIdx === 0 ? nextBots.length : firstToShowIdx - 1);
+      showSeatSet.add(
+        firstToShowIdx === 0 ? nextBots.length : firstToShowIdx - 1,
+      );
     }
     Array.from(moneyWinners).forEach((idx) => {
       showSeatSet.add(idx === 0 ? nextBots.length : idx - 1);
@@ -1303,7 +1316,7 @@ export default function PokerPage() {
       persona: p,
       hole: [freshDeck.pop()!, freshDeck.pop()!],
       stack: Math.floor(
-        Math.max(1, Math.floor(betAmount)) * (3 + Math.random() * 4) 
+        Math.max(1, Math.floor(betAmount)) * (3 + Math.random() * 4),
       ),
       contribution: 0,
       roundContribution: 0,
@@ -1316,13 +1329,13 @@ export default function PokerPage() {
       hasActed: false,
     }));
 
-    freshDeck.pop(); 
+    freshDeck.pop();
     const flop = [freshDeck.pop()!, freshDeck.pop()!, freshDeck.pop()!];
-    freshDeck.pop(); 
+    freshDeck.pop();
     const turn = freshDeck.pop()!;
-    freshDeck.pop(); 
+    freshDeck.pop();
     const river = freshDeck.pop()!;
-    
+
     const boardCards = [...flop, turn, river];
 
     const playerCount = 1 + botStates.length;
@@ -1408,7 +1421,7 @@ export default function PokerPage() {
 
     const openingBet = Math.max(
       getRoundContribution(0, nextBots, pRound),
-      ...nextBots.map((b) => b.roundContribution)
+      ...nextBots.map((b) => b.roundContribution),
     );
     setCurrentBet(openingBet);
     setMinRaise(bigBlind);
@@ -1416,7 +1429,7 @@ export default function PokerPage() {
     setCustomRaiseAmount(0);
 
     const startIdxRequest = (bbIndex + 1) % playerCount;
-    
+
     const firstActor = isActor(startIdxRequest, nextBots, false, pAllIn0)
       ? startIdxRequest
       : nextActorIndex(startIdxRequest, nextBots, false, pAllIn0);
@@ -1439,7 +1452,7 @@ export default function PokerPage() {
     currentBots: BotState[],
     pFolded: boolean,
     pAllIn: boolean,
-    pTotal: number
+    pTotal: number,
   ) => {
     const bigBlind = Math.max(1, Math.floor(betAmount));
     const nextStreetBots = resetStreet(currentBots);
@@ -1452,7 +1465,7 @@ export default function PokerPage() {
       reveal = 3;
       const delays = [0, 150, 300];
       delays.forEach((d) =>
-        setTimeout(() => playAudio(audioRef.current.flip, true), d)
+        setTimeout(() => playAudio(audioRef.current.flip, true), d),
       );
     } else if (stage === "flop") {
       nextStage = "turn";
@@ -1488,7 +1501,7 @@ export default function PokerPage() {
       postFlopStart,
       nextStreetBots,
       pFolded,
-      pAllIn
+      pAllIn,
     )
       ? postFlopStart
       : nextActorIndex(postFlopStart, nextStreetBots, pFolded, pAllIn);
@@ -1508,7 +1521,7 @@ export default function PokerPage() {
     nextCurrentBet: number,
     nextMinRaise: number,
     actionLabel: string,
-    isRaise: boolean
+    isRaise: boolean,
   ) => {
     setPlayerContribution(nextP.total);
     setPlayerRoundContribution(nextP.round);
@@ -1564,14 +1577,14 @@ export default function PokerPage() {
       const actorCount = countActors(
         currentNextBots,
         nextP.folded,
-        nextP.allIn
+        nextP.allIn,
       );
       nextPending = Math.max(
         0,
         actorCount -
           (isActor(actorIdx, currentNextBots, nextP.folded, nextP.allIn)
             ? 1
-            : 0)
+            : 0),
       );
     } else {
       nextPending = Math.max(0, nextPending - 1);
@@ -1585,7 +1598,7 @@ export default function PokerPage() {
         actorIdx,
         currentNextBots,
         nextP.folded,
-        nextP.allIn
+        nextP.allIn,
       );
       setActivePlayerIndex(nextIdx === -1 ? 0 : nextIdx);
     } else {
@@ -1667,7 +1680,7 @@ export default function PokerPage() {
       currentBet,
       minRaise,
       "You fold",
-      false
+      false,
     );
     playAudio(audioRef.current.bet, true);
   };
@@ -1676,7 +1689,7 @@ export default function PokerPage() {
     if (!playerCanAct) return;
     const toCall = Math.max(
       0,
-      Math.floor(currentBet - playerRoundContribution)
+      Math.floor(currentBet - playerRoundContribution),
     );
     const pay = Math.min(toCall, Math.floor(balance));
 
@@ -1704,7 +1717,7 @@ export default function PokerPage() {
       currentBet,
       minRaise,
       toCall > 0 ? "You call" : "You check",
-      false
+      false,
     );
     playAudio(audioRef.current.bet, true);
   };
@@ -1719,8 +1732,8 @@ export default function PokerPage() {
       typeof arg === "number"
         ? arg
         : customRaiseAmount > 0
-        ? customRaiseAmount
-        : minBetTotal;
+          ? customRaiseAmount
+          : minBetTotal;
 
     if (targetBet < minBetTotal) targetBet = minBetTotal;
 
@@ -1750,10 +1763,10 @@ export default function PokerPage() {
     const actionStr = nextAllIn
       ? "All-In"
       : actualBet > currentBet
-      ? `Raise $${actualBet.toFixed(0)}`
-      : need > 0
-      ? "Call"
-      : "Check";
+        ? `Raise $${actualBet.toFixed(0)}`
+        : need > 0
+          ? "Call"
+          : "Check";
 
     setPlayerLastAction(actionStr);
 
@@ -1774,11 +1787,11 @@ export default function PokerPage() {
       actionStr === "All-In"
         ? "You All-In"
         : isValidRaise
-        ? `You Raise $${actualBet.toFixed(0)}`
-        : need > 0
-        ? "You Call"
-        : "You Check",
-      isFullRaise
+          ? `You Raise $${actualBet.toFixed(0)}`
+          : need > 0
+            ? "You Call"
+            : "You Check",
+      isFullRaise,
     );
     playAudio(audioRef.current.bet, true);
   };
@@ -1794,11 +1807,11 @@ export default function PokerPage() {
 
     botTurnInFlightRef.current = true;
 
-    const delay = playerFolded 
-      ? 400 
+    const delay = playerFolded
+      ? 400
       : bot.persona.minDelay +
         Math.random() * (bot.persona.maxDelay - bot.persona.minDelay);
-    
+
     const t = window.setTimeout(() => {
       botTurnInFlightRef.current = false;
 
@@ -1809,48 +1822,87 @@ export default function PokerPage() {
       const boardNow = board.slice(0, revealed);
       const opponents = Math.max(
         0,
-        bots.filter((b) => !b.folded).length + (playerFolded ? 0 : 1) - 1
+        bots.filter((b) => !b.folded).length + (playerFolded ? 0 : 1) - 1,
       );
       const equity = estimateEquityMonteCarlo(
         bot.hole,
         boardNow,
         opponents,
-        450
+        450,
       );
 
       const toCall = Math.max(
         0,
-        Math.floor(currentBet - bot.roundContribution)
+        Math.floor(currentBet - bot.roundContribution),
       );
       const postflop = revealed >= 3;
-      const postflopScore = postflop
-        ? evaluateSeven(bot.hole, boardNow)
-        : null;
+      const postflopScore = postflop ? evaluateSeven(bot.hole, boardNow) : null;
       const isOnlyHighCard = postflop && postflopScore?.catRank === 1;
+      const preflopStrength = estimatePreflopStrength(bot.hole);
+      const postflopStrength = postflopScore ? winStrength(postflopScore) : 0;
 
       const bigBlind = Math.max(1, Math.floor(betAmount));
       const finalPotIfCall = pot + toCall;
       const potOdds = toCall > 0 ? toCall / Math.max(1, finalPotIfCall) : 0;
+      const stackNow = Math.max(1, Math.floor(bot.stack));
+      const stackRiskRatio = toCall / stackNow;
+      const positionRiskPremium = postflop ? 0.08 : 0.11;
+      const multiwayPremium = Math.min(0.1, opponents * 0.015);
+      const stackRiskPremium = Math.min(0.12, stackRiskRatio * 0.35);
+      const requiredCallEquity = Math.min(
+        0.92,
+        potOdds + positionRiskPremium + multiwayPremium + stackRiskPremium,
+      );
       const callEV = equity * finalPotIfCall - toCall;
-      const equityEdge = equity - potOdds;
+      const equityEdge = equity - requiredCallEquity;
       const canRaise = Math.floor(bot.stack) > toCall;
 
       let action: "fold" | "call" | "raise" = "call";
 
       if (toCall > 0) {
+        const preflopTightGate =
+          !postflop &&
+          preflopStrength <
+            0.58 +
+              Math.min(0.1, stackRiskRatio * 0.25) +
+              Math.min(0.06, potOdds * 0.4);
         const highCardNeedsFold =
-          isOnlyHighCard && equity < Math.max(0.28, potOdds + 0.06);
+          isOnlyHighCard && equity < Math.max(0.36, requiredCallEquity + 0.02);
 
-        if (callEV < 0 || highCardNeedsFold) {
+        if (
+          callEV < 0 ||
+          equity < requiredCallEquity ||
+          highCardNeedsFold ||
+          preflopTightGate
+        ) {
           action = "fold";
-        } else if (canRaise && !isOnlyHighCard && equityEdge >= 0.14) {
+        } else if (
+          canRaise &&
+          !isOnlyHighCard &&
+          ((!postflop &&
+            preflopStrength >= 0.84 &&
+            equity >= requiredCallEquity + 0.2) ||
+            (postflop &&
+              !!postflopScore &&
+              postflopScore.catRank >= 3 &&
+              postflopStrength >= 0.62 &&
+              equity >= requiredCallEquity + 0.18))
+        ) {
           action = "raise";
         } else {
           action = "call";
         }
       } else {
         action =
-          canRaise && !isOnlyHighCard && equity >= 0.57 ? "raise" : "call";
+          canRaise &&
+          ((!postflop && preflopStrength >= 0.88 && equity >= 0.66) ||
+            (postflop &&
+              !!postflopScore &&
+              postflopScore.catRank >= 3 &&
+              postflopStrength >= 0.67 &&
+              equity >= 0.68))
+            ? "raise"
+            : "call";
       }
 
       let nextBots = [...bots];
@@ -1894,7 +1946,7 @@ export default function PokerPage() {
           nextCurrent,
           nextMinR,
           formatAction(name, "Fold"),
-          false
+          false,
         );
         playAudio(audioRef.current.bet, true);
         return;
@@ -1913,7 +1965,7 @@ export default function PokerPage() {
           nextCurrent,
           nextMinR,
           formatAction(name, toCall > 0 ? "Call" : "Check"),
-          false
+          false,
         );
         playAudio(audioRef.current.bet, true);
         return;
@@ -1928,34 +1980,35 @@ export default function PokerPage() {
       const totalPot = pot + currentStreetPot;
 
       const edgeOverBreakEven = clamp01(
-        (equity - Math.max(0.01, potOdds)) / Math.max(0.08, 1 - potOdds)
+        (equity - Math.max(0.01, requiredCallEquity)) /
+          Math.max(0.1, 1 - requiredCallEquity),
       );
-      const valueFactor = 0.4 + edgeOverBreakEven * 0.9;
+      const valueFactor = 0.18 + edgeOverBreakEven * 0.5;
       raiseAmt = Math.max(minR, Math.floor(totalPot * valueFactor));
 
       const playerEffective = Math.max(
         1,
-        Math.floor(balance + playerRoundContribution)
+        Math.floor(balance + playerRoundContribution),
       );
       const botMaxRaiseMultiplier = 20 + Math.floor(Math.random() * 11);
-      const betAnchor = bigBlind; 
+      const betAnchor = bigBlind;
       const maxRaiseByBet = Math.max(minR, betAnchor * botMaxRaiseMultiplier);
       const maxRaiseByPlayer = Math.max(
         minR,
-        Math.floor(playerEffective * 0.4 + betAnchor * 8)
+        Math.floor(playerEffective * 0.4 + betAnchor * 8),
       );
-      const potCap = Math.max(minR, Math.floor(totalPot * 0.6));
+      const potCap = Math.max(minR, Math.floor(totalPot * 0.45));
       raiseAmt = Math.min(raiseAmt, maxRaiseByBet, maxRaiseByPlayer, potCap);
 
       const shortStack = nextBots[bi].stack <= bigBlind * 8;
-      if (shortStack && equity >= 0.78) {
+      if (shortStack && equity >= 0.9) {
         raiseAmt = Math.max(raiseAmt, nextBots[bi].stack);
       }
 
       const target = nextCurrent + raiseAmt;
       const need = Math.max(
         0,
-        Math.floor(target - nextBots[bi].roundContribution)
+        Math.floor(target - nextBots[bi].roundContribution),
       );
       payBot(need);
 
@@ -1983,7 +2036,7 @@ export default function PokerPage() {
           nextCurrent,
           nextMinR,
           formatAction(name, actionStr),
-          isFullRaise
+          isFullRaise,
         );
       } else {
         nextBots[bi] = {
@@ -1997,7 +2050,7 @@ export default function PokerPage() {
           nextCurrent,
           nextMinR,
           formatAction(name, toCall > 0 ? "Call" : "Check"),
-          false
+          false,
         );
       }
 
@@ -2036,7 +2089,14 @@ export default function PokerPage() {
       }
     }, 1500);
     return () => clearTimeout(timer);
-  }, [stage, bots, playerFolded, playerAllIn, playerContribution, pendingToAct]);
+  }, [
+    stage,
+    bots,
+    playerFolded,
+    playerAllIn,
+    playerContribution,
+    pendingToAct,
+  ]);
 
   type SeatUi = {
     seatIndex: number;
@@ -2184,7 +2244,7 @@ export default function PokerPage() {
                         c,
                         s.showCards || s.id === "player",
                         true,
-                        (s.seatIndex * 2 + i) * 0.1
+                        (s.seatIndex * 2 + i) * 0.1,
                       )}
                     </div>
                   ))
@@ -2201,7 +2261,7 @@ export default function PokerPage() {
     card: Card,
     revealed: boolean,
     small = false,
-    delay = 0
+    delay = 0,
   ) => (
     <div
       style={{ animationDelay: `${delay}s` }}
@@ -2226,7 +2286,7 @@ export default function PokerPage() {
 
         <div
           className={`bj-card-face bj-card-front rounded-lg bg-white ${getCardColor(
-            card.suit
+            card.suit,
           )} p-1 sm:p-2`}
         >
           <div className="self-start font-bold text-[7px] sm:text-[9px] lg:text-[10px] leading-none">
@@ -2262,9 +2322,7 @@ export default function PokerPage() {
               Mode
             </label>
             <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-              <button
-                className="flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors bg-[#213743] text-white shadow-sm"
-              >
+              <button className="flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors bg-[#213743] text-white shadow-sm">
                 Manual
               </button>
               <Link
@@ -2340,27 +2398,29 @@ export default function PokerPage() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-              Bots
-            </label>
-            <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-              {[2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setNumBots(n)}
-                  disabled={stage !== "setup" && stage !== "finished"}
-                  className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                    numBots === n
-                      ? "bg-[#213743] text-white shadow-sm"
-                      : "text-[#b1bad3] hover:text-white"
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
+          {false && (
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+                Bots
+              </label>
+              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+                {[2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setNumBots(n)}
+                    disabled={stage !== "setup" && stage !== "finished"}
+                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      numBots === n
+                        ? "bg-[#213743] text-white shadow-sm"
+                        : "text-[#b1bad3] hover:text-white"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {stage === "setup" || stage === "finished" ? (
             <button
@@ -2395,23 +2455,22 @@ export default function PokerPage() {
                     className="w-full accent-[#00e701] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <div className="flex justify-between text-xs text-[#b1bad3] mt-2">
-                    <span>
-                      ${safeMinRaiseTotal.toFixed(0)}
-                    </span>
+                    <span>${safeMinRaiseTotal.toFixed(0)}</span>
                     <span className="text-white font-bold">
                       ${(customRaiseAmount || safeMinRaiseTotal).toFixed(0)}
                     </span>
-                    <span>
-                      ${maxRaiseTotal.toFixed(0)}
-                    </span>
+                    <span>${maxRaiseTotal.toFixed(0)}</span>
                   </div>
                 </div>
                 <div className="mt-2 text-start text-[11px] text-[#b1bad3]">
                   <span className="uppercase">Call:</span>{" "}
-                  <span className="text-white font-bold">${Math.max(
-                    0,
-                    Math.floor(currentBet - playerRoundContribution)
-                  ).toFixed(0)}</span>
+                  <span className="text-white font-bold">
+                    $
+                    {Math.max(
+                      0,
+                      Math.floor(currentBet - playerRoundContribution),
+                    ).toFixed(0)}
+                  </span>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2">
@@ -2497,9 +2556,7 @@ export default function PokerPage() {
                         : "bg-[#1a2c38] border-[#2f4553]"
                     }`}
                   >
-                    <div
-                      className="text-[10px] uppercase font-bold transition-colors text-[#b1bad3] "
-                    >
+                    <div className="text-[10px] uppercase font-bold transition-colors text-[#b1bad3] ">
                       {idx + 1}. {hand.name}
                     </div>
                     <div className="flex justify-center -space-x-1">
@@ -2508,7 +2565,7 @@ export default function PokerPage() {
                           key={i}
                           style={{ zIndex: i }}
                           className={`w-6 h-8 rounded bg-white ${getCardColor(
-                            c.suit
+                            c.suit,
                           )} flex flex-col items-center justify-center p-0.5 shadow-sm border border-gray-300 relative`}
                           title={`${c.rank} of ${c.suit}`}
                         >
