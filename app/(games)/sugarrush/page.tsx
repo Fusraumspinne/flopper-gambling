@@ -18,10 +18,10 @@ const MIN_CLUSTER = 5;
 const FREE_SPINS_AWARD = 15;
 
 const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "🍬": 26,
-  "🍭": 24,
-  "🍰": 20,
-  "🧁": 16,
+  "🍬": 25,
+  "🍭": 25,
+  "🍰": 28,
+  "🧁": 18,
   "🍫": 14,
   "🌈": 0.75,
 };
@@ -35,11 +35,11 @@ const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
 };
 
 const SYMBOL_FREESPIN_MULTIS: Record<CandySymbol, number> = {
-  "🍬": 0.0075,
-  "🍭": 0.015,
-  "🍰": 0.025,
-  "🧁": 0.04,
-  "🍫": 0.06,
+  "🍬": 0.006,
+  "🍭": 0.012,
+  "🍰": 0.02,
+  "🧁": 0.032,
+  "🍫": 0.048,
 };
 
 const normalizeMoney = (value: number) => {
@@ -745,7 +745,7 @@ export default function SugarRushPage() {
       pendingRoundStakeRef.current = spinCost;
       pendingMultiDenominatorRef.current = betAmount;
     } else {
-      pendingRoundStakeRef.current = 100;
+      pendingRoundStakeRef.current = 0;
       pendingMultiDenominatorRef.current = 100;
     }
 

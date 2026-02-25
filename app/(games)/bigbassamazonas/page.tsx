@@ -83,18 +83,18 @@ const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   fisher: 0,
 };
 const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "10": 15,
-  J: 15, 
-  Q: 10,
-  K: 10,
-  A: 10,
+  "10": 16,
+  J: 16,
+  Q: 11,
+  K: 11,
+  A: 11,
   rod: 10,
   bag: 10,
   toucan: 5,
   lure: 3,
-  fish: 10,     
+  fish: 6,
   scatter: 0,
-  fisher: 2,   
+  fisher: 1.5,
 };
 const FISH_VALUES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000];
 const FISH_WEIGHTS = [26,  21, 17, 14, 10, 7, 3.5, 0.35, 0.09, 0.03, 0.008, 0.002];
@@ -918,7 +918,7 @@ export default function BigBassAmazonasPage() {
       pendingMultiDenominatorRef.current = betAmount;
     } else {
       playAudio(audioRef.current.bet);
-      pendingRoundStakeRef.current = 100;
+      pendingRoundStakeRef.current = 0;
       pendingMultiDenominatorRef.current = 100;
     }
     pendingRoundPayoutRef.current = 0;

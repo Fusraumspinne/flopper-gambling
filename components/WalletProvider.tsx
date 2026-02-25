@@ -620,11 +620,15 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       const lastPush = lastBetPushTsRef.current;
       const lastLoss = lastFinalizeLossAtRef.current;
       if (lastPush && lastLoss && lastLoss >= lastPush) {
-        console.warn("addToBalance called after finalizePendingLoss for the same bet; ignoring suspicious payout", { payout, pending, lastPush, lastLoss });
-        return;
+        console.warn("addToBalance called without matching pending bet after a finalized loss; crediting payout (free/bonus flow)", {
+          payout,
+          pending,
+          lastPush,
+          lastLoss,
+        });
+      } else {
+        console.warn("addToBalance called without matching pending bet; crediting payout anyway", { payout, pending });
       }
-
-      console.warn("addToBalance called without matching pending bet; crediting payout anyway", { payout, pending });
     }
 
     const next = normalizeMoney(balanceRef.current + payout);

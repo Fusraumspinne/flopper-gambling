@@ -1815,46 +1815,42 @@ export default function PokerPage() {
         bot.hole,
         boardNow,
         opponents,
-        220
+        450
       );
 
       const toCall = Math.max(
         0,
         Math.floor(currentBet - bot.roundContribution)
       );
+      const postflop = revealed >= 3;
+      const postflopScore = postflop
+        ? evaluateSeven(bot.hole, boardNow)
+        : null;
+      const isOnlyHighCard = postflop && postflopScore?.catRank === 1;
 
       const bigBlind = Math.max(1, Math.floor(betAmount));
-      const potOdds = toCall > 0 ? toCall / Math.max(1, pot + toCall) : 0;
-      const committed =
-        bot.contribution / Math.max(1, bot.contribution + bot.stack) >= 0.25;
-
-      const opponentTighten = Math.min(0.08, opponents * 0.015);
-      const multiwayLoosen = Math.min(0.08, opponents * 0.02);
-      const callThreshold = clamp01(
-        Math.max(0.08, potOdds - 0.18 - multiwayLoosen) + opponentTighten * 0.15 + 0.05
-      );
-      const strongRaiseThreshold = clamp01(
-        Math.max(0.48, potOdds + 0.1) + opponentTighten * 0.45
-      );
+      const finalPotIfCall = pot + toCall;
+      const potOdds = toCall > 0 ? toCall / Math.max(1, finalPotIfCall) : 0;
+      const callEV = equity * finalPotIfCall - toCall;
+      const equityEdge = equity - potOdds;
+      const canRaise = Math.floor(bot.stack) > toCall;
 
       let action: "fold" | "call" | "raise" = "call";
 
       if (toCall > 0) {
-        const cheapCall = toCall <= Math.max(1, Math.floor(bigBlind * 1.0));
-        const veryCheap = toCall <= Math.max(1, Math.floor(bigBlind * 0.4));
-        const softFoldThreshold = clamp01(callThreshold - 0.08);
+        const highCardNeedsFold =
+          isOnlyHighCard && equity < Math.max(0.28, potOdds + 0.06);
 
-        if (!committed && !cheapCall && equity < softFoldThreshold) {
+        if (callEV < 0 || highCardNeedsFold) {
           action = "fold";
-        } else if (!committed && !veryCheap && equity < callThreshold) {
-          action = "fold";
-        } else if (equity >= strongRaiseThreshold) {
+        } else if (canRaise && !isOnlyHighCard && equityEdge >= 0.14) {
           action = "raise";
         } else {
           action = "call";
         }
       } else {
-        action = equity >= strongRaiseThreshold ? "raise" : "call";
+        action =
+          canRaise && !isOnlyHighCard && equity >= 0.57 ? "raise" : "call";
       }
 
       let nextBots = [...bots];
@@ -1931,11 +1927,11 @@ export default function PokerPage() {
         playerRoundContribution;
       const totalPot = pot + currentStreetPot;
 
-      const potFactor =
-        equity >= 0.88 ? 1 :
-        equity >= 0.8 ? 0.8 :
-        equity >= 0.72 ? 0.6 : 0.45;
-      raiseAmt = Math.max(minR, Math.floor(totalPot * potFactor));
+      const edgeOverBreakEven = clamp01(
+        (equity - Math.max(0.01, potOdds)) / Math.max(0.08, 1 - potOdds)
+      );
+      const valueFactor = 0.4 + edgeOverBreakEven * 0.9;
+      raiseAmt = Math.max(minR, Math.floor(totalPot * valueFactor));
 
       const playerEffective = Math.max(
         1,

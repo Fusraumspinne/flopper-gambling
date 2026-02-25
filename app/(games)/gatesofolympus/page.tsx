@@ -32,7 +32,7 @@ const SYMBOL_WEIGHTS: Record<WeightedSymbol, number> = {
 };
 
 const MULTIPLIER_WEIGHT_NORMAL = 0.5;
-const MULTIPLIER_WEIGHT_FREE = 3;
+const MULTIPLIER_WEIGHT_FREE = 2.5;
 
 const SYMBOL_BASE_MULTIS: Record<BaseSymbol, number> = {
   "🌿": 0.003,
@@ -45,17 +45,17 @@ const SYMBOL_BASE_MULTIS: Record<BaseSymbol, number> = {
 };
 
 const SYMBOL_FREESPIN_MULTIS: Record<BaseSymbol, number> = {
-  "🌿": 0.01,
-  "🍇": 0.015,
-  "⚔️": 0.025,
-  "🏛️": 0.04,
-  "🪙": 0.05,
-  "🔱": 0.07,
-  "👑": 0.1,
+  "🌿": 0.008,
+  "🍇": 0.012,
+  "⚔️": 0.02,
+  "🏛️": 0.032,
+  "🪙": 0.04,
+  "🔱": 0.055,
+  "👑": 0.08,
 };
 
 const MULTIPLIER_POOL = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 50, 100, 250, 500];
-const MULTIPLIER_POOL_WEIGHTS = [24, 20, 16, 14, 10, 8, 6, 5, 3, 2, 1.2, 0.6, 0.15, 0.04, 0.01];
+const MULTIPLIER_POOL_WEIGHTS = [26, 22, 18, 14, 9, 6, 4.2, 3.2, 1.8, 1.1, 0.55, 0.2, 0.03, 0.008, 0.001];
 
 const normalizeMoney = (value: number) => {
   if (!Number.isFinite(value)) return 0;
@@ -714,7 +714,6 @@ export default function GatesOfOlympusPage() {
         const scatters = countScatters(workingGrid);
         const extra = Math.max(0, scatters - 3) * 2;
         setAnteBet(false);
-        resetStoredMultiplier();
         setPhase("free");
         setFreeSpinsLeft(FREE_SPINS_AWARD + extra);
         setIsAutospinning(false);
@@ -776,7 +775,7 @@ export default function GatesOfOlympusPage() {
       pendingRoundStakeRef.current = spinCost;
       pendingMultiDenominatorRef.current = betAmount;
     } else {
-      pendingRoundStakeRef.current = 100;
+      pendingRoundStakeRef.current = 0;
       pendingMultiDenominatorRef.current = 100;
     }
 
