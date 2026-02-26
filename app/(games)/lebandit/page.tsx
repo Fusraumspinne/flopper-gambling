@@ -63,9 +63,9 @@ const FEATURE_TYPE_WEIGHTS: [CoinTier | "clover" | "cloverGold" | "cauldron", nu
 	["silver", 27],
 	["gold", 10],
 	["diamond", 1.2],
-	["clover", 5.5],
-	["cloverGold", 0.5],
-	["cauldron", 0.25],
+	["clover", 8],
+	["cloverGold", 0.75],
+	["cauldron", 1.5],
 ];
 
 const CLOVER_VALUES = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25];
@@ -1169,7 +1169,7 @@ export default function LeBanditPage() {
 					if (f.kind === "cauldron") finalCoinSum += (f.currentValue || 0);
 				}
 			}
-			totalFeatureWin = normalizeMoney(finalCoinSum * (betAmount / 10));
+			totalFeatureWin = normalizeMoney(finalCoinSum * (betAmount / (isFreeSpin ? 10 : 100)));
 			
 			featureWin = totalFeatureWin;
 			setLastFeatureWin(featureWin);
