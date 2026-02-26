@@ -2,6 +2,7 @@ export const games = [
   { name: "Big Bass Amazonas", href: "/bigbassamazonas", tagline: "Catch the biggest Fishes", image: "/images/BigBassAmazonas.png" },
   { name: "Sugar Rush", href: "/sugarrush", tagline: "Connect candies and stack multipliers", image: "/images/SugarRush.png" },
   { name: "Gates of Olympus", href: "/gatesofolympus", tagline: "Stack multis and defeat Ceaser", image: "/images/GatesOfOlympus.png" },
+  { name: "Le Bandit", href: "/lebandit", tagline: "Belle Époque clusters, gold tiles and coin chaos", image: "/images/LeBandit.png" },
   { name: "Coin Flip", href: "/coinflip", tagline: "Build a streak multiplier", image: "/images/Coinflip.png" },
   { name: "Poker", href: "/poker", tagline: "Read your enemies", image: "/images/Poker.png" },
   { name: "Mines", href: "/mines", tagline: "Find diamonds, avoid mines", image: "/images/Mines.png" },

@@ -2425,7 +2425,8 @@ export default function PokerPage() {
           {stage === "setup" || stage === "finished" ? (
             <button
               onClick={startHand}
-              disabled={betAmount <= 0 || balance <= 0 || betAmount > balance}
+              //disabled={betAmount <= 0 || balance <= 0 || betAmount > balance}
+              disabled={true}
               className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <PlayArrow /> Bet
