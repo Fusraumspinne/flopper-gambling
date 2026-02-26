@@ -25,23 +25,23 @@ const COLS = 6;
 const MIN_CLUSTER = 5;
 
 const SYMBOL_BASE_MULTI: Record<PaySymbol, number> = {
-	"🧀": 0.18,
-	"🥖": 0.21,
-	"🍺": 0.24,
-	"🥐": 0.27,
-	"🎩": 0.31,
-	"🍷": 0.36,
-	"🎻": 0.42,
+	"🧀": 0,
+	"🥖": 0,
+	"🍺": 0,
+	"🥐": 0,
+	"🎩": 0,
+	"🍷": 0,
+	"🎻": 0,
 };
 
 const SYMBOL_STEP_MULTI: Record<PaySymbol, number> = {
-	"🧀": 0.03,
-	"🥖": 0.034,
-	"🍺": 0.038,
-	"🥐": 0.043,
-	"🎩": 0.05,
-	"🍷": 0.058,
-	"🎻": 0.065,
+	"🧀": 0,
+	"🥖": 0,
+	"🍺": 0,
+	"🥐": 0,
+	"🎩": 0,
+	"🍷": 0,
+	"🎻": 0,
 };
 
 const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
