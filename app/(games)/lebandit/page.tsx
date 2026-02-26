@@ -25,23 +25,23 @@ const COLS = 6;
 const MIN_CLUSTER = 5;
 
 const SYMBOL_BASE_MULTI: Record<PaySymbol, number> = {
-	"🧀": 0,
-	"🥖": 0,
-	"🍺": 0,
-	"🥐": 0,
-	"🎩": 0,
-	"🍷": 0,
-	"🎻": 0,
+	"🧀": 0.04,
+	"🥖": 0.05,
+	"🍺": 0.06,
+	"🥐": 0.07,
+	"🎩": 0.08,
+	"🍷": 0.1,
+	"🎻": 0.12,
 };
 
 const SYMBOL_STEP_MULTI: Record<PaySymbol, number> = {
-	"🧀": 0,
-	"🥖": 0,
-	"🍺": 0,
-	"🥐": 0,
-	"🎩": 0,
-	"🍷": 0,
-	"🎻": 0,
+	"🧀": 0.006,
+	"🥖": 0.007,
+	"🍺": 0.009,
+	"🥐": 0.01,
+	"🎩": 0.013,
+	"🍷": 0.015,
+	"🎻": 0.02,
 };
 
 const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
@@ -65,7 +65,7 @@ const FEATURE_TYPE_WEIGHTS: [CoinTier | "clover" | "cloverGold" | "cauldron", nu
 	["diamond", 1.2],
 	["clover", 8],
 	["cloverGold", 0.75],
-	["cauldron", 1.5],
+	["cauldron", 2],
 ];
 
 const CLOVER_VALUES = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25];
