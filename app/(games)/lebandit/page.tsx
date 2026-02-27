@@ -64,8 +64,8 @@ const FEATURE_TYPE_WEIGHTS: [CoinTier | "clover" | "cloverGold" | "cauldron", nu
 	["gold", 10],
 	["diamond", 1.2],
 	["clover", 8],
-	["cloverGold", 0.75],
-	["cauldron", 2],
+	["cloverGold", 0.25],
+	["cauldron", 1],
 ];
 
 const CLOVER_VALUES = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25];
