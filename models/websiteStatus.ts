@@ -22,6 +22,10 @@ const websiteStatusSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    seasonStartedAt: {
+      type: Date,
+      default: Date.now,
+    },
     games: {
       type: gamesSchema,
       default: () => ({}),

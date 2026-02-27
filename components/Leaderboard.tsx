@@ -34,6 +34,8 @@ const Badge = ({ rank, index }: { rank: string; index: number }) => {
 
 export default function Leaderboard() {
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
+  const [seasonStartedAtMs, setSeasonStartedAtMs] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState<number>(Date.now());
   const [username, setUsername] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -45,6 +47,20 @@ export default function Leaderboard() {
   const { data: session, status, update } = useSession();
   const [page, setPage] = useState<number>(1);
   const PAGE_SIZE = 5;
+  const SEASON_LENGTH_DAYS = 20;
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  const fetchSeasonStatus = async () => {
+    try {
+      const res = await fetch("/api/status", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const parsed = Date.parse(String(data?.seasonStartedAt ?? ""));
+      setSeasonStartedAtMs(Number.isFinite(parsed) ? parsed : Date.now());
+    } catch (error) {
+      console.error("Failed to fetch season status", error);
+    }
+  };
 
   const fetchLeaderboard = async (opts?: { force?: boolean }) => {
     try {
@@ -82,10 +98,27 @@ export default function Leaderboard() {
         }
       }
       await fetchLeaderboard();
+      await fetchSeasonStatus();
       setLoading(false);
     };
     init();
   }, [session?.user?.name, status]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNowMs(Date.now());
+    }, 60_000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchSeasonStatus().catch(console.error);
+    }, 60_000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     setEditName(username ?? "");
@@ -175,11 +208,12 @@ export default function Leaderboard() {
   const goPrev = () => setPage((p) => Math.max(1, p - 1));
   const goNext = () => setPage((p) => Math.min(totalPages, p + 1));
   const goLast = () => setPage(totalPages);
+  const seasonEndMs = (seasonStartedAtMs ?? nowMs) + SEASON_LENGTH_DAYS * DAY_MS;
+  const daysUntilNextSeason = Math.max(0, Math.ceil((seasonEndMs - nowMs) / DAY_MS));
 
   return (
     <div className="bg-[#213743] p-6 rounded-xl border border-[#2f4553]/60 w-full h-full mb-6 flex flex-col">
       <h2 className="text-2xl font-bold text-white mb-4">Leaderboard</h2>
-
       {username && (
         <div className="mb-3">
           <button
@@ -345,6 +379,9 @@ export default function Leaderboard() {
         </div>
       </div>
       <div className="mt-3 text-sm text-[#b1bad3]">
+        The next season starts in <span className="text-white font-semibold">{daysUntilNextSeason}</span> Day{daysUntilNextSeason === 1 ? "" : "s"}
+      </div>
+      <div className="text-sm text-[#b1bad3]">
         Each season will restart on the first day of a month, after the restart, all accounts will be reset to $10,000 and the top 3 and last place will receive season badges
       </div>
     </div>

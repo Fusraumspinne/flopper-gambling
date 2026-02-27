@@ -48,6 +48,9 @@ export async function PATCH(req: Request) {
       $set: {
         games: nextGames,
       },
+      $setOnInsert: {
+        seasonStartedAt: new Date(),
+      },
     };
 
     if (typeof nextMaintenance === "boolean") update.$set.isMaintenance = nextMaintenance;
@@ -63,6 +66,7 @@ export async function PATCH(req: Request) {
       isMaintenance: !!status.isMaintenance,
       isPaused: !!status.isPaused,
       isSeasonBreak: !!status.isSeasonBreak,
+      seasonStartedAt: (status.seasonStartedAt ?? status.createdAt ?? new Date()).toISOString(),
       games: status.games?.toObject?.() ?? status.games ?? nextGames,
     });
     res.headers.set("Cache-Control", "no-store");

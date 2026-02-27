@@ -49,6 +49,8 @@ export async function POST() {
       return NextResponse.json({ message: "No users found" }, { status: 400 });
     }
 
+    await User.updateMany({}, { $pull: { seasons: "last" } });
+
     if (mapped[0]) await User.findByIdAndUpdate(mapped[0]._id, { $push: { seasons: "first" } });
     if (mapped[1]) await User.findByIdAndUpdate(mapped[1]._id, { $push: { seasons: "second" } });
     if (mapped[2]) await User.findByIdAndUpdate(mapped[2]._id, { $push: { seasons: "third" } });
@@ -81,6 +83,11 @@ export async function POST() {
       HighestLoss.deleteMany({}),
       HighestMultiplier.deleteMany({}),
       HighestProfit.deleteMany({}),
+      WebsiteStatus.findOneAndUpdate(
+        {},
+        { $set: { seasonStartedAt: resetTimestamp } },
+        { upsert: true, new: true }
+      ),
     ]);
 
     return NextResponse.json({ message: "Season rewards processed and accounts reset successfully" });

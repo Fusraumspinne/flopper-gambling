@@ -6,6 +6,7 @@ export type WebsiteStatusPayload = {
   isMaintenance: boolean;
   isPaused: boolean;
   isSeasonBreak: boolean;
+  seasonStartedAt: string;
   games: Record<string, boolean>;
 };
 
@@ -35,11 +36,17 @@ export async function getWebsiteStatus(): Promise<WebsiteStatusPayload> {
   const isMaintenance = coerceBoolean(status.isMaintenance, false);
   const isPaused = coerceBoolean(status.isPaused, false);
   const isSeasonBreak = coerceBoolean(status.isSeasonBreak, false);
+  const seasonStartedAtRaw = status.seasonStartedAt ?? status.createdAt ?? new Date();
+  const seasonStartedAt =
+    seasonStartedAtRaw instanceof Date
+      ? seasonStartedAtRaw
+      : new Date(seasonStartedAtRaw);
 
   return {
     isMaintenance,
     isPaused,
     isSeasonBreak,
+    seasonStartedAt: seasonStartedAt.toISOString(),
     games,
   };
 }

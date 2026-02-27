@@ -25,23 +25,23 @@ const COLS = 6;
 const MIN_CLUSTER = 5;
 
 const SYMBOL_BASE_MULTI: Record<PaySymbol, number> = {
-	"🧀": 0.04,
-	"🥖": 0.05,
-	"🍺": 0.06,
-	"🥐": 0.07,
-	"🎩": 0.08,
-	"🍷": 0.1,
-	"🎻": 0.12,
+	"🧀": 0.02,
+	"🥖": 0.025,
+	"🍺": 0.03,
+	"🥐": 0.035,
+	"🎩": 0.04,
+	"🍷": 0.05,
+	"🎻": 0.06,
 };
 
 const SYMBOL_STEP_MULTI: Record<PaySymbol, number> = {
-	"🧀": 0.006,
-	"🥖": 0.007,
-	"🍺": 0.009,
-	"🥐": 0.01,
-	"🎩": 0.013,
-	"🍷": 0.015,
-	"🎻": 0.02,
+	"🧀": 0.003,
+	"🥖": 0.0035,
+	"🍺": 0.0045,
+	"🥐": 0.005,
+	"🎩": 0.006,
+	"🍷": 0.008,
+	"🎻": 0.01,
 };
 
 const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
@@ -56,7 +56,7 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
 };
 
 const SCATTER_WEIGHT = 1.25;
-const RAINBOW_WEIGHT = 0.75;
+const RAINBOW_WEIGHT = 0.65;
 
 const FEATURE_TYPE_WEIGHTS: [CoinTier | "clover" | "cloverGold" | "cauldron", number][] = [
 	["bronze", 52],
@@ -70,6 +70,7 @@ const FEATURE_TYPE_WEIGHTS: [CoinTier | "clover" | "cloverGold" | "cauldron", nu
 
 const CLOVER_VALUES = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25];
 const CLOVER_WEIGHTS = [30, 24, 16, 11, 8, 5.2, 3.2, 1.6, 0.8, 0.25, 0.05];
+const GOLDEN_CLOVER_WEIGHTS = [40, 30, 18, 10, 5, 2, 1, 0.5, 0.2, 0.05, 0.01];
 
 const normalizeMoney = (value: number) => {
 	if (!Number.isFinite(value)) return 0;
@@ -311,20 +312,21 @@ function getTierForValue(value: number): CoinTier {
 }
 
 function randomCoinValue(tier: CoinTier) {
-	if (tier === "bronze") return Math.floor(Math.random() * 2) + 1;
-	if (tier === "silver") return Math.floor(Math.random() * 4) + 3;
-	if (tier === "gold") return Math.floor(Math.random() * 8) + 7;
-	return Math.floor(Math.random() * 31) + 15;
+	if (tier === "bronze") return Math.floor(Math.random() * 2) + 1; // 1-2
+	if (tier === "silver") return Math.floor(Math.random() * 3) + 3; // 3-5
+	if (tier === "gold") return Math.floor(Math.random() * 5) + 6; // 6-10
+	return Math.floor(Math.random() * 15) + 11; // 11-25
 }
 
-function randomCloverValue() {
-	return pickWeighted<number>(CLOVER_VALUES.map((v, i) => [v, CLOVER_WEIGHTS[i]]));
+function randomCloverValue(isGolden: boolean = false) {
+	const weights = isGolden ? GOLDEN_CLOVER_WEIGHTS : CLOVER_WEIGHTS;
+	return pickWeighted<number>(CLOVER_VALUES.map((v, i) => [v, weights[i]]));
 }
 
 function randomFeatureCell(): FeatureCell {
 	const type = pickWeighted(FEATURE_TYPE_WEIGHTS);
-	if (type === "clover") return { kind: "clover", value: randomCloverValue() };
-	if (type === "cloverGold") return { kind: "clover", value: randomCloverValue(), isGolden: true };
+	if (type === "clover") return { kind: "clover", value: randomCloverValue(false) };
+	if (type === "cloverGold") return { kind: "clover", value: randomCloverValue(true), isGolden: true };
 	if (type === "cauldron") return { kind: "cauldron" };
 	return { kind: "coin", tier: type as CoinTier, value: randomCoinValue(type as CoinTier) };
 }
@@ -1215,7 +1217,7 @@ export default function LeBanditPage() {
 		if (!isAutospinning || isExecutingSpin) return;
 
 		if (phase === "idle") {
-			if (balance < spinCost) {
+			if (balance < spinCost && betAmount !== 100) {
 				setIsAutospinning(false);
 				return;
 			}
@@ -1247,10 +1249,15 @@ export default function LeBanditPage() {
 		if (!canPaidSpin) return;
 		if (isExecutingSpinRef.current) return;
 		if (betAmount < 100) return;
-		if (balance < spinCost) return;
+		if (balance < spinCost && betAmount !== 100) return;
 
-		subtractFromBalance(spinCost);
-		pendingRoundStakeRef.current = spinCost;
+		const actualCost = betAmount === 100 ? 0 : spinCost;
+
+		if (actualCost > 0) {
+			subtractFromBalance(actualCost);
+		}
+		
+		pendingRoundStakeRef.current = actualCost;
 		pendingMultiDenominatorRef.current = betAmount;
 		pendingRoundPayoutRef.current = 0;
 		setPendingRoundPayout(0);
@@ -1297,7 +1304,7 @@ export default function LeBanditPage() {
 
 	const mainDisabled =
 		isExecutingSpin ||
-		(phase === "free" ? freeSpinsLeft <= 0 : phase !== "idle" || balance < spinCost || betAmount < 100);
+		(phase === "free" ? freeSpinsLeft <= 0 : phase !== "idle" || (balance < spinCost && betAmount !== 100) || betAmount < 100);
 
 	return (
 		<>
@@ -1386,7 +1393,7 @@ export default function LeBanditPage() {
 					{!isAutospinning && (
 						<button
 							onClick={() => setIsAutospinning(true)}
-							disabled={(phase !== "idle" && phase !== "free") || (phase === "idle" && balance < spinCost)}
+							disabled={(phase !== "idle" && phase !== "free") || (phase === "idle" && balance < spinCost && betAmount !== 100)}
 							className="w-full py-2 rounded-md font-bold text-xs transition-all flex items-center justify-center gap-2 bg-[#2f4553] hover:bg-[#3e5666] text-[#b1bad3] disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							{phase === "free" ? "Auto (Free Spins)" : "Auto (Normal Spins)"}
