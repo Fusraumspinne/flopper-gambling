@@ -1198,7 +1198,7 @@ export default function LeBanditPage() {
 			}
 		} else {
 			if (scatterCount >= 3) {
-				const freeAward = 15 + Math.max(0, scatterCount - 3) * 2;
+				const freeAward = 10 + Math.max(0, scatterCount - 3) * 2;
 				setPhase("free");
 				setFreeSpinsLeft(freeAward);
 				setIsAutospinning(false);
