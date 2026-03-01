@@ -56,16 +56,16 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
 };
 
 const SCATTER_WEIGHT = 1.25;
-const RAINBOW_WEIGHT = 0.65;
+const RAINBOW_WEIGHT = 0.75;
 
 const FEATURE_TYPE_WEIGHTS: [CoinTier | "clover" | "cloverGold" | "cauldron", number][] = [
-	["bronze", 52],
-	["silver", 27],
-	["gold", 10],
-	["diamond", 1.2],
+	["bronze", 73.75],
+	["silver", 10],
+	["gold", 5],
+	["diamond", 0.5],
 	["clover", 8],
-	["cloverGold", 0.25],
-	["cauldron", 1],
+	["cloverGold", 0.75],
+	["cauldron", 2],
 ];
 
 const CLOVER_VALUES = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25];
@@ -305,17 +305,17 @@ function tumble(grid: GridCell[][], remove: Set<string>, isFreeSpin: boolean) {
 }
 
 function getTierForValue(value: number): CoinTier {
-	if (value < 3) return "bronze";
-	if (value < 7) return "silver";
-	if (value < 15) return "gold";
+	if (value < 4) return "bronze";
+	if (value < 11) return "silver";
+	if (value < 21) return "gold";
 	return "diamond";
 }
 
 function randomCoinValue(tier: CoinTier) {
-	if (tier === "bronze") return Math.floor(Math.random() * 2) + 1; // 1-2
-	if (tier === "silver") return Math.floor(Math.random() * 3) + 3; // 3-5
-	if (tier === "gold") return Math.floor(Math.random() * 5) + 6; // 6-10
-	return Math.floor(Math.random() * 15) + 11; // 11-25
+	if (tier === "bronze") return Math.floor(Math.random() * 3) + 1;    // 1-3
+	if (tier === "silver") return Math.floor(Math.random() * 7) + 4;    // 4-10
+	if (tier === "gold") return Math.floor(Math.random() * 10) + 11;    // 11-20
+	return Math.floor(Math.random() * 30) + 21;                       // 21-50
 }
 
 function randomCloverValue(isGolden: boolean = false) {
