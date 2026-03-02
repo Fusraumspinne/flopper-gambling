@@ -91,7 +91,7 @@ function randomMultiplierValue() {
 }
 
 function randomCell(anteBet: boolean, isFreeSpin?: boolean): Cell {
-  const scatterWeight = anteBet ? SYMBOL_WEIGHTS["⚡"] * 1.25 : SYMBOL_WEIGHTS["⚡"];
+  const scatterWeight = anteBet ? SYMBOL_WEIGHTS["⚡"] * 1.75 : SYMBOL_WEIGHTS["⚡"];
   const mWeight = isFreeSpin ? MULTIPLIER_WEIGHT_FREE : MULTIPLIER_WEIGHT_NORMAL;
   const multiWeight = anteBet ? mWeight * 1.5 : mWeight;
 
