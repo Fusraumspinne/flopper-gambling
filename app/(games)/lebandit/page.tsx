@@ -55,7 +55,7 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
 	"🃏": 10,
 };
 
-const SCATTER_WEIGHT = 1.75;
+const SCATTER_WEIGHT = 1.25;
 const RAINBOW_WEIGHT = 0.75;
 
 const FEATURE_TYPE_WEIGHTS: [CoinTier | "clover" | "cloverGold" | "cauldron", number][] = [
@@ -99,7 +99,7 @@ function pickWeighted<T extends string | number>(entries: [T, number][]) {
 function randomBaseCell(isFreeSpin: boolean, allowRainbow: boolean = true): GridCell {
 	const table: [string, number][] = [
 		...Object.entries(SYMBOL_WEIGHTS),
-		["SCATTER", isFreeSpin ? SCATTER_WEIGHT * 0.9 : SCATTER_WEIGHT],
+		["SCATTER", isFreeSpin ? SCATTER_WEIGHT * 1.25 : SCATTER_WEIGHT],
 		...(allowRainbow ? [["RAINBOW", RAINBOW_WEIGHT] as [string, number]] : []),
 	];
 
