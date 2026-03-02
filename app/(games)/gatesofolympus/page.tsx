@@ -28,7 +28,7 @@ const SYMBOL_WEIGHTS: Record<WeightedSymbol, number> = {
   "🪙": 15,
   "🔱": 10,
   "👑": 10,
-  "⚡": 1.25,
+  "⚡": 1.75,
 };
 
 const MULTIPLIER_WEIGHT_NORMAL = 0.5;
