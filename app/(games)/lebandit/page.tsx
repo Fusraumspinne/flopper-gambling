@@ -55,7 +55,7 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
 	"🃏": 10,
 };
 
-const SCATTER_WEIGHT = 1.25;
+const SCATTER_WEIGHT = 1.4;
 const RAINBOW_WEIGHT = 0.75;
 
 const FEATURE_TYPE_WEIGHTS: [CoinTier | "clover" | "cloverGold" | "cauldron", number][] = [
@@ -96,10 +96,10 @@ function pickWeighted<T extends string | number>(entries: [T, number][]) {
 	return entries[entries.length - 1][0];
 }
 
-function randomBaseCell(isFreeSpin: boolean, allowRainbow: boolean = true): GridCell {
+function randomBaseCell(isFreeSpin: boolean, anteBet: boolean, allowRainbow: boolean = true): GridCell {
 	const table: [string, number][] = [
 		...Object.entries(SYMBOL_WEIGHTS),
-		["SCATTER", isFreeSpin ? SCATTER_WEIGHT * 0.9 : SCATTER_WEIGHT],
+		["SCATTER", SCATTER_WEIGHT * (anteBet ? 1.2 : 1)],
 		...(allowRainbow ? [["RAINBOW", RAINBOW_WEIGHT] as [string, number]] : []),
 	];
 
@@ -109,13 +109,13 @@ function randomBaseCell(isFreeSpin: boolean, allowRainbow: boolean = true): Grid
 	return { kind: "symbol", symbol: pick as SymbolId };
 }
 
-function buildGrid(isFreeSpin: boolean, forceScatters: boolean = false) {
+function buildGrid(isFreeSpin: boolean, anteBet: boolean, forceScatters: boolean = false) {
 	const grid: GridCell[][] = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
 	let hasRainbow = false;
 
 	for (let row = 0; row < ROWS; row++) {
 		for (let col = 0; col < COLS; col++) {
-			const cell = randomBaseCell(isFreeSpin, !hasRainbow);
+			const cell = randomBaseCell(isFreeSpin, anteBet, !hasRainbow);
 			if (cell.kind === "rainbow") hasRainbow = true;
 			grid[row][col] = cell;
 		}
@@ -260,7 +260,7 @@ function findClusters(grid: GridCell[][]) {
 	return clusters;
 }
 
-function tumble(grid: GridCell[][], remove: Set<string>, isFreeSpin: boolean) {
+function tumble(grid: GridCell[][], remove: Set<string>, isFreeSpin: boolean, anteBet: boolean) {
 	const nextGrid: GridCell[][] = Array.from({ length: ROWS }, () => Array(COLS).fill(null as unknown as GridCell));
 	const droppedIndices = new Set<string>();
 
@@ -286,7 +286,7 @@ function tumble(grid: GridCell[][], remove: Set<string>, isFreeSpin: boolean) {
 		const numberOfNew = ROWS - survivors.length;
 
 		for (let i = 0; i < numberOfNew; i++) {
-			const newCell = randomBaseCell(isFreeSpin, !hasRainbow);
+			const newCell = randomBaseCell(isFreeSpin, anteBet, !hasRainbow);
 			if (newCell.kind === "rainbow") hasRainbow = true;
 			nextGrid[i][col] = newCell;
 			droppedIndices.add(toPosKey(i, col));
@@ -750,8 +750,8 @@ export default function LeBanditPage() {
 	const [betInput, setBetInput] = useState("100");
 	const [betAmount, setBetAmount] = useState(100);
 	const [anteBet, setAnteBet] = useState(false);
-	const [grid, setGrid] = useState<GridCell[][]>(() => buildGrid(false));
-	const [reelFrames, setReelFrames] = useState<string[][]>(() => gridToReelFrames(buildGrid(false)));
+	const [grid, setGrid] = useState<GridCell[][]>(() => buildGrid(false, false));
+	const [reelFrames, setReelFrames] = useState<string[][]>(() => gridToReelFrames(buildGrid(false, false)));
 	const [reelsSpinning, setReelsSpinning] = useState<boolean[]>(() => Array(COLS).fill(false));
 	const [spinKey, setSpinKey] = useState(0);
 	const [goldMask, setGoldMask] = useState<boolean[][]>(() => emptyGoldMask());
@@ -776,6 +776,7 @@ export default function LeBanditPage() {
 
 	const spinCost = useMemo(() => normalizeMoney(betAmount * (anteBet ? 1.5 : 1)), [betAmount, anteBet]);
 	const buyBonusCost = useMemo(() => normalizeMoney(betAmount * 100), [betAmount]);
+	const isHundredDollarFreeSpin = !anteBet && normalizeMoney(betAmount) === 100;
 
 	const audioRef = React.useRef<{
 		bet: HTMLAudioElement | null;
@@ -828,6 +829,12 @@ export default function LeBanditPage() {
 		document.addEventListener("pointerdown", prime, { once: true });
 		return () => document.removeEventListener("pointerdown", prime);
 	}, [volume]);
+
+	React.useEffect(() => {
+		if (phase === "free" && anteBet) {
+			setAnteBet(false);
+		}
+	}, [phase, anteBet]);
 
 	const settleRound = React.useCallback(
 		(stake: number, payout: number, multiDenominator: number) => {
@@ -889,7 +896,7 @@ export default function LeBanditPage() {
 		playAudio(audioRef.current.spin);
 		setSpinKey((v) => v + 1);
 
-		let workingGrid = buildGrid(isFreeSpin, isBonusBuy);
+		let workingGrid = buildGrid(isFreeSpin, anteBet, isBonusBuy);
 		const startFrames = gridToReelFrames(grid).map((col) => [randomReelSymbol(), ...col]);
 		setReelFrames(startFrames);
 		setReelsSpinning(Array(COLS).fill(true));
@@ -956,7 +963,7 @@ export default function LeBanditPage() {
 
 			await sleep(350);
 
-			const tumbleResult = tumble(workingGrid, remove, isFreeSpin);
+			const tumbleResult = tumble(workingGrid, remove, isFreeSpin, anteBet);
 			workingGrid = tumbleResult.nextGrid;
 
 			setLastDropIndices(tumbleResult.droppedIndices);
@@ -995,7 +1002,7 @@ export default function LeBanditPage() {
 					}
 					if (addedInCol) {
 						setFeatureCells(new Map(currentFeatures));
-						await sleep(150);
+						await sleep(80);
 					}
 				}
 				
@@ -1013,11 +1020,11 @@ export default function LeBanditPage() {
 					currentFeatures.set(key, { ...feature, revealed: true });
 					setFeatureCells(new Map(currentFeatures));
 					progress = true;
-					await sleep(150);
+					await sleep(80);
 				}
 				
 				if (unrevealedCoins.length > 0) {
-					await sleep(300);
+					await sleep(150);
 				}
 				
 				const untriggeredClovers = Array.from(currentFeatures.entries())
@@ -1150,7 +1157,7 @@ export default function LeBanditPage() {
 								continue;
 							}
 
-							refillGrid[r][c] = randomBaseCell(isFreeSpin, true);
+							refillGrid[r][c] = randomBaseCell(isFreeSpin, anteBet, true);
 							currentFeatures.delete(pk);
 						}
 					}
@@ -1199,6 +1206,7 @@ export default function LeBanditPage() {
 		} else {
 			if (scatterCount >= 3) {
 				const freeAward = 10 + Math.max(0, scatterCount - 3) * 2;
+				setAnteBet(false);
 				setPhase("free");
 				setFreeSpinsLeft(freeAward);
 				setIsAutospinning(false);
@@ -1211,13 +1219,13 @@ export default function LeBanditPage() {
 		isExecutingSpinRef.current = false;
 		setIsExecutingSpin(false);
 		setIsTumbling(false);
-	}, [phase, freeSpinsLeft, goldMask, grid, spinCost, settleRound]);
+	}, [phase, freeSpinsLeft, goldMask, grid, spinCost, settleRound, anteBet]);
 
 	React.useEffect(() => {
 		if (!isAutospinning || isExecutingSpin) return;
 
 		if (phase === "idle") {
-			if (balance < spinCost && betAmount !== 100) {
+			if (!isHundredDollarFreeSpin && balance < spinCost) {
 				setIsAutospinning(false);
 				return;
 			}
@@ -1241,7 +1249,7 @@ export default function LeBanditPage() {
 			}, 360);
 			return () => window.clearTimeout(timer);
 		}
-	}, [isAutospinning, isExecutingSpin, phase, balance, spinCost, freeSpinsLeft]);
+	}, [isAutospinning, isExecutingSpin, phase, balance, spinCost, freeSpinsLeft, isHundredDollarFreeSpin]);
 
 	const canPaidSpin = phase === "idle";
 
@@ -1249,9 +1257,9 @@ export default function LeBanditPage() {
 		if (!canPaidSpin) return;
 		if (isExecutingSpinRef.current) return;
 		if (betAmount < 100) return;
-		if (balance < spinCost && betAmount !== 100) return;
+		if (!isHundredDollarFreeSpin && balance < spinCost) return;
 
-		const actualCost = betAmount === 100 ? 0 : spinCost;
+		const actualCost = isHundredDollarFreeSpin ? 0 : spinCost;
 
 		if (actualCost > 0) {
 			subtractFromBalance(actualCost);
@@ -1304,7 +1312,7 @@ export default function LeBanditPage() {
 
 	const mainDisabled =
 		isExecutingSpin ||
-		(phase === "free" ? freeSpinsLeft <= 0 : phase !== "idle" || (balance < spinCost && betAmount !== 100) || betAmount < 100);
+		(phase === "free" ? freeSpinsLeft <= 0 : phase !== "idle" || (!isHundredDollarFreeSpin && balance < spinCost) || betAmount < 100);
 
 	return (
 		<>
@@ -1393,7 +1401,7 @@ export default function LeBanditPage() {
 					{!isAutospinning && (
 						<button
 							onClick={() => setIsAutospinning(true)}
-							disabled={(phase !== "idle" && phase !== "free") || (phase === "idle" && balance < spinCost && betAmount !== 100)}
+							disabled={(phase !== "idle" && phase !== "free") || (phase === "idle" && !isHundredDollarFreeSpin && balance < spinCost)}
 							className="w-full py-2 rounded-md font-bold text-xs transition-all flex items-center justify-center gap-2 bg-[#2f4553] hover:bg-[#3e5666] text-[#b1bad3] disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							{phase === "free" ? "Auto (Free Spins)" : "Auto (Normal Spins)"}

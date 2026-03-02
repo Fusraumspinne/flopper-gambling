@@ -79,7 +79,7 @@ const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   toucan: 5,
   lure: 5,
   fish: 4,      
-  scatter: 2.35,   
+  scatter: 2.4,
   fisher: 0,
 };
 const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
@@ -154,7 +154,7 @@ function randomSymbol(isFreeSpin: boolean, anteBet: boolean): SymbolId {
     ? FREE_SYMBOL_WEIGHTS
     : {
         ...BASE_SYMBOL_WEIGHTS,
-        scatter: anteBet ? BASE_SYMBOL_WEIGHTS.scatter * 1.45 : BASE_SYMBOL_WEIGHTS.scatter,
+        scatter: anteBet ? BASE_SYMBOL_WEIGHTS.scatter * 1.2 : BASE_SYMBOL_WEIGHTS.scatter,
       };
 
   return pickWeighted<SymbolId>(Object.entries(table) as [SymbolId, number][]);

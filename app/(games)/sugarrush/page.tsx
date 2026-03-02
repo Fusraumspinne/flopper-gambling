@@ -23,7 +23,7 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   "🍰": 28,
   "🧁": 18,
   "🍫": 14,
-  "🌈": 0.75,
+  "🌈": 0.8,
 };
 
 const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
@@ -67,7 +67,7 @@ function pickWeighted<T extends string | number>(entries: [T, number][]) {
 }
 
 function randomSymbol(anteBet: boolean): SymbolId {
-  const scatterWeight = anteBet ? SYMBOL_WEIGHTS["🌈"] * 1.3 : SYMBOL_WEIGHTS["🌈"];
+  const scatterWeight = anteBet ? SYMBOL_WEIGHTS["🌈"] * 1.2 : SYMBOL_WEIGHTS["🌈"];
   const table: [SymbolId, number][] = [
     ["🍬", SYMBOL_WEIGHTS["🍬"]],
     ["🍭", SYMBOL_WEIGHTS["🍭"]],
