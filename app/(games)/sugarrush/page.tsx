@@ -35,11 +35,11 @@ const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
 };
 
 const SYMBOL_FREESPIN_MULTIS: Record<CandySymbol, number> = {
-  "🍬": 0.006,
-  "🍭": 0.012,
-  "🍰": 0.02,
-  "🧁": 0.032,
-  "🍫": 0.048,
+  "🍬": 0.003,
+  "🍭": 0.005,
+  "🍰": 0.008,
+  "🧁": 0.0125,
+  "🍫": 0.02,
 };
 
 const normalizeMoney = (value: number) => {
