@@ -6,7 +6,6 @@ import { useSession } from "next-auth/react";
 
 const PAYBACK_RATE = 0.1; 
 const SYNC_IDLE_MS = 5000;
-const SYNC_CHANGE_THRESHOLD = 50;
 
 type LiveStatsPoint = {
   t: number;
@@ -155,6 +154,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const pendingChangeCountRef = useRef<number>(0);
   const flushInFlightRef = useRef<Promise<void> | null>(null);
   const visibilityFlushQueuedRef = useRef(false);
+  const activePlaytimeStartedAtRef = useRef<number | null>(null);
+  const pendingPlaytimeSecondsDeltaRef = useRef<number>(0);
   const pendingBalanceDeltaRef = useRef<number>(0);
   
   const pendingWeeklyPaybackDeltaRef = useRef<number>(0);
@@ -193,6 +194,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     snapshotUpdates: Map<GameKey, GameUpdate>,
     snapBalanceDelta: number,
     snapWeeklyPaybackDelta: number,
+    snapPlaytimeSecondsDelta: number,
     snapInvestmentDelta: number,
     snapInvestmentDirty: boolean,
     snapLastClaimDirty: boolean,
@@ -216,6 +218,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     if (snapLastDailyDirty) payload.lastDailyReward = snapLastDaily;
     if (snapInvestmentDirty || snapInvestmentDelta !== 0) payload.investmentDelta = snapInvestmentDelta;
     if (snapWeeklyPaybackDelta !== 0) payload.weeklyPaybackDelta = snapWeeklyPaybackDelta;
+    if (snapPlaytimeSecondsDelta > 0) payload.playtimeSecondsDelta = snapPlaytimeSecondsDelta;
 
     return payload;
   };
@@ -224,6 +227,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     snapUpdates: Map<GameKey, GameUpdate>,
     snapBalanceDelta: number,
     snapWeeklyPaybackDelta: number,
+    snapPlaytimeSecondsDelta: number,
     snapInvestmentDelta: number,
     snapInvestmentDirty: boolean,
     snapLastClaimDirty: boolean,
@@ -234,6 +238,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   ) => {
     pendingBalanceDeltaRef.current = normalizeMoney(pendingBalanceDeltaRef.current - snapBalanceDelta);
     pendingWeeklyPaybackDeltaRef.current = normalizeMoney(pendingWeeklyPaybackDeltaRef.current - snapWeeklyPaybackDelta);
+    pendingPlaytimeSecondsDeltaRef.current = Math.max(0, pendingPlaytimeSecondsDeltaRef.current - snapPlaytimeSecondsDelta);
     pendingInvestmentDeltaRef.current = normalizeMoney(pendingInvestmentDeltaRef.current - snapInvestmentDelta);
 
     if (snapInvestmentDirty && pendingInvestmentDeltaRef.current === 0) investmentDirtyRef.current = false;
@@ -267,8 +272,17 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     const snapshotUpdates = new Map(pendingUpdatesRef.current);
+    const activePlaytimeStartedAt = activePlaytimeStartedAtRef.current;
+    if (activePlaytimeStartedAt) {
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - activePlaytimeStartedAt) / 1000));
+      if (elapsedSeconds > 0) {
+        pendingPlaytimeSecondsDeltaRef.current += elapsedSeconds;
+      }
+      activePlaytimeStartedAtRef.current = null;
+    }
     const snapBalanceDelta = normalizeMoney(pendingBalanceDeltaRef.current);
     const snapWeeklyPaybackDelta = normalizeMoney(pendingWeeklyPaybackDeltaRef.current);
+    const snapPlaytimeSecondsDelta = Math.max(0, Math.floor(pendingPlaytimeSecondsDeltaRef.current));
     const snapInvestmentDelta = normalizeMoney(pendingInvestmentDeltaRef.current);
     const snapInvestmentDirty = investmentDirtyRef.current;
     const snapLastClaimDirty = lastClaimDirtyRef.current;
@@ -284,7 +298,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       snapInvestmentDelta === 0 &&
       !snapLastClaimDirty &&
       !snapLastDailyDirty &&
-      snapWeeklyPaybackDelta === 0
+      snapWeeklyPaybackDelta === 0 &&
+      snapPlaytimeSecondsDelta === 0
     ) {
       return;
     }
@@ -293,6 +308,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       snapshotUpdates,
       snapBalanceDelta,
       snapWeeklyPaybackDelta,
+      snapPlaytimeSecondsDelta,
       snapInvestmentDelta,
       snapInvestmentDirty,
       snapLastClaimDirty,
@@ -308,7 +324,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
           const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
           const ok = navigator.sendBeacon("/api/user", blob);
           if (ok) {
-            clearSnapshotted(snapshotUpdates, snapBalanceDelta, snapWeeklyPaybackDelta, snapInvestmentDelta, snapInvestmentDirty, snapLastClaimDirty, snapLastDailyDirty, snapLastClaim, snapLastDaily, snapChangeCount);
+            clearSnapshotted(snapshotUpdates, snapBalanceDelta, snapWeeklyPaybackDelta, snapPlaytimeSecondsDelta, snapInvestmentDelta, snapInvestmentDirty, snapLastClaimDirty, snapLastDailyDirty, snapLastClaim, snapLastDaily, snapChangeCount);
           }
         } catch { }
       }
@@ -332,7 +348,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
         const data = await res.json().catch(() => null);
 
-        clearSnapshotted(snapshotUpdates, snapBalanceDelta, snapWeeklyPaybackDelta, snapInvestmentDelta, snapInvestmentDirty, snapLastClaimDirty, snapLastDailyDirty, snapLastClaim, snapLastDaily, snapChangeCount);
+        clearSnapshotted(snapshotUpdates, snapBalanceDelta, snapWeeklyPaybackDelta, snapPlaytimeSecondsDelta, snapInvestmentDelta, snapInvestmentDirty, snapLastClaimDirty, snapLastDailyDirty, snapLastClaim, snapLastDaily, snapChangeCount);
 
         if (data && typeof data.balance === "number") {
           const serverBalance = normalizeMoney(data.balance);
@@ -387,7 +403,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       investmentDirtyRef.current ||
       lastClaimDirtyRef.current ||
       lastDailyRewardDirtyRef.current ||
-      pendingWeeklyPaybackDeltaRef.current !== 0
+      pendingWeeklyPaybackDeltaRef.current !== 0 ||
+      pendingPlaytimeSecondsDeltaRef.current !== 0
     ) {
       void flushSync();
     }
@@ -395,17 +412,11 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   const scheduleSync = (options?: { countChange?: boolean }) => {
     if (typeof window === "undefined") return;
+    if (options?.countChange !== false && activePlaytimeStartedAtRef.current === null) {
+      activePlaytimeStartedAtRef.current = Date.now();
+    }
     if (options?.countChange !== false) {
       pendingChangeCountRef.current += 1;
-    }
-
-    if (pendingChangeCountRef.current >= SYNC_CHANGE_THRESHOLD) {
-      if (syncTimerRef.current) {
-        clearTimeout(syncTimerRef.current);
-        syncTimerRef.current = null;
-      }
-      void flushSync();
-      return;
     }
 
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
@@ -425,6 +436,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         setAccountMissing(false);
         balanceRef.current = 0.0;
         setBalance(0.0);
+        activePlaytimeStartedAtRef.current = null;
+        pendingPlaytimeSecondsDeltaRef.current = 0;
         setLastClaim(Date.now());
         setLastDailyRewardState(Date.now());
         setWeeklyPayback(0);
@@ -441,6 +454,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
           setAccountMissing(true);
           balanceRef.current = 0.0;
           setBalance(0.0);
+          activePlaytimeStartedAtRef.current = null;
+          pendingPlaytimeSecondsDeltaRef.current = 0;
           setLastClaim(now);
           setLastDailyRewardState(now);
           setWeeklyPayback(0);
@@ -508,6 +523,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         setAccountMissing(false);
         balanceRef.current = 0.0;
         setBalance(0.0);
+        activePlaytimeStartedAtRef.current = null;
+        pendingPlaytimeSecondsDeltaRef.current = 0;
         setLastClaim(Date.now());
         setLastDailyRewardState(Date.now());
         setWeeklyPayback(0);

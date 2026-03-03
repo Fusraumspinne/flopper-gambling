@@ -71,6 +71,11 @@ const userSchema = new Schema(
     seasons: {
       type: [String],
       default: [],
+    },
+    playtimeSeconds: {
+      type: Number,
+      required: true,
+      default: 0,
     }
   },
   { timestamps: true }

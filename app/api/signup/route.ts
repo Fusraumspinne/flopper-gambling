@@ -30,6 +30,7 @@ export async function POST(req: any){
             lastWeeklyPayback: now,
             btcHoldings: 0,
             btcCostUsd: 0,
+            playtimeSeconds: 0,
         });
 
         return NextResponse.json({ message: "User signed up" }, { status: 201 } )

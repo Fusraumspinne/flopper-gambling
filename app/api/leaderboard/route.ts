@@ -41,6 +41,10 @@ export async function GET() {
           name: user.name,
           balance: normalizeMoney(balance + investmentValue + (btcUsdValue || 0)),
           seasons: user.seasons || [],
+          playtimeSeconds:
+            typeof user?.playtimeSeconds === "number" && Number.isFinite(user.playtimeSeconds)
+              ? Math.max(0, Math.floor(user.playtimeSeconds))
+              : 0,
         };
       })
       .sort((a, b) => b.balance - a.balance);

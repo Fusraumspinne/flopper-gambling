@@ -13,6 +13,11 @@ function normalizeMoney(value: number): number {
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 
+function normalizeSeconds(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.floor(value));
+}
+
 function computeInvestmentValue(principal: number, startedAtMs: number, nowMs: number): number {
   if (!Number.isFinite(principal) || principal <= 0) return 0;
   const HOUR_MS = 60 * 60 * 1000;
@@ -77,6 +82,7 @@ export async function GET(req: Request) {
       },
       btcHoldings: typeof user.btcHoldings === "number" ? user.btcHoldings : 0,
       btcCostUsd: typeof user.btcCostUsd === "number" ? user.btcCostUsd : 0,
+      playtimeSeconds: typeof user.playtimeSeconds === "number" ? normalizeSeconds(user.playtimeSeconds) : 0,
     });
     res.headers.set("Cache-Control", "private, no-store");
     return res;
@@ -101,6 +107,7 @@ export async function POST(req: Request) {
       lastPot,
       investment,
       investmentDelta,
+      playtimeSecondsDelta,
       createOnly,
     } = body ?? {};
     if (typeof name !== "string") {
@@ -145,6 +152,7 @@ export async function POST(req: Request) {
         lastDailyReward: now,
         weeklyPayback: 0,
         lastWeeklyPayback: createdLastWeeklyPayback,
+        playtimeSeconds: 0,
       });
       return NextResponse.json(created, { status: 201 });
     }
@@ -197,6 +205,9 @@ export async function POST(req: Request) {
         set.lastCheckedInvest = nowMs;
       }
     }
+    if (typeof playtimeSecondsDelta === "number") {
+      inc.playtimeSeconds = normalizeSeconds(playtimeSecondsDelta);
+    }
     if (
       typeof lastPot === "number" &&
       Number.isFinite(lastPot) &&
@@ -218,6 +229,10 @@ export async function POST(req: Request) {
       if (typeof inc.invest === 'number') {
         const baseInv = base && typeof base.invest === 'number' ? base.invest : 0;
         set.invest = normalizeMoney(baseInv + inc.invest);
+      }
+      if (typeof inc.playtimeSeconds === 'number') {
+        const basePlaytime = base && typeof base.playtimeSeconds === 'number' ? base.playtimeSeconds : 0;
+        set.playtimeSeconds = normalizeSeconds(basePlaytime + inc.playtimeSeconds);
       }
     }
     if (Object.keys(set).length) update.$set = set;

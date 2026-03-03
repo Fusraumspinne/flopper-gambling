@@ -11,6 +11,7 @@ type LeaderboardUser = {
   name: string;
   balance: number;
   seasons?: string[];
+  playtimeSeconds?: number;
 };
 
 const Badge = ({ rank, index }: { rank: string; index: number }) => {
@@ -297,6 +298,7 @@ export default function Leaderboard() {
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-white font-medium">{user.name}</span>
+                  <span className="text-[#b1bad3] text-sm">({Math.max(0, Math.floor((Number(user.playtimeSeconds ?? 0) || 0) / 3600))}h)</span>
                   <div className="flex items-center">
                     {(() => {
                       const rankOrder: Record<string, number> = { first: 1, second: 2, third: 3, last: 4 };
