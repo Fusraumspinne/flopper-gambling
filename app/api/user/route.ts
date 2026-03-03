@@ -65,6 +65,7 @@ export async function GET(req: Request) {
 
     const res = NextResponse.json({
       name: user.name,
+      verified: user.verified === true,
       balance: typeof user.balance === "number" ? user.balance : 0,
       lastDailyReward: user.lastDailyReward ? new Date(user.lastDailyReward).getTime() : 0,
       weeklyPayback: typeof user.weeklyPayback === "number" ? user.weeklyPayback : 0,
@@ -134,6 +135,7 @@ export async function POST(req: Request) {
             : now;
       const created = await User.create({
         name,
+        verified: false,
         password: "",
         balance: 0,
         invest: 0,

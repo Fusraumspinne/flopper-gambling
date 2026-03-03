@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     await connectMongoDB();
-    const users = await User.find();
+    const users = await User.find({ verified: true });
 
     const normalizeMoney = (value: number): number => {
       if (!Number.isFinite(value)) return 0;

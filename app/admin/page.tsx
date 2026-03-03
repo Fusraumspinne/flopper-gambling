@@ -6,6 +6,7 @@ import { DEFAULT_GAME_STATUS, GAME_LABELS, GAME_STATUS_KEYS } from "@/lib/gameSt
 type UserRow = {
   _id: string;
   name: string;
+  verified: boolean;
   balance: number;
   invest: number;
   lastCheckedInvest: number;
@@ -239,6 +240,7 @@ export default function AdminPage() {
     setSelectedUserId(user._id);
     setUserForm({
       name: user.name,
+      verified: user.verified === true,
       balance: user.balance,
       invest: user.invest,
       lastCheckedInvest: user.lastCheckedInvest,
@@ -441,6 +443,14 @@ export default function AdminPage() {
                     onChange={(e) => setUserForm((prev) => ({ ...prev, name: e.target.value }))}
                     className="mt-1 w-full bg-[#213743] border border-[#2f4553] rounded-lg px-3 py-2 text-white"
                   />
+                </label>
+                <label className="text-sm text-[#b1bad3] flex items-center gap-2 mt-6">
+                  <input
+                    type="checkbox"
+                    checked={userForm.verified === true}
+                    onChange={(e) => setUserForm((prev) => ({ ...prev, verified: e.target.checked }))}
+                  />
+                  Verified
                 </label>
                 <label className="text-sm text-[#b1bad3]">
                   Balance

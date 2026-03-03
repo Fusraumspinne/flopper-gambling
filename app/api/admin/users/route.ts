@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
     const users = await User.find(filter)
       .sort({ updatedAt: -1 })
-      .select("name balance invest lastCheckedInvest lastDailyReward weeklyPayback lastWeeklyPayback btcHoldings btcCostUsd portfolioUsd seasons createdAt updatedAt")
+      .select("name verified balance invest lastCheckedInvest lastDailyReward weeklyPayback lastWeeklyPayback btcHoldings btcCostUsd portfolioUsd seasons createdAt updatedAt")
       .lean();
 
     const res = NextResponse.json({ users });
@@ -61,6 +61,10 @@ export async function PATCH(req: Request) {
     for (const field of fields) {
       const num = toNumber(body?.[field]);
       if (typeof num === "number") set[field] = num;
+    }
+
+    if (typeof body?.verified === "boolean") {
+      set.verified = body.verified;
     }
 
     if (typeof body?.lastDailyReward === "number") {

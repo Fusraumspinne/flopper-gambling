@@ -10,7 +10,7 @@ import WebsiteStatus from "@/models/websiteStatus";
 export async function POST() {
   try {
     await connectMongoDB();
-    const users = await User.find();
+    const users = await User.find({ verified: true });
 
     const normalizeMoney = (value: number): number => {
       if (!Number.isFinite(value)) return 0;
@@ -44,10 +44,6 @@ export async function POST() {
         };
       })
       .sort((a, b) => b.totalBalance - a.totalBalance);
-
-    if (mapped.length === 0) {
-      return NextResponse.json({ message: "No users found" }, { status: 400 });
-    }
 
     await User.updateMany({}, { $pull: { seasons: "last" } });
 

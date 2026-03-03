@@ -19,7 +19,7 @@ export const authOptions: NextAuthOptions = {
         if (!user) return null;
         const passwordMatch = await bcrypt.compare(credentials.password, user.password);
         if (!passwordMatch) return null;
-        return { id: user._id.toString(), name: user.name };
+        return { id: user._id.toString(), name: user.name, verified: user.verified === true } as any;
       },
     }),
   ],
@@ -31,6 +31,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.name = user.name;
+        token.verified = (user as any).verified === true;
       }
       if (trigger === "update" && session?.name) {
         token.name = session.name;
@@ -41,6 +42,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.id;
         session.user.name = token.name;
+        (session.user as any).verified = token.verified === true;
       }
       return session;
     },

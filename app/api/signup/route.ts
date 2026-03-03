@@ -20,6 +20,7 @@ export async function POST(req: any){
 
         await User.create({
             name,
+            verified: false,
             password: hashedPassword,
             balance: normalizeMoney(10000),
             invest: normalizeMoney(0),

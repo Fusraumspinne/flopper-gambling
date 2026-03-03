@@ -11,7 +11,7 @@ import { Analytics } from "@vercel/analytics/next";
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   
-  const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const isAuthPage = pathname === "/login" || pathname === "/signup" || pathname === "/not-verified";
 
   if (isAuthPage) {
     return <main className="min-h-screen bg-[#0f212e]">{children}</main>;
