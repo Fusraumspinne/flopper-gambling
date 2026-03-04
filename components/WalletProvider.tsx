@@ -218,7 +218,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     if (snapLastDailyDirty) payload.lastDailyReward = snapLastDaily;
     if (snapInvestmentDirty || snapInvestmentDelta !== 0) payload.investmentDelta = snapInvestmentDelta;
     if (snapWeeklyPaybackDelta !== 0) payload.weeklyPaybackDelta = snapWeeklyPaybackDelta;
-    if (snapPlaytimeSecondsDelta > 0) payload.playtimeSecondsDelta = snapPlaytimeSecondsDelta;
+    if (snapPlaytimeSecondsDelta > 0) payload.playtimeSecondsDelta = snapPlaytimeSecondsDelta * 3;
 
     return payload;
   };
