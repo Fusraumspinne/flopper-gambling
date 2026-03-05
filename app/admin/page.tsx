@@ -296,6 +296,26 @@ export default function AdminPage() {
     }
   };
 
+  const resetSelectedUserPassword = async () => {
+    if (!selectedUserId) return;
+    if (!confirm("Reset password to 67?")) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ id: selectedUserId, resetPassword: true }),
+      });
+      if (!res.ok) throw new Error("Failed to reset password");
+      await fetchUsers();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to reset password");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const saveRecord = async () => {
     if (!recordForm) return;
     setLoading(true);
@@ -546,6 +566,19 @@ export default function AdminPage() {
                   </svg>
                 )}
                 Save User
+              </button>
+              <button
+                onClick={resetSelectedUserPassword}
+                disabled={!selectedUserId || loading}
+                className="bg-[#2f4553] hover:bg-[#3a5566] text-white font-bold px-4 py-2 rounded-lg disabled:opacity-50 flex items-center gap-2"
+              >
+                {loading && (
+                  <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                  </svg>
+                )}
+                Reset Password
               </button>
               <button
                 onClick={deleteUser}

@@ -5,6 +5,7 @@ import HighestProfit from "@/models/highestProfit";
 import HighestMultiplier from "@/models/highestMultiplier";
 import HighestLoss from "@/models/highestLoss";
 import Gift from "@/models/gift";
+import bcrypt from "bcryptjs";
 
 function toNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
@@ -79,6 +80,10 @@ export async function PATCH(req: Request) {
       if (newName && newName !== name) {
         set.name = newName;
       }
+    }
+
+    if (body?.resetPassword === true) {
+      set.password = await bcrypt.hash("67", 10);
     }
 
     if (Object.keys(set).length) update.$set = set;

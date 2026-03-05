@@ -97,11 +97,11 @@ const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   fisher: 1.5,
 };
 const FISH_VALUES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000];
-const FISH_WEIGHTS = [26,  21, 17, 14, 10, 7, 3.5, 0.35, 0.09, 0.03, 0.008, 0.002];
-const BASE_COLLECT_MULTIS = [1, 2, 3, 5, 8, 10, 15, 20, 30, 40, 50];
-const FS_MULTIPLIERS = [1, 2, 3, 10, 20, 30, 40, 50];
-const BOAT_WAKE_CHANCE_BASE = 0.15;
-const BOAT_COLLECT_MULTI_WEIGHTS = [60, 25, 7, 3, 2, 1.5, 1, 0.7, 0.4, 0.2, 0.1];
+const FISH_WEIGHTS = [27, 22, 17, 14, 9.5, 6.2, 2.6, 0.22, 0.05, 0.015, 0.003, 0.0008];
+const BASE_COLLECT_MULTIS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 40];
+const FS_MULTIPLIERS = [1, 2, 3, 8, 12, 18, 25, 35];
+const BOAT_WAKE_CHANCE_BASE = 0.13;
+const BOAT_COLLECT_MULTI_WEIGHTS = [64, 24, 6.5, 2.5, 1.5, 0.9, 0.55, 0.3, 0.15, 0.07, 0.03];
 const PREFREE_START_SPINS = 10;
 const PREFREE_TOKEN_POOL: PreFreeToken[] = [
   "fs1",
@@ -114,15 +114,15 @@ const PREFREE_TOKEN_POOL: PreFreeToken[] = [
   "shoe",
 ];
 const PAYTABLE: Partial<Record<SymbolId, [number, number, number]>> = {
-  "10": [0.2, 0.4, 1],
-  J: [0.2, 0.4, 1],
-  Q: [0.3, 0.6, 1.5],
-  K: [0.4, 0.8, 2],
-  A: [0.5, 1, 2.5],
-  lure: [0.5, 1.5, 5],
-  toucan: [0.8, 2.5, 7.5],
-  bag: [1, 3, 10],
-  rod: [1.5, 5, 15],
+  "10": [0.18, 0.35, 0.9],
+  J: [0.18, 0.35, 0.9],
+  Q: [0.27, 0.55, 1.35],
+  K: [0.36, 0.72, 1.8],
+  A: [0.45, 0.9, 2.25],
+  lure: [0.45, 1.35, 4.5],
+  toucan: [0.72, 2.25, 6.8],
+  bag: [0.9, 2.7, 9],
+  rod: [1.35, 4.5, 13],
 };
 
 const normalizeMoney = (value: number) => {

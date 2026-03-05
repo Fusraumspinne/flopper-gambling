@@ -32,7 +32,7 @@ const SYMBOL_WEIGHTS: Record<WeightedSymbol, number> = {
 };
 
 const MULTIPLIER_WEIGHT_NORMAL = 0.5;
-const MULTIPLIER_WEIGHT_FREE = 2.5;
+const MULTIPLIER_WEIGHT_FREE = 3.5;
 
 const SYMBOL_BASE_MULTIS: Record<BaseSymbol, number> = {
   "🌿": 0.003,

@@ -27,19 +27,19 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
 };
 
 const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
-  "🍬": 0.003,
-  "🍭": 0.005,
-  "🍰": 0.008,
-  "🧁": 0.0125,
-  "🍫": 0.02,
+  "🍬": 0.0027,
+  "🍭": 0.0045,
+  "🍰": 0.0072,
+  "🧁": 0.011,
+  "🍫": 0.0175,
 };
 
 const SYMBOL_FREESPIN_MULTIS: Record<CandySymbol, number> = {
-  "🍬": 0.003,
-  "🍭": 0.005,
-  "🍰": 0.008,
-  "🧁": 0.0125,
-  "🍫": 0.02,
+  "🍬": 0.0029,
+  "🍭": 0.0048,
+  "🍰": 0.0076,
+  "🧁": 0.0116,
+  "🍫": 0.0185,
 };
 
 const normalizeMoney = (value: number) => {
