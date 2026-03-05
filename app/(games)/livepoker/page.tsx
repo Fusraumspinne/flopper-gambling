@@ -345,6 +345,7 @@ export default function LivePokerPage() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [error, setError] = useState<string>("");
   const [rooms, setRooms] = useState<{ roomId: string; hostName: string; playerCount: number; stage: Stage }[]>([]);
+  const [lobbyBusy, setLobbyBusy] = useState(false);
 
   const serverOnline = connected;
 
@@ -586,6 +587,7 @@ export default function LivePokerPage() {
 
   const createRoom = () => {
     setError("");
+    if (lobbyBusy) return;
     if (!serverOnline) {
       setError("Server startet noch, bitte kurz warten...");
       return;
@@ -594,19 +596,23 @@ export default function LivePokerPage() {
       setError("Your balance is too low.");
       return;
     }
+    setLobbyBusy(true);
     const socket = connectSocket();
     socket.emit("create_room", { name: effectiveName, buyIn }, (res: any) => {
       if (!res?.ok) {
         setError(res?.error || "Failed to create room.");
+        setLobbyBusy(false);
         return;
       }
       setRoomId(res.roomId);
       setPlayerId(res.playerId);
+      setLobbyBusy(false);
     });
   };
 
   const joinRoom = (targetRoomId: string) => {
     setError("");
+    if (lobbyBusy) return;
     if (!targetRoomId) return;
     if (!serverOnline) {
       setError("Server startet noch, bitte kurz warten...");
@@ -616,14 +622,17 @@ export default function LivePokerPage() {
       setError("Your balance is too low.");
       return;
     }
+    setLobbyBusy(true);
     const socket = connectSocket();
     socket.emit("join_room", { roomId: targetRoomId, name: effectiveName, buyIn }, (res: any) => {
       if (!res?.ok) {
         setError(res?.error || "Failed to join room.");
+        setLobbyBusy(false);
         return;
       }
       setRoomId(res.roomId);
       setPlayerId(res.playerId);
+      setLobbyBusy(false);
     });
   };
 
@@ -635,6 +644,7 @@ export default function LivePokerPage() {
       setGameState(null);
       setPlayerId("");
       lastStackRef.current = null;
+      setLobbyBusy(false);
     });
   };
 
@@ -654,14 +664,18 @@ export default function LivePokerPage() {
     if (!playerCanAct || !gameState) return;
     playAudio(audioRef.current.bet);
     setCustomRaiseAmount(0);
-    socketRef.current?.emit("action", { roomId: gameState.roomId, action: "fold" });
+    socketRef.current?.emit("action", { roomId: gameState.roomId, action: "fold" }, (res: any) => {
+      if (!res?.ok) setError(res?.error || "Action failed.");
+    });
   };
 
   const handlePlayerCall = () => {
     if (!playerCanAct || !gameState) return;
     playAudio(audioRef.current.bet);
     setCustomRaiseAmount(0);
-    socketRef.current?.emit("action", { roomId: gameState.roomId, action: "call" });
+    socketRef.current?.emit("action", { roomId: gameState.roomId, action: "call" }, (res: any) => {
+      if (!res?.ok) setError(res?.error || "Action failed.");
+    });
   };
 
   const handlePlayerRaise = (arg?: unknown) => {
@@ -677,7 +691,9 @@ export default function LivePokerPage() {
     const clamped = clampRaiseTotal(targetBet);
     playAudio(audioRef.current.bet);
     setCustomRaiseAmount(0);
-    socketRef.current?.emit("action", { roomId: gameState.roomId, action: "raise", amount: clamped });
+    socketRef.current?.emit("action", { roomId: gameState.roomId, action: "raise", amount: clamped }, (res: any) => {
+      if (!res?.ok) setError(res?.error || "Action failed.");
+    });
   };
 
   const renderCardFace = (card: Card, revealed: boolean, small = false, delay = 0) => (
@@ -814,7 +830,7 @@ export default function LivePokerPage() {
               <div className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">Live Poker Lobby</div>
               <button
                 onClick={createRoom}
-                disabled={buyIn <= 0 || !serverOnline}
+                disabled={lobbyBusy || buyIn <= 0 || !serverOnline}
                 className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-sm shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95"
               >
                 Create room
@@ -848,7 +864,7 @@ export default function LivePokerPage() {
                           onClick={() => {
                             joinRoom(room.roomId);
                           }}
-                          disabled={room.playerCount >= 6 || buyIn <= 0 || !serverOnline}
+                          disabled={lobbyBusy || room.playerCount >= 6 || buyIn <= 0 || !serverOnline}
                           className="bg-[#2f4553] hover:bg-[#3e5666] text-white py-1.5 px-2 rounded-md text-[10px] font-bold disabled:opacity-50"
                         >
                           Join

@@ -150,6 +150,8 @@ const evaluateSeven = (hole, board) => {
 
 const recomputePot = (players) => players.reduce((acc, p) => acc + (p.contribution || 0), 0);
 
+const isBettingStage = (stage) => stage === "preflop" || stage === "flop" || stage === "turn" || stage === "river";
+
 const computeSidePots = (players) => {
   const contribs = players.map((p, idx) => ({ idx, amount: p.contribution || 0 }));
   const levels = Array.from(new Set(contribs.map((c) => c.amount).filter((x) => x > 0))).sort((a, b) => a - b);
@@ -192,14 +194,26 @@ const ensureActivePlayerValid = (room) => {
     room.activePlayerIndex = Math.min(maxIndex, Math.max(0, room.activePlayerIndex));
   }
 
-  if (room.stage === "preflop" || room.stage === "flop" || room.stage === "turn" || room.stage === "river") {
-    if (!needsAction(players[room.activePlayerIndex], room.currentBet)) {
-      const nextIdx = nextActionIndex(room.activePlayerIndex, room);
-      room.activePlayerIndex = nextIdx === -1 ? 0 : nextIdx;
+  if (isBettingStage(room.stage)) {
+    if (countAlive(players) <= 1) {
+      finishHandEarly(room);
+      return;
     }
+
     recomputePendingToAct(room);
     if (room.pendingToAct <= 0) {
       advanceStage(room);
+      return;
+    }
+
+    const current = players[room.activePlayerIndex];
+    if (!current || !needsAction(current, room.currentBet)) {
+      const nextIdx = nextActionIndex(room.activePlayerIndex, room);
+      if (nextIdx === -1) {
+        advanceStage(room);
+        return;
+      }
+      room.activePlayerIndex = nextIdx;
     }
   }
 };
@@ -281,6 +295,39 @@ const broadcastState = (io, room) => {
   room.players.forEach((p) => {
     io.to(p.id).emit("state", buildPublicState(room, p.id));
   });
+};
+
+const removePlayerFromRoom = (room, socketId) => {
+  const idx = room.players.findIndex((p) => p.id === socketId);
+  if (idx < 0) return false;
+
+  if (isBettingStage(room.stage) && room.activePlayerIndex === idx) {
+    room.players[idx].folded = true;
+    room.players[idx].hasActed = true;
+  }
+
+  room.players.splice(idx, 1);
+  room.order = room.order.filter((id) => id !== socketId);
+
+  if (room.hostId === socketId) {
+    room.hostId = room.players[0]?.id || null;
+  }
+
+  if (room.players.length === 0) {
+    room.activePlayerIndex = 0;
+    room.pendingToAct = 0;
+    return true;
+  }
+
+  if (room.activePlayerIndex > idx) {
+    room.activePlayerIndex -= 1;
+  }
+  if (room.activePlayerIndex >= room.players.length) {
+    room.activePlayerIndex = 0;
+  }
+
+  ensureActivePlayerValid(room);
+  return true;
 };
 
 const findPlayerIndex = (room, socketId) => room.players.findIndex((p) => p.id === socketId);
@@ -434,7 +481,11 @@ const applyActionAndAdvance = (room, actorIdx, actionLabel, isRaise) => {
   const roundOver = room.pendingToAct <= 0;
   if (!roundOver) {
     const nextIdx = nextActionIndex(actorIdx, room);
-    room.activePlayerIndex = nextIdx === -1 ? 0 : nextIdx;
+    if (nextIdx === -1) {
+      advanceStage(room);
+    } else {
+      room.activePlayerIndex = nextIdx;
+    }
   } else {
     advanceStage(room);
   }
@@ -559,7 +610,20 @@ io.on("connection", (socket) => {
     if (typeof cb === "function") cb({ ok: true, rooms: getRoomsSummary() });
   });
 
-  socket.on("create_room", ({ name, buyIn }, cb) => {
+  socket.on("create_room", ({ name, buyIn } = {}, cb) => {
+    let existingRoomId = null;
+    rooms.forEach((r, rid) => {
+      if (!existingRoomId && r.players.some((p) => p.id === socket.id)) {
+        existingRoomId = rid;
+      }
+    });
+    if (existingRoomId) {
+      if (typeof cb === "function") {
+        cb({ ok: false, error: "You are already seated in a room. Leave first." });
+      }
+      return;
+    }
+
     const roomId = crypto.randomBytes(3).toString("hex");
     const room = initRoom(roomId, socket.id);
     rooms.set(roomId, room);
@@ -590,10 +654,18 @@ io.on("connection", (socket) => {
     broadcastRooms();
   });
 
-  socket.on("join_room", ({ roomId, name, buyIn }, cb) => {
+  socket.on("join_room", ({ roomId, name, buyIn } = {}, cb) => {
     const room = rooms.get(roomId);
     if (!room) {
       if (typeof cb === "function") cb({ ok: false, error: "Room not found." });
+      return;
+    }
+    if (room.players.some((p) => p.id === socket.id)) {
+      if (typeof cb === "function") cb({ ok: true, roomId, playerId: socket.id });
+      socket.join(roomId);
+      ensureActivePlayerValid(room);
+      broadcastState(io, room);
+      broadcastRooms();
       return;
     }
     if (room.players.length >= 6) {
@@ -632,33 +704,21 @@ io.on("connection", (socket) => {
     broadcastRooms();
   });
 
-  socket.on("leave_room", ({ roomId }, cb) => {
+  socket.on("leave_room", ({ roomId } = {}, cb) => {
     const room = rooms.get(roomId);
     if (!room) return;
-    const idx = findPlayerIndex(room, socket.id);
-    if (idx >= 0) {
-      if (room.activePlayerIndex === idx) {
-        room.players[idx].folded = true;
-        room.players[idx].hasActed = true;
-      }
-      room.players.splice(idx, 1);
-      room.order = room.order.filter((id) => id !== socket.id);
-      if (room.hostId === socket.id) {
-        room.hostId = room.players[0]?.id || null;
-      }
-    }
+    removePlayerFromRoom(room, socket.id);
     socket.leave(roomId);
     if (room.players.length === 0) {
       rooms.delete(roomId);
     } else {
-      ensureActivePlayerValid(room);
       broadcastState(io, room);
     }
     if (typeof cb === "function") cb({ ok: true });
     broadcastRooms();
   });
 
-  socket.on("start_hand", ({ roomId, buyIn, bigBlind }, cb) => {
+  socket.on("start_hand", ({ roomId, buyIn, bigBlind } = {}, cb) => {
     const room = rooms.get(roomId);
     if (!room) return;
     if (room.hostId !== socket.id) {
@@ -675,7 +735,7 @@ io.on("connection", (socket) => {
     broadcastRooms();
   });
 
-  socket.on("action", ({ roomId, action, amount }, cb) => {
+  socket.on("action", ({ roomId, action, amount } = {}, cb) => {
     const room = rooms.get(roomId);
     if (!room) return;
     const actorIdx = findPlayerIndex(room, socket.id);
@@ -759,21 +819,10 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     rooms.forEach((room, roomId) => {
-      const idx = findPlayerIndex(room, socket.id);
-      if (idx >= 0) {
-        if (room.activePlayerIndex === idx) {
-          room.players[idx].folded = true;
-          room.players[idx].hasActed = true;
-        }
-        room.players.splice(idx, 1);
-        room.order = room.order.filter((id) => id !== socket.id);
-        if (room.hostId === socket.id) {
-          room.hostId = room.players[0]?.id || null;
-        }
+      if (removePlayerFromRoom(room, socket.id)) {
         if (room.players.length === 0) {
           rooms.delete(roomId);
         } else {
-          ensureActivePlayerValid(room);
           broadcastState(io, room);
         }
         broadcastRooms();
