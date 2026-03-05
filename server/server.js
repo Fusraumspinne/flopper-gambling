@@ -585,6 +585,7 @@ const io = new Server(server, {
   },
   transports: ["websocket", "polling"]
 });
+const chatNsp = io.of("/chat");
 
 const rooms = new Map();
 
@@ -602,6 +603,53 @@ const getRoomsSummary = () =>
 const broadcastRooms = () => {
   io.emit("rooms", getRoomsSummary());
 };
+
+const sanitizeChatName = (value) => {
+  const base = typeof value === "string" ? value.trim() : "";
+  if (!base) return `Guest-${crypto.randomBytes(2).toString("hex")}`;
+  return base.slice(0, 24);
+};
+
+const sanitizeChatText = (value) => {
+  const base = typeof value === "string" ? value.trim() : "";
+  return base.slice(0, 280);
+};
+
+const chatUserNames = new Map();
+
+// Chat is isolated in a dedicated namespace but shares the same server process.
+chatNsp.on("connection", (socket) => {
+  chatUserNames.set(socket.id, sanitizeChatName(""));
+
+  socket.on("chat:join", ({ name } = {}, cb) => {
+    const nextName = sanitizeChatName(name);
+    chatUserNames.set(socket.id, nextName);
+    if (typeof cb === "function") cb({ ok: true, socketId: socket.id, name: nextName });
+  });
+
+  socket.on("chat:message", ({ text } = {}, cb) => {
+    const messageText = sanitizeChatText(text);
+    if (!messageText) {
+      if (typeof cb === "function") cb({ ok: false, error: "Empty message." });
+      return;
+    }
+
+    const payload = {
+      id: crypto.randomBytes(8).toString("hex"),
+      socketId: socket.id,
+      name: chatUserNames.get(socket.id) || sanitizeChatName(""),
+      text: messageText,
+      ts: Date.now(),
+    };
+
+    chatNsp.emit("chat:message", payload);
+    if (typeof cb === "function") cb({ ok: true });
+  });
+
+  socket.on("disconnect", () => {
+    chatUserNames.delete(socket.id);
+  });
+});
 
 io.on("connection", (socket) => {
   socket.emit("rooms", getRoomsSummary());

@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 
 export default function UpdatesPanel() {
   const [items] = useState<string[]>([
-    "Live chat to chat with other players while playing games",
     "Daily quests",
   ]);
 

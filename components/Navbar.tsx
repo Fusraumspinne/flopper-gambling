@@ -3,14 +3,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment, PrivacyTip, Speed, Category, Logout, Phishing, ArrowDownward, Cake, AccountBalance, MilitaryTech } from "@mui/icons-material";
+import { SportsEsports, Home, GridOn, Casino, ScatterPlot, Diamond, MonetizationOn, SportsMma, QueryStats, ChevronLeft, ChevronRight, ShowChart, Shuffle, Cached, TrendingUp, AutoAwesome, Timeline, SmartToy, CatchingPokemon, CardGiftcard, LocalBar, Flare, FlightTakeoff, Lock, Album, Toll, LocalFireDepartment, PrivacyTip, Speed, Category, Logout, Phishing, ArrowDownward, Cake, AccountBalance, MilitaryTech, ChatBubbleOutline } from "@mui/icons-material";
 import { useWallet } from "./WalletProvider";
 import LiveStatsPanel from "./LiveStatsPanel";
-import { signOut } from "next-auth/react";
+import LiveChatPanel from "./LiveChatPanel";
+import { signOut, useSession } from "next-auth/react";
 import { useSidebar } from "./Shell";
 import { useHourlyReward } from "./useHourlyReward";
 import { useSoundVolume } from "./SoundVolumeProvider";
 import { DEFAULT_GAME_STATUS, getGameKeyFromHref } from "@/lib/gameStatus";
+import { io, Socket } from "socket.io-client";
+
+type ChatPayload = { id?: string; socketId?: string; name?: string; text?: string; ts?: number };
 
 interface Game {
   name: string;
@@ -56,12 +60,83 @@ export default function Navbar() {
   const { balance } = useWallet();
   const { collapsed, toggleCollapsed, sidebarWidth } = useSidebar();
   const { volume, setVolume } = useSoundVolume();
+  const { data: session } = useSession();
 
   const { claimableAmount, lastClaimISO, claim } = useHourlyReward({ amountPerHour: 1000 });
 
   const [statsOpen, setStatsOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [hasUnreadChat, setHasUnreadChat] = useState(false);
   const [gameStatus, setGameStatus] = useState<Record<string, boolean>>(DEFAULT_GAME_STATUS);
   const [adminAuthorized, setAdminAuthorized] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ id: string; socketId: string; name: string; text: string; ts: number }>>([]);
+  const [chatSocketId, setChatSocketId] = useState("");
+  const [chatConnected, setChatConnected] = useState(false);
+
+  const chatSocketRef = React.useRef<Socket | null>(null);
+  const chatOpenRef = React.useRef(false);
+
+  useEffect(() => {
+    chatOpenRef.current = chatOpen;
+  }, [chatOpen]);
+
+  useEffect(() => {
+    const baseUrl = process.env.NEXT_PUBLIC_POKER_WS_URL || "http://localhost:4000";
+    const socket = io(`${baseUrl}/chat`);
+    chatSocketRef.current = socket;
+
+    socket.on("connect", () => {
+      setChatSocketId(socket.id || "");
+      setChatConnected(true);
+      const fallback = `Guest-${Math.floor(Math.random() * 9000) + 1000}`;
+      socket.emit("chat:join", { name: session?.user?.name || fallback });
+    });
+
+    socket.on("chat:message", (payload: ChatPayload) => {
+      if (!payload || typeof payload.text !== "string") return;
+      const msg = {
+        id: String(payload.id || `${Date.now()}-${Math.random()}`),
+        socketId: String(payload.socketId || ""),
+        name: String(payload.name || "Guest"),
+        text: String(payload.text || ""),
+        ts: Number(payload.ts || Date.now()),
+      };
+
+      setChatMessages((prev) => [...prev.slice(-119), msg]);
+      if (!chatOpenRef.current && msg.socketId !== socket.id) setHasUnreadChat(true);
+    });
+
+    socket.on("disconnect", () => {
+      setChatSocketId("");
+      setChatConnected(false);
+    });
+
+    socket.on("connect_error", () => {
+      setChatConnected(false);
+    });
+
+    return () => {
+      socket.disconnect();
+      chatSocketRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const socket = chatSocketRef.current;
+    if (!socket || !socket.connected) return;
+    const fallback = `Guest-${Math.floor(Math.random() * 9000) + 1000}`;
+    socket.emit("chat:join", { name: session?.user?.name || fallback });
+  }, [session?.user?.name]);
+
+  useEffect(() => {
+    if (chatOpen) setHasUnreadChat(false);
+  }, [chatOpen]);
+
+  const sendChatMessage = (text: string) => {
+    const socket = chatSocketRef.current;
+    if (!socket || !socket.connected) return;
+    socket.emit("chat:message", { text });
+  };
 
   useEffect(() => {
     const loadStatus = async () => {
@@ -137,6 +212,17 @@ export default function Navbar() {
             Live-Stats
           </button>
 
+          <button
+            onClick={() => setChatOpen(true)}
+            className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-md font-bold transition-colors bg-[#213743] text-white hover:bg-[#2f4553] relative"
+          >
+            <ChatBubbleOutline sx={{ fontSize: 18 }} />
+            Live-Chat
+            {hasUnreadChat && (
+              <span className="absolute right-2 top-2 inline-block h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden="true" />
+            )}
+          </button>
+
           <div className="mt-3 w-full rounded-md bg-[#1a2c38] border border-[#2f4553] p-2">
             <div className="flex items-center justify-between text-xs text-[#8399aa]">
               <span>Volume</span>
@@ -168,6 +254,18 @@ export default function Navbar() {
             aria-label="Live-Stats"
           >
             <QueryStats sx={{ fontSize: 18 }} />
+          </button>
+
+          <button
+            onClick={() => setChatOpen(true)}
+            className="mt-2 w-full flex items-center justify-center py-2 rounded-md transition-colors bg-[#213743] text-white hover:bg-[#2f4553] relative"
+            title="Live-Chat"
+            aria-label="Live-Chat"
+          >
+            <ChatBubbleOutline sx={{ fontSize: 18 }} />
+            {hasUnreadChat && (
+              <span className="absolute right-2 top-2 inline-block h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden="true" />
+            )}
           </button>
         </div>
       )}
@@ -262,6 +360,14 @@ export default function Navbar() {
       </div>
 
       <LiveStatsPanel open={statsOpen} onClose={() => setStatsOpen(false)} />
+      <LiveChatPanel
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        messages={chatMessages}
+        mySocketId={chatSocketId}
+        onSend={sendChatMessage}
+        connected={chatConnected}
+      />
     </aside>
   );
 }
