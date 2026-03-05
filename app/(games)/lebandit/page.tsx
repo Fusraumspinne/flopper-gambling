@@ -55,8 +55,8 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
 	"🃏": 10,
 };
 
-const SCATTER_WEIGHT = 1.4;
-const RAINBOW_WEIGHT = 0.75;
+const SCATTER_WEIGHT = 1.5;
+const RAINBOW_WEIGHT = 0.8;
 
 const FEATURE_TYPE_WEIGHTS: [CoinTier | "clover" | "cloverGold" | "cauldron", number][] = [
 	["bronze", 75],

@@ -28,30 +28,30 @@ const SYMBOL_WEIGHTS: Record<WeightedSymbol, number> = {
   "🪙": 15,
   "🔱": 10,
   "👑": 10,
-  "⚡": 1.4,
+  "⚡": 1.5,
 };
 
 const MULTIPLIER_WEIGHT_NORMAL = 0.5;
-const MULTIPLIER_WEIGHT_FREE = 3.5;
+const MULTIPLIER_WEIGHT_FREE = 5;
 
 const SYMBOL_BASE_MULTIS: Record<BaseSymbol, number> = {
-  "🌿": 0.003,
+  "🌿": 0.0025,
   "🍇": 0.004,
-  "⚔️": 0.005,
-  "🏛️": 0.006,
-  "🪙": 0.008,
-  "🔱": 0.01,
-  "👑": 0.015,
+  "⚔️": 0.0075,
+  "🏛️": 0.01,
+  "🪙": 0.02,
+  "🔱": 0.035,
+  "👑": 0.05,
 };
 
 const SYMBOL_FREESPIN_MULTIS: Record<BaseSymbol, number> = {
-  "🌿": 0.008,
-  "🍇": 0.012,
+  "🌿": 0.01,
+  "🍇": 0.015,
   "⚔️": 0.02,
-  "🏛️": 0.032,
-  "🪙": 0.04,
-  "🔱": 0.055,
-  "👑": 0.08,
+  "🏛️": 0.035,
+  "🪙": 0.05,
+  "🔱": 0.075,
+  "👑": 0.1,
 };
 
 const MULTIPLIER_POOL = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 50, 100, 250, 500];

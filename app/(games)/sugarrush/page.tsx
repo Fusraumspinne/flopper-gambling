@@ -18,28 +18,20 @@ const MIN_CLUSTER = 5;
 const FREE_SPINS_AWARD = 15;
 
 const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "🍬": 25,
-  "🍭": 25,
-  "🍰": 28,
+  "🍬": 24,
+  "🍭": 24,
+  "🍰": 22,
   "🧁": 18,
   "🍫": 14,
   "🌈": 0.8,
 };
 
 const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
-  "🍬": 0.0027,
-  "🍭": 0.0045,
-  "🍰": 0.0072,
-  "🧁": 0.011,
-  "🍫": 0.0175,
-};
-
-const SYMBOL_FREESPIN_MULTIS: Record<CandySymbol, number> = {
-  "🍬": 0.0029,
-  "🍭": 0.0048,
-  "🍰": 0.0076,
-  "🧁": 0.0116,
-  "🍫": 0.0185,
+  "🍬": 0.01,
+  "🍭": 0.02,
+  "🍰": 0.035,
+  "🧁": 0.05,
+  "🍫": 0.075,
 };
 
 const normalizeMoney = (value: number) => {
@@ -619,7 +611,7 @@ export default function SugarRushPage() {
         const [firstRow, firstCol] = cluster[0];
         const symbol = workingGrid[firstRow][firstCol] as CandySymbol;
         
-        const baseMultiTable = isFreeSpin ? SYMBOL_FREESPIN_MULTIS : SYMBOL_BASE_MULTIS;
+        const baseMultiTable = SYMBOL_BASE_MULTIS;
         const totalSymbolBaseWin = baseMultiTable[symbol] * spinCost * cluster.length;
 
         let totalCellMultipliers = 0;
