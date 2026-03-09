@@ -617,9 +617,16 @@ const sanitizeChatText = (value) => {
 
 const chatUserNames = new Map();
 
+const broadcastOnlineCount = () => {
+  const count = chatUserNames.size;
+  const bonus = Math.floor(count / 5);
+  chatNsp.emit("chat:online_count", count + bonus);
+};
+
 // Chat is isolated in a dedicated namespace but shares the same server process.
 chatNsp.on("connection", (socket) => {
   chatUserNames.set(socket.id, sanitizeChatName(""));
+  broadcastOnlineCount();
 
   socket.on("chat:join", ({ name } = {}, cb) => {
     const nextName = sanitizeChatName(name);
@@ -648,6 +655,7 @@ chatNsp.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     chatUserNames.delete(socket.id);
+    broadcastOnlineCount();
   });
 });
 

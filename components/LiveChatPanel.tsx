@@ -2,7 +2,10 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Draggable, { type DraggableData, type DraggableEvent } from "react-draggable";
+import Draggable, {
+  type DraggableData,
+  type DraggableEvent,
+} from "react-draggable";
 import { ChatBubbleOutline, Close, Send } from "@mui/icons-material";
 
 type ChatMessage = {
@@ -20,12 +23,21 @@ type LiveChatPanelProps = {
   mySocketId: string;
   onSend: (text: string) => void;
   connected: boolean;
+  onlineCount: number;
 };
 
 type StoredPos = { x: number; y: number };
 const POS_KEY = "flopper_livechat_pos_v1";
 
-export default function LiveChatPanel({ open, onClose, messages, mySocketId, onSend, connected }: LiveChatPanelProps) {
+export default function LiveChatPanel({
+  open,
+  onClose,
+  messages,
+  mySocketId,
+  onSend,
+  connected,
+  onlineCount,
+}: LiveChatPanelProps) {
   const [mounted, setMounted] = useState(false);
   const [pos, setPos] = useState<StoredPos>({ x: 390, y: 90 });
   const [draft, setDraft] = useState("");
@@ -50,8 +62,7 @@ export default function LiveChatPanel({ open, onClose, messages, mySocketId, onS
             x = parsed.x;
             y = parsed.y;
           }
-        } catch {
-        }
+        } catch {}
       }
     }
 
@@ -96,16 +107,22 @@ export default function LiveChatPanel({ open, onClose, messages, mySocketId, onS
           className="pointer-events-auto rounded-lg border border-[#2f4553] bg-[#0f212e] shadow-lg w-72 xl:w-96"
         >
           <header className="livechat-handle cursor-move flex items-center justify-between gap-3 rounded-t-lg border-b border-[#213743] bg-[#1a2c38] px-2 py-1 xl:py-2">
-            <div className="flex items-center gap-2 text-white font-bold text-sm xl:text-base">
-              <ChatBubbleOutline sx={{ fontSize: 20 }} />
-              <span>Live Chat</span>
-              <div
-                className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${
-                  connected ? "bg-green-500/20 text-green-500" : "bg-yellow-500/20 text-yellow-500"
-                }`}
-              >
-                <div className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`} />
-                {connected ? "LIVE" : "CONNECTING"}
+            <div className="text-white font-bold text-sm xl:text-base">
+              <div className="flex items-center gap-2">
+                <ChatBubbleOutline sx={{ fontSize: 20 }} />
+                <div>Live Chat</div>{" "}
+                <div
+                  className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${
+                    connected
+                      ? "bg-green-500/20 text-green-500"
+                      : "bg-yellow-500/20 text-yellow-500"
+                  }`}
+                >
+                  <div
+                    className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`}
+                  />
+                  {connected ? "LIVE" : "CONNECTING"}
+                </div>
               </div>
             </div>
             <button
@@ -117,21 +134,31 @@ export default function LiveChatPanel({ open, onClose, messages, mySocketId, onS
             </button>
           </header>
 
-          <div className="p-2 space-y-2">
+          <div className="px-2">
+            <div className="flex items-center gap-1 py-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <div className="text-[10px] font-normal text-gray-400">
+                {onlineCount} online
+              </div>
+            </div>
+
             <div
               ref={listRef}
               className="h-80 overflow-y-auto rounded-md border border-[#213743] bg-[#132635] p-2 space-y-1"
             >
               {sortedMessages.length === 0 && (
                 <div className="text-xs text-[#8399aa] italic text-center py-4">
-                  {connected ? "No messages yet. Say hello!" : "Connecting to chat..."}
+                  {connected ? "No messages yet" : "Connecting to chat..."}
                 </div>
               )}
 
               {sortedMessages.map((msg) => {
                 const mine = msg.socketId === mySocketId;
                 return (
-                  <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                  <div
+                    key={msg.id}
+                    className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                  >
                     <div
                       className={`max-w-[78%] rounded-md px-2 py-1 text-xs leading-snug border ${
                         mine
@@ -139,7 +166,11 @@ export default function LiveChatPanel({ open, onClose, messages, mySocketId, onS
                           : "bg-[#1a2c38] text-white border-[#2f4553]"
                       }`}
                     >
-                      {!mine && <div className="text-[10px] text-[#00e701] font-bold mb-0.5">{msg.name}</div>}
+                      {!mine && (
+                        <div className="text-[10px] text-[#00e701] font-bold mb-0.5">
+                          {msg.name}
+                        </div>
+                      )}
                       <div className="break-words">{msg.text}</div>
                     </div>
                   </div>
@@ -148,7 +179,7 @@ export default function LiveChatPanel({ open, onClose, messages, mySocketId, onS
             </div>
 
             <form
-              className="flex items-stretch gap-2"
+              className="flex items-stretch gap-2 py-2"
               onSubmit={(e) => {
                 e.preventDefault();
                 submit();
@@ -175,6 +206,6 @@ export default function LiveChatPanel({ open, onClose, messages, mySocketId, onS
         </section>
       </Draggable>
     </div>,
-    document.body
+    document.body,
   );
 }

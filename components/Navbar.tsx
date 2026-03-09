@@ -72,6 +72,7 @@ export default function Navbar() {
   const [chatMessages, setChatMessages] = useState<Array<{ id: string; socketId: string; name: string; text: string; ts: number }>>([]);
   const [chatSocketId, setChatSocketId] = useState("");
   const [chatConnected, setChatConnected] = useState(false);
+  const [onlineCount, setOnlineCount] = useState<number>(0);
 
   const chatSocketRef = React.useRef<Socket | null>(null);
   const chatOpenRef = React.useRef(false);
@@ -90,6 +91,10 @@ export default function Navbar() {
       setChatConnected(true);
       const fallback = `Guest-${Math.floor(Math.random() * 9000) + 1000}`;
       socket.emit("chat:join", { name: session?.user?.name || fallback });
+    });
+
+    socket.on("chat:online_count", (count: number) => {
+      setOnlineCount(count);
     });
 
     socket.on("chat:message", (payload: ChatPayload) => {
@@ -367,6 +372,7 @@ export default function Navbar() {
         mySocketId={chatSocketId}
         onSend={sendChatMessage}
         connected={chatConnected}
+        onlineCount={onlineCount}
       />
     </aside>
   );

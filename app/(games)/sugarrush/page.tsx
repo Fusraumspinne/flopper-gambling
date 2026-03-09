@@ -18,20 +18,20 @@ const MIN_CLUSTER = 5;
 const FREE_SPINS_AWARD = 15;
 
 const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "🍬": 24,
-  "🍭": 24,
-  "🍰": 22,
+  "🍬": 26,
+  "🍭": 22,
+  "🍰": 20,
   "🧁": 18,
   "🍫": 14,
   "🌈": 0.8,
 };
 
 const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
-  "🍬": 0.01,
-  "🍭": 0.02,
-  "🍰": 0.035,
-  "🧁": 0.05,
-  "🍫": 0.075,
+  "🍬": 0.0025,
+  "🍭": 0.005,
+  "🍰": 0.01,
+  "🧁": 0.02,
+  "🍫": 0.04,
 };
 
 const normalizeMoney = (value: number) => {
