@@ -619,11 +619,10 @@ const chatUserNames = new Map();
 
 const broadcastOnlineCount = () => {
   const count = chatUserNames.size;
-  const bonus = Math.floor(count / 5);
+  const bonus = Math.floor(count / 4);
   chatNsp.emit("chat:online_count", count + bonus);
 };
 
-// Chat is isolated in a dedicated namespace but shares the same server process.
 chatNsp.on("connection", (socket) => {
   chatUserNames.set(socket.id, sanitizeChatName(""));
   broadcastOnlineCount();
