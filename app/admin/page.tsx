@@ -16,6 +16,7 @@ type UserRow = {
   btcHoldings: number;
   btcCostUsd: number;
   portfolioUsd?: number;
+  playtimeSeconds?: number;
   seasons?: string[];
   createdAt?: string;
   updatedAt?: string;
@@ -250,6 +251,7 @@ export default function AdminPage() {
       btcHoldings: user.btcHoldings,
       btcCostUsd: user.btcCostUsd,
       portfolioUsd: user.portfolioUsd ?? 0,
+      playtimeSeconds: user.playtimeSeconds ?? 0,
       updatedAt: user.updatedAt,
     });
   };
@@ -541,6 +543,15 @@ export default function AdminPage() {
                     type="number"
                     value={Number(userForm.portfolioUsd ?? 0)}
                     onChange={(e) => setUserForm((prev) => ({ ...prev, portfolioUsd: Number(e.target.value) }))}
+                    className="mt-1 w-full bg-[#213743] border border-[#2f4553] rounded-lg px-3 py-2 text-white"
+                  />
+                </label>
+                <label className="text-sm text-[#b1bad3]">
+                  Playtime (seconds)
+                  <input
+                    type="number"
+                    value={Number(userForm.playtimeSeconds ?? 0)}
+                    onChange={(e) => setUserForm((prev) => ({ ...prev, playtimeSeconds: Number(e.target.value) }))}
                     className="mt-1 w-full bg-[#213743] border border-[#2f4553] rounded-lg px-3 py-2 text-white"
                   />
                 </label>

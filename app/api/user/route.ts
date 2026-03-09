@@ -18,6 +18,8 @@ function normalizeSeconds(value: number): number {
   return Math.max(0, Math.floor(value));
 }
 
+const MAX_PLAYTIME_DELTA_SECONDS = 30 * 60;
+
 function computeInvestmentValue(principal: number, startedAtMs: number, nowMs: number): number {
   if (!Number.isFinite(principal) || principal <= 0) return 0;
   const HOUR_MS = 60 * 60 * 1000;
@@ -206,7 +208,9 @@ export async function POST(req: Request) {
       }
     }
     if (typeof playtimeSecondsDelta === "number") {
-      inc.playtimeSeconds = normalizeSeconds(playtimeSecondsDelta);
+      const normalizedPlaytimeDelta = normalizeSeconds(playtimeSecondsDelta);
+      inc.playtimeSeconds =
+        normalizedPlaytimeDelta > MAX_PLAYTIME_DELTA_SECONDS ? 0 : normalizedPlaytimeDelta;
     }
     if (
       typeof lastPot === "number" &&

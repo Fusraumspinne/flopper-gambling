@@ -22,7 +22,7 @@ export async function GET(req: Request) {
 
     const users = await User.find(filter)
       .sort({ updatedAt: -1 })
-      .select("name verified balance invest lastCheckedInvest lastDailyReward weeklyPayback lastWeeklyPayback btcHoldings btcCostUsd portfolioUsd seasons createdAt updatedAt")
+      .select("name verified balance invest lastCheckedInvest lastDailyReward weeklyPayback lastWeeklyPayback btcHoldings btcCostUsd portfolioUsd playtimeSeconds seasons createdAt updatedAt")
       .lean();
 
     const res = NextResponse.json({ users });
@@ -57,6 +57,7 @@ export async function PATCH(req: Request) {
       "btcHoldings",
       "btcCostUsd",
       "portfolioUsd",
+      "playtimeSeconds",
     ];
 
     for (const field of fields) {
