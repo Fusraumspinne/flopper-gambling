@@ -615,7 +615,70 @@ const sanitizeChatText = (value) => {
   return base.slice(0, 280);
 };
 
+const sanitizeChatAttachment = (value) => {
+  if (!value || typeof value !== "object") return null;
+
+  const kind = value.kind === "image" ? value.kind : null;
+  const mimeType = typeof value.mimeType === "string" ? value.mimeType.toLowerCase() : "";
+  const data = typeof value.data === "string" ? value.data : "";
+  const fileNameRaw = typeof value.fileName === "string" ? value.fileName.trim() : "";
+  const fileName = (fileNameRaw || `file-${Date.now()}`).slice(0, 80);
+
+  if (!kind || !data.startsWith("data:")) return null;
+
+  if (kind === "image") {
+    if (!mimeType.startsWith("image/")) return null;
+    if (!data.startsWith("data:image/")) return null;
+    if (data.length > 720000) return null;
+
+    const width = Number.isFinite(value.width) ? Math.floor(value.width) : undefined;
+    const height = Number.isFinite(value.height) ? Math.floor(value.height) : undefined;
+
+    return {
+      kind,
+      mimeType,
+      data,
+      fileName,
+      width,
+      height,
+    };
+  }
+
+  return null;
+};
+
+const sanitizeReactionEmoji = (value) => {
+  if (typeof value !== "string") return "";
+  let emoji = value.trim();
+  if (!emoji) return "";
+  emoji = emoji.replace(/[\u0000-\u001F\u007F]/g, "").slice(0, 8);
+  return emoji;
+};
+
 const chatUserNames = new Map();
+const chatMessageReactions = new Map();
+const chatMessageOrder = [];
+
+const upsertChatMessageId = (messageId) => {
+  if (!chatMessageReactions.has(messageId)) {
+    chatMessageReactions.set(messageId, new Map());
+    chatMessageOrder.push(messageId);
+  }
+
+  while (chatMessageOrder.length > 400) {
+    const oldest = chatMessageOrder.shift();
+    if (oldest) chatMessageReactions.delete(oldest);
+  }
+};
+
+const serializeReactions = (messageId) => {
+  const perEmoji = chatMessageReactions.get(messageId);
+  if (!perEmoji) return [];
+  return Array.from(perEmoji.entries())
+    .filter(([, users]) => users && users.size > 0)
+    .map(([emoji]) => emoji)
+    .slice(0, 8);
+};
 
 const broadcastOnlineCount = () => {
   const count = chatUserNames.size;
@@ -633,22 +696,66 @@ chatNsp.on("connection", (socket) => {
     if (typeof cb === "function") cb({ ok: true, socketId: socket.id, name: nextName });
   });
 
-  socket.on("chat:message", ({ text } = {}, cb) => {
+  socket.on("chat:message", ({ text, attachment } = {}, cb) => {
     const messageText = sanitizeChatText(text);
-    if (!messageText) {
+    const messageAttachment = sanitizeChatAttachment(attachment);
+
+    if (!messageText && !messageAttachment) {
       if (typeof cb === "function") cb({ ok: false, error: "Empty message." });
       return;
     }
 
+    if (attachment && !messageAttachment) {
+      if (typeof cb === "function") cb({ ok: false, error: "Invalid attachment." });
+      return;
+    }
+
+    const messageId = crypto.randomBytes(8).toString("hex");
+    upsertChatMessageId(messageId);
+
     const payload = {
-      id: crypto.randomBytes(8).toString("hex"),
+      id: messageId,
       socketId: socket.id,
       name: chatUserNames.get(socket.id) || sanitizeChatName(""),
       text: messageText,
+      attachment: messageAttachment || undefined,
+      reactions: [],
       ts: Date.now(),
     };
 
     chatNsp.emit("chat:message", payload);
+    if (typeof cb === "function") cb({ ok: true });
+  });
+
+  socket.on("chat:reaction", ({ messageId, emoji } = {}, cb) => {
+    const safeMessageId = typeof messageId === "string" ? messageId.trim() : "";
+    const safeEmoji = sanitizeReactionEmoji(emoji);
+
+    if (!safeMessageId || !safeEmoji || !chatMessageReactions.has(safeMessageId)) {
+      if (typeof cb === "function") cb({ ok: false, error: "Invalid reaction." });
+      return;
+    }
+
+    const perEmoji = chatMessageReactions.get(safeMessageId);
+    const existingDistinct = perEmoji.size;
+    const emojiExists = perEmoji.has(safeEmoji);
+
+    if (!emojiExists && existingDistinct >= 5) {
+      if (typeof cb === "function") cb({ ok: false, error: "Max distinct reactions reached." });
+      return;
+    }
+
+    const users = perEmoji.get(safeEmoji) || new Set();
+    if (users.has(socket.id)) {
+      if (typeof cb === "function") cb({ ok: true });
+      return;
+    }
+
+    users.add(socket.id);
+    perEmoji.set(safeEmoji, users);
+
+    const reactions = serializeReactions(safeMessageId);
+    chatNsp.emit("chat:reaction_update", { messageId: safeMessageId, reactions });
     if (typeof cb === "function") cb({ ok: true });
   });
 

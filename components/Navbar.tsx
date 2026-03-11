@@ -14,7 +14,34 @@ import { useSoundVolume } from "./SoundVolumeProvider";
 import { DEFAULT_GAME_STATUS, getGameKeyFromHref } from "@/lib/gameStatus";
 import { io, Socket } from "socket.io-client";
 
-type ChatPayload = { id?: string; socketId?: string; name?: string; text?: string; ts?: number };
+type ChatAttachment = {
+  kind: "image";
+  mimeType: string;
+  data: string;
+  fileName: string;
+  width?: number;
+  height?: number;
+};
+
+type ChatPayload = {
+  id?: string;
+  socketId?: string;
+  name?: string;
+  text?: string;
+  ts?: number;
+  attachment?: ChatAttachment;
+  reactions?: string[];
+};
+
+type ChatMessage = {
+  id: string;
+  socketId: string;
+  name: string;
+  text: string;
+  ts: number;
+  attachment?: ChatAttachment;
+  reactions: string[];
+};
 
 interface Game {
   name: string;
@@ -69,7 +96,7 @@ export default function Navbar() {
   const [hasUnreadChat, setHasUnreadChat] = useState(false);
   const [gameStatus, setGameStatus] = useState<Record<string, boolean>>(DEFAULT_GAME_STATUS);
   const [adminAuthorized, setAdminAuthorized] = useState(false);
-  const [chatMessages, setChatMessages] = useState<Array<{ id: string; socketId: string; name: string; text: string; ts: number }>>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatSocketId, setChatSocketId] = useState("");
   const [chatConnected, setChatConnected] = useState(false);
   const [onlineCount, setOnlineCount] = useState<number>(0);
@@ -98,17 +125,39 @@ export default function Navbar() {
     });
 
     socket.on("chat:message", (payload: ChatPayload) => {
-      if (!payload || typeof payload.text !== "string") return;
+      if (!payload) return;
+      const rawText = typeof payload.text === "string" ? payload.text : "";
+      const hasAttachment = !!payload.attachment;
+      if (!rawText && !hasAttachment) return;
       const msg = {
         id: String(payload.id || `${Date.now()}-${Math.random()}`),
         socketId: String(payload.socketId || ""),
         name: String(payload.name || "Guest"),
-        text: String(payload.text || ""),
+        text: rawText,
         ts: Number(payload.ts || Date.now()),
+        attachment: payload.attachment,
+        reactions: Array.isArray(payload.reactions)
+          ? payload.reactions.filter((entry) => typeof entry === "string").slice(0, 8)
+          : [],
       };
 
       setChatMessages((prev) => [...prev.slice(-119), msg]);
       if (!chatOpenRef.current && msg.socketId !== socket.id) setHasUnreadChat(true);
+    });
+
+    socket.on("chat:reaction_update", ({ messageId, reactions } = {}) => {
+      if (typeof messageId !== "string" || !Array.isArray(reactions)) return;
+      const nextReactions = reactions.filter((entry) => typeof entry === "string").slice(0, 8);
+      setChatMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId
+            ? {
+                ...msg,
+                reactions: nextReactions,
+              }
+            : msg
+        )
+      );
     });
 
     socket.on("disconnect", () => {
@@ -137,10 +186,16 @@ export default function Navbar() {
     if (chatOpen) setHasUnreadChat(false);
   }, [chatOpen]);
 
-  const sendChatMessage = (text: string) => {
+  const sendChatMessage = (text: string, attachment?: ChatAttachment) => {
     const socket = chatSocketRef.current;
     if (!socket || !socket.connected) return;
-    socket.emit("chat:message", { text });
+    socket.emit("chat:message", { text, attachment });
+  };
+
+  const sendChatReaction = (messageId: string, emoji: string) => {
+    const socket = chatSocketRef.current;
+    if (!socket || !socket.connected) return;
+    socket.emit("chat:reaction", { messageId, emoji });
   };
 
   useEffect(() => {
@@ -371,6 +426,7 @@ export default function Navbar() {
         messages={chatMessages}
         mySocketId={chatSocketId}
         onSend={sendChatMessage}
+        onReact={sendChatReaction}
         connected={chatConnected}
         onlineCount={onlineCount}
       />

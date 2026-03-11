@@ -312,10 +312,10 @@ function getTierForValue(value: number): CoinTier {
 }
 
 function randomCoinValue(tier: CoinTier) {
-	if (tier === "bronze") return Math.floor(Math.random() * 3) + 1;    // 1-3
-	if (tier === "silver") return Math.floor(Math.random() * 7) + 4;    // 4-10
-	if (tier === "gold") return Math.floor(Math.random() * 10) + 11;    // 11-20
-	return Math.floor(Math.random() * 30) + 21;                       // 21-50
+	if (tier === "bronze") return Math.floor(Math.random() * 3) + 1;   
+	if (tier === "silver") return Math.floor(Math.random() * 7) + 4;   
+	if (tier === "gold") return Math.floor(Math.random() * 10) + 11;    
+	return Math.floor(Math.random() * 30) + 21;                       
 }
 
 function randomCloverValue(isGolden: boolean = false) {

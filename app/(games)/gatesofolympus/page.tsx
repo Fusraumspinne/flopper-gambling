@@ -349,7 +349,7 @@ function ColosseumBackground() {
               <path d="M40 65 L50 55 L60 65 L50 75 Z" fill="#fbbf24" opacity="0.8" />
               <text x="50" y="110" fontFamily="serif" fontSize="12" fill="#fbbf24" textAnchor="middle" fontWeight="bold" opacity="0.8">SPQR</text>
               {Array.from({ length: 21 }).map((_, i) => {
-                const x = 10 + i * 4; // 10 to 90
+                const x = 10 + i * 4;
                 const edgeY = x <= 50 ? 140 + (x - 10) * 0.25 : 150 - (x - 50) * 0.25;
                 return (
                   <line 
@@ -406,7 +406,7 @@ function ColosseumBackground() {
               <path d="M40 65 L50 55 L60 65 L50 75 Z" fill="#fbbf24" opacity="0.8" />
               <text x="50" y="110" fontFamily="serif" fontSize="12" fill="#fbbf24" textAnchor="middle" fontWeight="bold" opacity="0.8">SPQR</text>
               {Array.from({ length: 21 }).map((_, i) => {
-                const x = 10 + i * 4; // 10 to 90
+                const x = 10 + i * 4;
                 const edgeY = x <= 50 ? 140 + (x - 10) * 0.25 : 150 - (x - 50) * 0.25;
                 return (
                   <line 
