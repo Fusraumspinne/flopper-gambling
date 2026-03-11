@@ -629,7 +629,7 @@ const sanitizeChatAttachment = (value) => {
   if (kind === "image") {
     if (!mimeType.startsWith("image/")) return null;
     if (!data.startsWith("data:image/")) return null;
-    if (data.length > 720000) return null;
+    if (data.length > 250000) return null;
 
     const width = Number.isFinite(value.width) ? Math.floor(value.width) : undefined;
     const height = Number.isFinite(value.height) ? Math.floor(value.height) : undefined;
