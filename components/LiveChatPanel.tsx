@@ -155,20 +155,12 @@ export default function LiveChatPanel({
 
     context.drawImage(sourceImage, 0, 0, targetWidth, targetHeight);
 
-    const targetBytes = 500000;
-    const getBase64Bytes = (dataUrl: string) => {
-      const base64 = (dataUrl.split(",")[1] || "");
-      return Math.ceil(base64.length * 3 / 4);
-    };
-
     let quality = 0.9;
     let dataUrl = canvas.toDataURL("image/jpeg", quality);
-    let bytes = getBase64Bytes(dataUrl);
-
-    while (bytes > targetBytes && quality > 0.2) {
-      quality = Math.max(0.2, quality - 0.08);
+    
+    while (dataUrl.length > 250000 && quality > 0.1) {
+      quality -= 0.1;
       dataUrl = canvas.toDataURL("image/jpeg", quality);
-      bytes = getBase64Bytes(dataUrl);
     }
 
     return {
