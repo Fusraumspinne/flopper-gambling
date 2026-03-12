@@ -140,27 +140,40 @@ export default function LiveChatPanel({
   const downscaleImage = async (file: File): Promise<ChatAttachment> => {
     const sourceData = await readAsDataUrl(file);
     const sourceImage = await loadImage(sourceData);
-    const maxDimension = 1280;
+    
+    let maxDimension = 1200;
     const width = sourceImage.naturalWidth || sourceImage.width;
     const height = sourceImage.naturalHeight || sourceImage.height;
-    const scale = Math.min(1, maxDimension / Math.max(width, height));
-    const targetWidth = Math.max(1, Math.round(width * scale));
-    const targetHeight = Math.max(1, Math.round(height * scale));
 
-    const canvas = document.createElement("canvas");
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas is not available.");
+    const getResizedData = (dimension: number, quality: number) => {
+      const scale = Math.min(1, dimension / Math.max(width, height));
+      const targetWidth = Math.max(1, Math.round(width * scale));
+      const targetHeight = Math.max(1, Math.round(height * scale));
 
-    context.drawImage(sourceImage, 0, 0, targetWidth, targetHeight);
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Canvas is not available.");
+      context.drawImage(sourceImage, 0, 0, targetWidth, targetHeight);
+      return {
+        dataUrl: canvas.toDataURL("image/jpeg", quality),
+        w: targetWidth,
+        h: targetHeight
+      };
+    };
 
-    let quality = 0.9;
-    let dataUrl = canvas.toDataURL("image/jpeg", quality);
+    let quality = 0.8;
+    let { dataUrl, w, h } = getResizedData(maxDimension, quality);
     
-    while (dataUrl.length > 250000 && quality > 0.1) {
-      quality -= 0.1;
-      dataUrl = canvas.toDataURL("image/jpeg", quality);
+    while (dataUrl.length > 250000 && quality > 0.3) {
+      quality -= 0.15;
+      ({ dataUrl, w, h } = getResizedData(maxDimension, quality));
+    }
+
+    while (dataUrl.length > 250000 && maxDimension > 400) {
+      maxDimension -= 200;
+      ({ dataUrl, w, h } = getResizedData(maxDimension, quality));
     }
 
     return {
@@ -168,8 +181,8 @@ export default function LiveChatPanel({
       mimeType: "image/jpeg",
       data: dataUrl,
       fileName: file.name.replace(/\.[^.]+$/, ".jpg"),
-      width: targetWidth,
-      height: targetHeight,
+      width: w,
+      height: h,
     };
   };
 
