@@ -269,7 +269,7 @@ export default function LiveChatPanel({
                   >
                     <div
                       onClick={(e) => {
-                        if (true) {
+                        if (!mine) {
                           e.stopPropagation();
                           if ((msg.reactions?.length || 0) >= 5) {
                             setReactMenuMessageId(null);
