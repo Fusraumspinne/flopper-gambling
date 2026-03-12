@@ -269,7 +269,7 @@ export default function LiveChatPanel({
                   >
                     <div
                       onClick={(e) => {
-                        if (!mine) {
+                        if (true) {
                           e.stopPropagation();
                           if ((msg.reactions?.length || 0) >= 5) {
                             setReactMenuMessageId(null);
@@ -328,6 +328,10 @@ export default function LiveChatPanel({
                                 if (e.key === "Enter") {
                                   const val = reactionInput.trim();
                                   if (!val) return;
+                                  
+                                  const segments = Array.from(new Intl.Segmenter("en", { granularity: "grapheme" }).segment(val));
+                                  if (segments.length !== 1) return;
+
                                   const isNew = !msg.reactions.includes(val);
                                   if (isNew && (msg.reactions?.length || 0) >= 5) return;
                                   onReact(msg.id, val);
@@ -349,6 +353,10 @@ export default function LiveChatPanel({
                               onClick={() => {
                                 const val = reactionInput.trim();
                                 if (!val) return;
+                                
+                                const segments = Array.from(new Intl.Segmenter("en", { granularity: "grapheme" }).segment(val));
+                                if (segments.length !== 1) return;
+
                                 const isNew = !msg.reactions.includes(val);
                                 if (isNew && (msg.reactions?.length || 0) >= 5) return;
                                 onReact(msg.id, val);
