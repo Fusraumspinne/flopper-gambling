@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-const PAYBACK_RATE = 0.1; 
+const PAYBACK_RATE = 0.01; 
 const SYNC_IDLE_MS = 5000;
 
 type LiveStatsPoint = {
