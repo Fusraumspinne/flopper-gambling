@@ -59,11 +59,11 @@ const SCATTER_WEIGHT = 1.5;
 const RAINBOW_WEIGHT = 1;
 
 const FEATURE_TYPE_WEIGHTS: [CoinTier | "clover" | "cloverGold" | "cauldron", number][] = [
-	["bronze", 77.25],
-	["silver", 10],
-	["gold", 5],
-	["diamond", 1.5],
-	["clover", 4],
+	["bronze", 67.75],
+	["silver", 15],
+	["gold", 7.5],
+	["diamond", 2.5],
+	["clover", 5],
 	["cloverGold", 0.75],
 	["cauldron", 1],
 ];
