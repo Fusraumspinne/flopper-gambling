@@ -94,10 +94,10 @@ const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   lure: 3,
   fish: 10,
   scatter: 0,
-  fisher: 1.5,
+  fisher: 1.25,
 };
 const FISH_VALUES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000];
-const FISH_WEIGHTS = [27, 22, 17, 14, 9.5, 6.2, 2.6, 0.22, 0.05, 0.015, 0.003, 0.0008];
+const FISH_WEIGHTS = [30, 21, 16, 13, 9.5, 6.2, 2.6, 0.22, 0.05, 0.015, 0.003, 0.0008];
 const BASE_COLLECT_MULTIS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 40];
 const FS_MULTIPLIERS = [1, 2, 3, 8, 12, 18, 25, 35];
 const BOAT_WAKE_CHANCE_BASE = 0.13;

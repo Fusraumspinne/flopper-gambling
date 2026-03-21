@@ -32,7 +32,7 @@ const SYMBOL_WEIGHTS: Record<WeightedSymbol, number> = {
 };
 
 const MULTIPLIER_WEIGHT_NORMAL = 0.5;
-const MULTIPLIER_WEIGHT_FREE = 5;
+const MULTIPLIER_WEIGHT_FREE = 3;
 
 const SYMBOL_BASE_MULTIS: Record<BaseSymbol, number> = {
   "🌿": 0.0025,
@@ -45,17 +45,17 @@ const SYMBOL_BASE_MULTIS: Record<BaseSymbol, number> = {
 };
 
 const SYMBOL_FREESPIN_MULTIS: Record<BaseSymbol, number> = {
-  "🌿": 0.01,
-  "🍇": 0.015,
-  "⚔️": 0.02,
-  "🏛️": 0.035,
-  "🪙": 0.05,
-  "🔱": 0.075,
+  "🌿": 0.0075,
+  "🍇": 0.01,
+  "⚔️": 0.015,
+  "🏛️": 0.025,
+  "🪙": 0.04,
+  "🔱": 0.07,
   "👑": 0.1,
 };
 
 const MULTIPLIER_POOL = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 50, 100, 250, 500];
-const MULTIPLIER_POOL_WEIGHTS = [26, 22, 18, 14, 9, 6, 4.2, 3.2, 1.8, 1.1, 0.55, 0.2, 0.03, 0.008, 0.001];
+const MULTIPLIER_POOL_WEIGHTS = [28, 22, 18, 14, 8, 5, 4.2, 3.2, 1.8, 1.1, 0.55, 0.2, 0.03, 0.008, 0.001];
 
 const normalizeMoney = (value: number) => {
   if (!Number.isFinite(value)) return 0;
