@@ -16,9 +16,10 @@ const ROWS = 7;
 const COLS = 7;
 const MIN_CLUSTER = 5;
 const FREE_SPINS_AWARD = 15;
+const FREE_SPIN_MAX_WIN_MULTIPLIER = 100000;
 
 const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "🍬": 24,
+  "🍬": 240,
   "🍭": 21,
   "🍰": 20,
   "🧁": 19,
@@ -27,11 +28,11 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
 };
 
 const SYMBOL_BASE_MULTIS: Record<CandySymbol, number> = {
-  "🍬": 0.002,
-  "🍭": 0.005,
-  "🍰": 0.0075,
-  "🧁": 0.01,
-  "🍫": 0.02,
+  "🍬": 0.0035,
+  "🍭": 0.0065,
+  "🍰": 0.01,
+  "🧁": 0.015,
+  "🍫": 0.025,
 };
 
 const normalizeMoney = (value: number) => {
@@ -429,6 +430,8 @@ export default function SugarRushPage() {
   const pendingMultiDenominatorRef = React.useRef(0);
   const pendingRoundPayoutRef = React.useRef(0);
   const isExecutingSpinRef = React.useRef(false);
+  const freeSpinCapRef = React.useRef(0);
+  const freeSpinWinRef = React.useRef(0);
   const intervalRefs = React.useRef<Array<ReturnType<typeof setInterval> | null>>(Array(COLS).fill(null));
 
   React.useEffect(() => {
@@ -536,6 +539,8 @@ export default function SugarRushPage() {
     if (!isFreeSpin) {
       setPhase("spinning");
       setMultiplierGrid(emptyMultiplierGrid());
+      freeSpinCapRef.current = 0;
+      freeSpinWinRef.current = 0;
     }
 
     setSpinKey((v) => v + 1);
@@ -653,6 +658,18 @@ export default function SugarRushPage() {
       setLastDropIndices(new Set());
     }
 
+    if (isFreeSpin) {
+      const prevFreeSpinWin = freeSpinWinRef.current;
+      const remaining = Math.max(0, normalizeMoney(freeSpinCapRef.current - prevFreeSpinWin));
+      const allowedSpinWin = remaining > 0 ? Math.min(spinWin, remaining) : 0;
+      freeSpinWinRef.current = Math.min(
+        freeSpinCapRef.current,
+        normalizeMoney(prevFreeSpinWin + allowedSpinWin)
+      );
+      spinWin = normalizeMoney(freeSpinWinRef.current - prevFreeSpinWin);
+      setLastCascadeWin(spinWin);
+    }
+
     const updatedRoundPayout = normalizeMoney(pendingRoundPayoutRef.current + spinWin);
     pendingRoundPayoutRef.current = updatedRoundPayout;
     setPendingRoundPayout(updatedRoundPayout);
@@ -668,6 +685,8 @@ export default function SugarRushPage() {
         setPhase("idle");
         setIsAutospinning(false);
         settleRound(pendingRoundStakeRef.current, updatedRoundPayout, pendingMultiDenominatorRef.current);
+        freeSpinCapRef.current = 0;
+        freeSpinWinRef.current = 0;
       } else {
         setPhase("free");
       }
@@ -675,6 +694,14 @@ export default function SugarRushPage() {
       if (triggeredScatter) {
         const scatters = countScatters(workingGrid);
         const extra = Math.max(0, scatters - 3) * 2;
+        const freeSpinCap = normalizeMoney(betAmount * FREE_SPIN_MAX_WIN_MULTIPLIER);
+        const seededWin = Math.min(freeSpinCap, pendingRoundPayoutRef.current);
+        freeSpinCapRef.current = freeSpinCap;
+        freeSpinWinRef.current = seededWin;
+        if (seededWin !== pendingRoundPayoutRef.current) {
+          pendingRoundPayoutRef.current = seededWin;
+          setPendingRoundPayout(seededWin);
+        }
         setAnteBet(false);
         setPhase("free");
         setFreeSpinsLeft(FREE_SPINS_AWARD + extra);
@@ -688,7 +715,7 @@ export default function SugarRushPage() {
     isExecutingSpinRef.current = false;
     setIsExecutingSpin(false);
     setIsTumbling(false);
-  }, [phase, multiplierGrid, anteBet, spinCost, freeSpinsLeft, settleRound, grid]);
+  }, [phase, multiplierGrid, anteBet, betAmount, spinCost, freeSpinsLeft, settleRound, grid]);
 
   React.useEffect(() => {
     if (!isAutospinning || isExecutingSpin) return;

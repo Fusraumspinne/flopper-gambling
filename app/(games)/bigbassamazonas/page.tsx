@@ -94,7 +94,7 @@ const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   lure: 3,
   fish: 10,
   scatter: 0,
-  fisher: 1.25,
+  fisher: 1.35,
 };
 const FISH_VALUES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000];
 const FISH_WEIGHTS = [30, 21, 16, 13, 9.5, 6.2, 2.6, 0.22, 0.05, 0.015, 0.003, 0.0008];
@@ -103,6 +103,7 @@ const FS_MULTIPLIERS = [1, 2, 3, 8, 12, 18, 25, 35];
 const BOAT_WAKE_CHANCE_BASE = 0.13;
 const BOAT_COLLECT_MULTI_WEIGHTS = [64, 24, 6.5, 2.5, 1.5, 0.9, 0.55, 0.3, 0.15, 0.07, 0.03];
 const PREFREE_START_SPINS = 10;
+const FREE_SPIN_MAX_WIN_MULTIPLIER = 100000;
 const PREFREE_TOKEN_POOL: PreFreeToken[] = [
   "fs1",
   "fs2",
@@ -469,6 +470,8 @@ export default function BigBassAmazonasPage() {
   const pendingRoundStakeRef = React.useRef(0);
   const pendingMultiDenominatorRef = React.useRef(0);
   const pendingRoundPayoutRef = React.useRef(0);
+  const freeSpinCapRef = React.useRef(0);
+  const freeSpinWinRef = React.useRef(0);
   const [boatAwake, setBoatAwake] = useState(false);
   const [boatNetCast, setBoatNetCast] = useState(false);
   const [boatChestOpen, setBoatChestOpen] = useState(false);
@@ -673,6 +676,9 @@ export default function BigBassAmazonasPage() {
     const isFreeSpin = phase === "free" && freeSpinsLeft > 0;
     if (isFreeSpin) {
       setFreeSpinsLeft((s) => Math.max(0, s - 1));
+    } else {
+      freeSpinCapRef.current = 0;
+      freeSpinWinRef.current = 0;
     }
     setSpinDisplayMultiplier(isFreeSpin ? currentFsMultiplier : 1);
     let gainedExtraSpinsThisCall = 0;
@@ -801,6 +807,17 @@ export default function BigBassAmazonasPage() {
             }
           }
 
+          if (isFreeSpin) {
+            const prevFreeSpinWin = freeSpinWinRef.current;
+            const remaining = Math.max(0, normalizeMoney(freeSpinCapRef.current - prevFreeSpinWin));
+            const allowedPayout = remaining > 0 ? Math.min(payoutForThisSpin, remaining) : 0;
+            freeSpinWinRef.current = Math.min(
+              freeSpinCapRef.current,
+              normalizeMoney(prevFreeSpinWin + allowedPayout)
+            );
+            payoutForThisSpin = normalizeMoney(freeSpinWinRef.current - prevFreeSpinWin);
+          }
+
           updatedRoundPayout = normalizeMoney(pendingRoundPayoutRef.current + payoutForThisSpin);
           pendingRoundPayoutRef.current = updatedRoundPayout;
           setPendingRoundPayout(updatedRoundPayout);
@@ -837,6 +854,8 @@ export default function BigBassAmazonasPage() {
               setPhase("idle");
               settleRound(pendingRoundStakeRef.current, updatedRoundPayout, pendingMultiDenominatorRef.current);
               setIsAutospinning(false);
+              freeSpinCapRef.current = 0;
+              freeSpinWinRef.current = 0;
             }
             window.setTimeout(() => {
               finishExecution();
@@ -951,6 +970,15 @@ export default function BigBassAmazonasPage() {
     const maxIndex = FS_MULTIPLIERS.length - 1;
     const cappedInitialRetriggers = Math.min(initialRetriggers, maxIndex);
     const fsMulti = FS_MULTIPLIERS[cappedInitialRetriggers];
+
+    const freeSpinCap = normalizeMoney(betAmount * FREE_SPIN_MAX_WIN_MULTIPLIER);
+    const seededWin = Math.min(freeSpinCap, pendingRoundPayoutRef.current);
+    freeSpinCapRef.current = freeSpinCap;
+    freeSpinWinRef.current = seededWin;
+    if (seededWin !== pendingRoundPayoutRef.current) {
+      pendingRoundPayoutRef.current = seededWin;
+      setPendingRoundPayout(seededWin);
+    }
 
     setFreeSpinsLeft(totalStartSpins);
     setFisherCollected(initialFishers);

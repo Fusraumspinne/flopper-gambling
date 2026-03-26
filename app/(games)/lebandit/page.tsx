@@ -23,6 +23,7 @@ type Position = [number, number];
 const ROWS = 5;
 const COLS = 6;
 const MIN_CLUSTER = 5;
+const FREE_SPIN_MAX_WIN_MULTIPLIER = 100000;
 
 const SYMBOL_BASE_MULTI: Record<PaySymbol, number> = {
 	"🧀": 0.018,
@@ -56,16 +57,16 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
 };
 
 const SCATTER_WEIGHT = 1.5;
-const RAINBOW_WEIGHT = 1;
+const RAINBOW_WEIGHT = 0.8;
 
 const FEATURE_TYPE_WEIGHTS: [CoinTier | "clover" | "cloverGold" | "cauldron", number][] = [
-	["bronze", 77.5],
-	["silver", 10],
-	["gold", 5],
-	["diamond", 1.5],
+	["bronze", 81.1],
+	["silver", 8],
+	["gold", 4],
+	["diamond", 1],
 	["clover", 4],
-	["cloverGold", 0.75],
-	["cauldron", 0.75],
+	["cloverGold", 0.7],
+	["cauldron", 0.7],
 ];
 
 const CLOVER_VALUES = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25];
@@ -773,6 +774,8 @@ export default function LeBanditPage() {
 	const pendingMultiDenominatorRef = React.useRef(0);
 	const pendingRoundPayoutRef = React.useRef(0);
 	const isExecutingSpinRef = React.useRef(false);
+	const freeSpinCapRef = React.useRef(0);
+	const freeSpinWinRef = React.useRef(0);
 
 	const spinCost = useMemo(() => normalizeMoney(betAmount * (anteBet ? 1.5 : 1)), [betAmount, anteBet]);
 	const buyBonusCost = useMemo(() => normalizeMoney(betAmount * 100), [betAmount]);
@@ -881,6 +884,8 @@ export default function LeBanditPage() {
 			setPhase("free");
 		} else {
 			setPhase("spinning");
+			freeSpinCapRef.current = 0;
+			freeSpinWinRef.current = 0;
 		}
 
 		let workingGold = goldMask.map((row) => [...row]);
@@ -972,6 +977,17 @@ export default function LeBanditPage() {
 
 			await sleep(650);
 			setLastDropIndices(new Set());
+		}
+
+		if (isFreeSpin) {
+			const prevFreeSpinWin = freeSpinWinRef.current;
+			const remaining = Math.max(0, normalizeMoney(freeSpinCapRef.current - prevFreeSpinWin));
+			const allowedSpinWin = remaining > 0 ? Math.min(spinWin, remaining) : 0;
+			freeSpinWinRef.current = Math.min(
+				freeSpinCapRef.current,
+				normalizeMoney(prevFreeSpinWin + allowedSpinWin)
+			);
+			spinWin = normalizeMoney(freeSpinWinRef.current - prevFreeSpinWin);
 		}
 
 		const rainbowCount = countType(workingGrid, "rainbow");
@@ -1179,6 +1195,16 @@ export default function LeBanditPage() {
 				}
 			}
 			totalFeatureWin = normalizeMoney(finalCoinSum * (betAmount / (isFreeSpin ? 10 : 100)));
+			if (isFreeSpin) {
+				const prevFreeSpinWin = freeSpinWinRef.current;
+				const remaining = Math.max(0, normalizeMoney(freeSpinCapRef.current - prevFreeSpinWin));
+				const allowedFeatureWin = remaining > 0 ? Math.min(totalFeatureWin, remaining) : 0;
+				freeSpinWinRef.current = Math.min(
+					freeSpinCapRef.current,
+					normalizeMoney(prevFreeSpinWin + allowedFeatureWin)
+				);
+				totalFeatureWin = normalizeMoney(freeSpinWinRef.current - prevFreeSpinWin);
+			}
 			
 			featureWin = totalFeatureWin;
 			setLastFeatureWin(featureWin);
@@ -1200,12 +1226,22 @@ export default function LeBanditPage() {
 				setPhase("idle");
 				setIsAutospinning(false);
 				settleRound(pendingRoundStakeRef.current, updatedRoundPayout, pendingMultiDenominatorRef.current);
+				freeSpinCapRef.current = 0;
+				freeSpinWinRef.current = 0;
 			} else {
 				setPhase("free");
 			}
 		} else {
 			if (scatterCount >= 3) {
 				const freeAward = 10 + Math.max(0, scatterCount - 3) * 2;
+				const freeSpinCap = normalizeMoney(betAmount * FREE_SPIN_MAX_WIN_MULTIPLIER);
+				const seededWin = Math.min(freeSpinCap, pendingRoundPayoutRef.current);
+				freeSpinCapRef.current = freeSpinCap;
+				freeSpinWinRef.current = seededWin;
+				if (seededWin !== pendingRoundPayoutRef.current) {
+					pendingRoundPayoutRef.current = seededWin;
+					setPendingRoundPayout(seededWin);
+				}
 				setAnteBet(false);
 				setPhase("free");
 				setFreeSpinsLeft(freeAward);
@@ -1219,7 +1255,7 @@ export default function LeBanditPage() {
 		isExecutingSpinRef.current = false;
 		setIsExecutingSpin(false);
 		setIsTumbling(false);
-	}, [phase, freeSpinsLeft, goldMask, grid, spinCost, settleRound, anteBet]);
+	}, [phase, freeSpinsLeft, goldMask, grid, spinCost, settleRound, anteBet, betAmount]);
 
 	React.useEffect(() => {
 		if (!isAutospinning || isExecutingSpin) return;

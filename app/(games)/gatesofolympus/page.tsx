@@ -19,15 +19,16 @@ const ROWS = 5;
 const COLS = 6;
 const MIN_CONNECT = 8;
 const FREE_SPINS_AWARD = 15;
+const FREE_SPIN_MAX_WIN_MULTIPLIER = 100000;
 
 const SYMBOL_WEIGHTS: Record<WeightedSymbol, number> = {
-  "🌿": 18,
-  "🍇": 18,
+  "🌿": 17,
+  "🍇": 16,
   "⚔️": 15,
   "🏛️": 14,
-  "🪙": 15,
-  "🔱": 10,
-  "👑": 10,
+  "🪙": 13,
+  "🔱": 12,
+  "👑": 11,
   "⚡": 1.5,
 };
 
@@ -474,6 +475,8 @@ export default function GatesOfOlympusPage() {
   const pendingRoundPayoutRef = React.useRef(0);
   const storedMultiplierRef = React.useRef(0);
   const isExecutingSpinRef = React.useRef(false);
+  const freeSpinCapRef = React.useRef(0);
+  const freeSpinWinRef = React.useRef(0);
 
   const audioRef = React.useRef<{
     bet: HTMLAudioElement | null;
@@ -580,6 +583,8 @@ export default function GatesOfOlympusPage() {
     } else {
       setPhase("spinning");
       resetStoredMultiplier();
+      freeSpinCapRef.current = 0;
+      freeSpinWinRef.current = 0;
     }
 
     setSpinKey((v) => v + 1);
@@ -692,6 +697,18 @@ export default function GatesOfOlympusPage() {
       setLastCascadeWin(spinWin);
     }
 
+    if (isFreeSpin) {
+      const prevFreeSpinWin = freeSpinWinRef.current;
+      const remaining = Math.max(0, normalizeMoney(freeSpinCapRef.current - prevFreeSpinWin));
+      const allowedSpinWin = remaining > 0 ? Math.min(spinWin, remaining) : 0;
+      freeSpinWinRef.current = Math.min(
+        freeSpinCapRef.current,
+        normalizeMoney(prevFreeSpinWin + allowedSpinWin)
+      );
+      spinWin = normalizeMoney(freeSpinWinRef.current - prevFreeSpinWin);
+      setLastCascadeWin(spinWin);
+    }
+
     const updatedRoundPayout = normalizeMoney(pendingRoundPayoutRef.current + spinWin);
     pendingRoundPayoutRef.current = updatedRoundPayout;
     setPendingRoundPayout(updatedRoundPayout);
@@ -706,6 +723,8 @@ export default function GatesOfOlympusPage() {
         setPhase("idle");
         setIsAutospinning(false);
         settleRound(pendingRoundStakeRef.current, updatedRoundPayout, pendingMultiDenominatorRef.current);
+        freeSpinCapRef.current = 0;
+        freeSpinWinRef.current = 0;
       } else {
         setPhase("free");
       }
@@ -713,6 +732,14 @@ export default function GatesOfOlympusPage() {
       if (triggeredScatter) {
         const scatters = countScatters(workingGrid);
         const extra = Math.max(0, scatters - 3) * 2;
+        const freeSpinCap = normalizeMoney(betAmount * FREE_SPIN_MAX_WIN_MULTIPLIER);
+        const seededWin = Math.min(freeSpinCap, pendingRoundPayoutRef.current);
+        freeSpinCapRef.current = freeSpinCap;
+        freeSpinWinRef.current = seededWin;
+        if (seededWin !== pendingRoundPayoutRef.current) {
+          pendingRoundPayoutRef.current = seededWin;
+          setPendingRoundPayout(seededWin);
+        }
         setAnteBet(false);
         setPhase("free");
         setFreeSpinsLeft(FREE_SPINS_AWARD + extra);
@@ -726,7 +753,7 @@ export default function GatesOfOlympusPage() {
     isExecutingSpinRef.current = false;
     setIsExecutingSpin(false);
     setIsTumbling(false);
-  }, [anteBet, freeSpinsLeft, grid, phase, resetStoredMultiplier, settleRound, spinCost]);
+  }, [anteBet, betAmount, freeSpinsLeft, grid, phase, resetStoredMultiplier, settleRound, spinCost]);
 
   React.useEffect(() => {
     if (!isAutospinning || isExecutingSpin) return;
