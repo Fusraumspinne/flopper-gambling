@@ -510,8 +510,8 @@ const startHand = (room, buyIn, bigBlind) => {
   if (room.stage !== "setup" && room.stage !== "finished") {
     return { ok: false, error: "Hand already in progress." };
   }
-  if (room.players.length < 2) return { ok: false, error: "At least 2 players required." };
-  if (room.players.length > 6) return { ok: false, error: "Max 6 players per room." };
+  if (room.players.length < 2) return { ok: false, error: "At least 2 players required" };
+  if (room.players.length > 6) return { ok: false, error: "Max 6 players per room" };
 
   room.bigBlind = Math.max(1, Math.floor(bigBlind || room.bigBlind || 100));
   room.smallBlind = Math.max(1, Math.floor(room.bigBlind / 2));
@@ -737,12 +737,12 @@ chatNsp.on("connection", (socket) => {
     const messageAttachment = sanitizeChatAttachment(attachment);
 
     if (!messageText && !messageAttachment) {
-      if (typeof cb === "function") cb({ ok: false, error: "Empty message." });
+      if (typeof cb === "function") cb({ ok: false, error: "Empty message" });
       return;
     }
 
     if (attachment && !messageAttachment) {
-      if (typeof cb === "function") cb({ ok: false, error: "Invalid attachment." });
+      if (typeof cb === "function") cb({ ok: false, error: "Invalid attachment" });
       return;
     }
 
@@ -768,7 +768,7 @@ chatNsp.on("connection", (socket) => {
     const safeEmoji = sanitizeReactionEmoji(emoji);
 
     if (!safeMessageId || !safeEmoji || !chatMessageReactions.has(safeMessageId)) {
-      if (typeof cb === "function") cb({ ok: false, error: "Invalid reaction." });
+      if (typeof cb === "function") cb({ ok: false, error: "Invalid reaction" });
       return;
     }
 
@@ -777,7 +777,7 @@ chatNsp.on("connection", (socket) => {
     const emojiExists = perEmoji.has(safeEmoji);
 
     if (!emojiExists && existingDistinct >= 5) {
-      if (typeof cb === "function") cb({ ok: false, error: "Max distinct reactions reached." });
+      if (typeof cb === "function") cb({ ok: false, error: "Max distinct reactions reached" });
       return;
     }
 
@@ -817,7 +817,7 @@ io.on("connection", (socket) => {
     });
     if (existingRoomId) {
       if (typeof cb === "function") {
-        cb({ ok: false, error: "You are already seated in a room. Leave first." });
+        cb({ ok: false, error: "You are already seated in a room. Leave first" });
       }
       return;
     }
@@ -856,7 +856,7 @@ io.on("connection", (socket) => {
   socket.on("join_room", ({ roomId, name, buyIn, accountId } = {}, cb) => {
     const room = rooms.get(roomId);
     if (!room) {
-      if (typeof cb === "function") cb({ ok: false, error: "Room not found." });
+      if (typeof cb === "function") cb({ ok: false, error: "Room not found" });
       return;
     }
     if (room.players.some((p) => p.id === socket.id)) {
@@ -869,12 +869,12 @@ io.on("connection", (socket) => {
     }
     if (hasDuplicatePlayerIdentity(room, socket.id, accountId, name)) {
       if (typeof cb === "function") {
-        cb({ ok: false, error: "Dieser Account ist bereits in diesem Raum aktiv." });
+        cb({ ok: false, error: "This account already joined this room" });
       }
       return;
     }
     if (room.players.length >= 6) {
-      if (typeof cb === "function") cb({ ok: false, error: "Room is full (max 6)." });
+      if (typeof cb === "function") cb({ ok: false, error: "Room is full (max 6)" });
       return;
     }
 
@@ -928,7 +928,7 @@ io.on("connection", (socket) => {
     const room = rooms.get(roomId);
     if (!room) return;
     if (room.hostId !== socket.id) {
-      if (typeof cb === "function") cb({ ok: false, error: "Only the host can start." });
+      if (typeof cb === "function") cb({ ok: false, error: "Only the host can start" });
       return;
     }
     const res = startHand(room, buyIn, bigBlind);
@@ -947,11 +947,11 @@ io.on("connection", (socket) => {
     const actorIdx = findPlayerIndex(room, socket.id);
     if (actorIdx < 0) return;
     if (room.stage !== "preflop" && room.stage !== "flop" && room.stage !== "turn" && room.stage !== "river") {
-      if (typeof cb === "function") cb({ ok: false, error: "Round not active." });
+      if (typeof cb === "function") cb({ ok: false, error: "Round not active" });
       return;
     }
     if (room.activePlayerIndex !== actorIdx) {
-      if (typeof cb === "function") cb({ ok: false, error: "It's not your turn." });
+      if (typeof cb === "function") cb({ ok: false, error: "It's not your turn" });
       return;
     }
 
@@ -1020,7 +1020,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (typeof cb === "function") cb({ ok: false, error: "Unknown action." });
+    if (typeof cb === "function") cb({ ok: false, error: "Unknown action" });
   });
 
   socket.on("disconnect", () => {

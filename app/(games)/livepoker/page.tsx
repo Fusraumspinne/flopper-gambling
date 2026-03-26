@@ -590,18 +590,18 @@ export default function LivePokerPage() {
     setError("");
     if (lobbyBusy) return;
     if (!serverOnline) {
-      setError("Server startet noch, bitte kurz warten...");
+      setError("Server is starting up, please wait...");
       return;
     }
     if (buyIn <= 0) {
-      setError("Your balance is too low.");
+      setError("Your balance is too low");
       return;
     }
     setLobbyBusy(true);
     const socket = connectSocket();
     socket.emit("create_room", { name: effectiveName, buyIn, accountId: effectiveAccountId }, (res: any) => {
       if (!res?.ok) {
-        setError(res?.error || "Failed to create room.");
+        setError(res?.error || "Failed to create room");
         setLobbyBusy(false);
         return;
       }
@@ -616,7 +616,7 @@ export default function LivePokerPage() {
     if (lobbyBusy) return;
     if (!targetRoomId) return;
     if (!serverOnline) {
-      setError("Server startet noch, bitte kurz warten...");
+      setError("Server is starting up, please wait...");
       return;
     }
     if (buyIn <= 0) {
@@ -627,7 +627,7 @@ export default function LivePokerPage() {
     const socket = connectSocket();
     socket.emit("join_room", { roomId: targetRoomId, name: effectiveName, buyIn, accountId: effectiveAccountId }, (res: any) => {
       if (!res?.ok) {
-        setError(res?.error || "Failed to join room.");
+        setError(res?.error || "Failed to join room");
         setLobbyBusy(false);
         return;
       }
@@ -666,7 +666,7 @@ export default function LivePokerPage() {
     playAudio(audioRef.current.bet);
     setCustomRaiseAmount(0);
     socketRef.current?.emit("action", { roomId: gameState.roomId, action: "fold" }, (res: any) => {
-      if (!res?.ok) setError(res?.error || "Action failed.");
+      if (!res?.ok) setError(res?.error || "Action failed");
     });
   };
 
@@ -675,7 +675,7 @@ export default function LivePokerPage() {
     playAudio(audioRef.current.bet);
     setCustomRaiseAmount(0);
     socketRef.current?.emit("action", { roomId: gameState.roomId, action: "call" }, (res: any) => {
-      if (!res?.ok) setError(res?.error || "Action failed.");
+      if (!res?.ok) setError(res?.error || "Action failed");
     });
   };
 
@@ -693,7 +693,7 @@ export default function LivePokerPage() {
     playAudio(audioRef.current.bet);
     setCustomRaiseAmount(0);
     socketRef.current?.emit("action", { roomId: gameState.roomId, action: "raise", amount: clamped }, (res: any) => {
-      if (!res?.ok) setError(res?.error || "Action failed.");
+      if (!res?.ok) setError(res?.error || "Action failed");
     });
   };
 
