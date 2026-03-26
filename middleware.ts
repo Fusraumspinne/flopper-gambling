@@ -9,12 +9,6 @@ export default withAuth(
       return NextResponse.next();
     }
 
-    const isVerified = (req.nextauth.token as any)?.verified === true;
-    if (!isVerified && pathname !== "/not-verified") {
-      const url = new URL("/not-verified", req.url);
-      return NextResponse.redirect(url);
-    }
-
     return NextResponse.next();
   },
   {

@@ -257,6 +257,8 @@ const initRoom = (roomId, hostId) => ({
   bigBlind: 100,
   smallBlind: 50,
   winners: [],
+  handNumber: 0,
+  settledHandNumber: -1,
 });
 
 const buildPublicState = (room, socketId) => {
@@ -333,6 +335,8 @@ const removePlayerFromRoom = (room, socketId) => {
 const findPlayerIndex = (room, socketId) => room.players.findIndex((p) => p.id === socketId);
 
 const finishHandEarly = (room) => {
+  if (room.settledHandNumber === room.handNumber) return true;
+
   const alive = room.players.filter((p) => !p.folded);
   if (alive.length !== 1) return false;
   const winner = alive[0];
@@ -344,10 +348,16 @@ const finishHandEarly = (room) => {
   room.boardRevealCount = 5;
   room.stage = "finished";
   room.winners = [room.players.findIndex((p) => p.id === winner.id)].filter((i) => i >= 0);
+  room.settledHandNumber = room.handNumber;
   return true;
 };
 
 const resolveShowdown = (room) => {
+  if (room.settledHandNumber === room.handNumber) {
+    room.stage = "finished";
+    return;
+  }
+
   const potValue = recomputePot(room.players);
   room.pot = potValue;
   room.sidePots = computeSidePots(room.players);
@@ -414,6 +424,7 @@ const resolveShowdown = (room) => {
   room.winners = Array.from(moneyWinners);
   room.boardRevealCount = 5;
   room.stage = "finished";
+  room.settledHandNumber = room.handNumber;
 };
 
 const advanceStage = (room) => {
@@ -504,6 +515,8 @@ const startHand = (room, buyIn, bigBlind) => {
 
   room.bigBlind = Math.max(1, Math.floor(bigBlind || room.bigBlind || 100));
   room.smallBlind = Math.max(1, Math.floor(room.bigBlind / 2));
+  room.handNumber = Math.floor(room.handNumber || 0) + 1;
+  room.settledHandNumber = -1;
 
   room.deck = createDeck();
   room.board = [];
@@ -602,6 +615,29 @@ const getRoomsSummary = () =>
 
 const broadcastRooms = () => {
   io.emit("rooms", getRoomsSummary());
+};
+
+const normalizePlayerName = (value) => {
+  const base = typeof value === "string" ? value.trim() : "";
+  return base.toLowerCase();
+};
+
+const sanitizeAccountId = (value) => {
+  const base = typeof value === "string" ? value.trim() : "";
+  return base.slice(0, 128);
+};
+
+const hasDuplicatePlayerIdentity = (room, socketId, accountId, name) => {
+  const safeAccountId = sanitizeAccountId(accountId);
+  const safeName = normalizePlayerName(name);
+  if (!safeAccountId && !safeName) return false;
+
+  return room.players.some((p) => {
+    if (!p || p.id === socketId) return false;
+    if (safeAccountId && p.accountId && p.accountId === safeAccountId) return true;
+    if (safeName && normalizePlayerName(p.name) === safeName) return true;
+    return false;
+  });
 };
 
 const sanitizeChatName = (value) => {
@@ -772,7 +808,7 @@ io.on("connection", (socket) => {
     if (typeof cb === "function") cb({ ok: true, rooms: getRoomsSummary() });
   });
 
-  socket.on("create_room", ({ name, buyIn } = {}, cb) => {
+  socket.on("create_room", ({ name, buyIn, accountId } = {}, cb) => {
     let existingRoomId = null;
     rooms.forEach((r, rid) => {
       if (!existingRoomId && r.players.some((p) => p.id === socket.id)) {
@@ -793,6 +829,7 @@ io.on("connection", (socket) => {
     const player = {
       id: socket.id,
       name: name || "Player",
+      accountId: sanitizeAccountId(accountId),
       stack: Math.max(1, Math.floor(buyIn || 1000)),
       hole: [],
       contribution: 0,
@@ -816,7 +853,7 @@ io.on("connection", (socket) => {
     broadcastRooms();
   });
 
-  socket.on("join_room", ({ roomId, name, buyIn } = {}, cb) => {
+  socket.on("join_room", ({ roomId, name, buyIn, accountId } = {}, cb) => {
     const room = rooms.get(roomId);
     if (!room) {
       if (typeof cb === "function") cb({ ok: false, error: "Room not found." });
@@ -830,6 +867,12 @@ io.on("connection", (socket) => {
       broadcastRooms();
       return;
     }
+    if (hasDuplicatePlayerIdentity(room, socket.id, accountId, name)) {
+      if (typeof cb === "function") {
+        cb({ ok: false, error: "Dieser Account ist bereits in diesem Raum aktiv." });
+      }
+      return;
+    }
     if (room.players.length >= 6) {
       if (typeof cb === "function") cb({ ok: false, error: "Room is full (max 6)." });
       return;
@@ -838,6 +881,7 @@ io.on("connection", (socket) => {
     const player = {
       id: socket.id,
       name: name || "Player",
+      accountId: sanitizeAccountId(accountId),
       stack: Math.max(1, Math.floor(buyIn || 1000)),
       hole: [],
       contribution: 0,

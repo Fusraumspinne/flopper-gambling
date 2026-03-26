@@ -399,6 +399,7 @@ export default function LivePokerPage() {
   };
 
   const effectiveName = session?.user?.name?.trim() || name || "Player";
+  const effectiveAccountId = ((session?.user as any)?.id as string | undefined)?.trim() || "";
   const nameEditable = !session?.user?.name;
   const buyIn = Math.max(0, Math.floor(balance || 0));
 
@@ -598,7 +599,7 @@ export default function LivePokerPage() {
     }
     setLobbyBusy(true);
     const socket = connectSocket();
-    socket.emit("create_room", { name: effectiveName, buyIn }, (res: any) => {
+    socket.emit("create_room", { name: effectiveName, buyIn, accountId: effectiveAccountId }, (res: any) => {
       if (!res?.ok) {
         setError(res?.error || "Failed to create room.");
         setLobbyBusy(false);
@@ -624,7 +625,7 @@ export default function LivePokerPage() {
     }
     setLobbyBusy(true);
     const socket = connectSocket();
-    socket.emit("join_room", { roomId: targetRoomId, name: effectiveName, buyIn }, (res: any) => {
+    socket.emit("join_room", { roomId: targetRoomId, name: effectiveName, buyIn, accountId: effectiveAccountId }, (res: any) => {
       if (!res?.ok) {
         setError(res?.error || "Failed to join room.");
         setLobbyBusy(false);

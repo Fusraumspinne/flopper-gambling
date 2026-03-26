@@ -3,6 +3,9 @@ import WebsiteStatus from "@/models/websiteStatus";
 import { getWebsiteStatus } from "@/lib/websiteStatus";
 import { connectMongoDB } from "@/lib/mongodb";
 import { DEFAULT_GAME_STATUS, GAME_STATUS_KEYS } from "@/lib/gameStatus";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import User from "@/models/user";
 
 function requireAdmin(req: Request): NextResponse | null {
   return null;
@@ -22,8 +25,21 @@ function sanitizeGames(input: Record<string, unknown> | null | undefined) {
 export async function GET() {
   try {
     const status = await getWebsiteStatus();
-    const res = NextResponse.json(status);
-    res.headers.set("Cache-Control", "public, s-maxage=10, stale-while-revalidate=59");
+    const session = await getServerSession(authOptions);
+
+    let isVerified: boolean | null = null;
+    const username = session?.user?.name;
+    if (typeof username === "string" && username.trim()) {
+      await connectMongoDB();
+      const user = await User.findOne({ name: username.trim() }).select("verified").lean();
+      isVerified = user?.verified === true;
+    }
+
+    const res = NextResponse.json({
+      ...status,
+      isVerified,
+    });
+    res.headers.set("Cache-Control", "private, no-store");
     return res;
   } catch (error) {
     console.error("Error fetching website status:", error);

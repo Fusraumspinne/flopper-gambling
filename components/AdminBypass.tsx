@@ -9,21 +9,23 @@ import { AuthProvider } from "@/app/providers";
 import Wartungspause from "@/components/Wartungspause";
 import Pause from "@/components/Pause";
 import NewSeason from "@/components/NewSeason";
+import { AccessStatusProvider, useAccessStatus } from "@/components/AccessStatusProvider";
 
 interface AdminBypassProps {
-  isMaintenance?: boolean;
-  isPause?: boolean;
-  isSeasonBreak?: boolean;
   children: React.ReactNode;
 }
 
-export default function AdminBypass({ isMaintenance, isPause, isSeasonBreak, children }: AdminBypassProps) {
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [status, setStatus] = useState<{ isMaintenance: boolean; isPaused: boolean; isSeasonBreak: boolean } | null>(
-    isMaintenance !== undefined || isPause !== undefined || isSeasonBreak !== undefined
-      ? { isMaintenance: !!isMaintenance, isPaused: !!isPause, isSeasonBreak: !!isSeasonBreak }
-      : null
+export default function AdminBypass({ children }: AdminBypassProps) {
+  return (
+    <AccessStatusProvider>
+      <AdminBypassInner>{children}</AdminBypassInner>
+    </AccessStatusProvider>
   );
+}
+
+function AdminBypassInner({ children }: { children: React.ReactNode }) {
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const { status, isLoaded, refresh } = useAccessStatus();
 
   useEffect(() => {
     try {
@@ -34,74 +36,38 @@ export default function AdminBypass({ isMaintenance, isPause, isSeasonBreak, chi
     }
   }, []);
 
-  useEffect(() => {
-    if (status !== null) return;
-    let mounted = true;
-    (async () => {
-      try {
-        const res = await fetch('/api/status', { cache: 'no-store' });
-        if (!mounted) return;
-        if (!res.ok) {
-          setStatus({ isMaintenance: false, isPaused: false, isSeasonBreak: false });
-          return;
-        }
-        const data = await res.json();
-        if (!mounted) return;
-        setStatus({
-          isMaintenance: !!data?.isMaintenance,
-          isPaused: !!data?.isPaused,
-          isSeasonBreak: !!data?.isSeasonBreak,
-        });
-      } catch (e) {
-        if (!mounted) return;
-        setStatus({ isMaintenance: false, isPaused: false, isSeasonBreak: false });
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [status]);
-
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
     if (!pathname) return;
+
+    if (status.isVerified === false && pathname !== "/not-verified") {
+      router.replace("/not-verified");
+      return;
+    }
+
+    if (status.isVerified === true && pathname === "/not-verified") {
+      router.replace("/");
+      return;
+    }
+
     const cleaned = pathname.replace(/\/+$/, "");
     const parts = cleaned.split("/").filter(Boolean);
     const baseRoute = parts.length ? `/${parts[0]}` : "/";
     const gameKey = GAME_ROUTE_TO_KEY[baseRoute];
     if (!gameKey) return;
 
-    let mounted = true;
-    (async () => {
-      try {
-        const res = await fetch('/api/status', { cache: 'no-store' });
-        if (!mounted) return;
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!mounted) return;
-        setStatus({
-          isMaintenance: !!data?.isMaintenance,
-          isPaused: !!data?.isPaused,
-          isSeasonBreak: !!data?.isSeasonBreak,
-        });
+    if (status.games && status.games[gameKey] === false && isAdmin === false) {
+      router.replace("/");
+    }
+  }, [pathname, isAdmin, router, status]);
 
-        if (data?.games && data.games[gameKey] === false) {
-          if (isAdmin === false) {
-            router.replace('/');
-          }
-        }
-      } catch (e) {
-      }
-    })();
+  useEffect(() => {
+    void refresh();
+  }, [pathname, refresh]);
 
-    return () => {
-      mounted = false;
-    };
-  }, [pathname, isAdmin, router]);
-
-  if (isAdmin === null || status === null) {
+  if (isAdmin === null || !isLoaded) {
     return (
       <div className="min-h-screen bg-[#0f212e] flex items-center justify-center p-8 text-center">
         <div className="w-20 h-20 border-4 border-[#2f4553] border-t-indigo-400 rounded-full animate-spin" />
