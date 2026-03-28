@@ -50,7 +50,7 @@ const SYMBOL_WEIGHTS: Record<PaySymbol, number> = {
 };
 
 const SCATTER_WEIGHT = 1.2;
-const VS_SYMBOL_WEIGHT = 2;
+const VS_SYMBOL_WEIGHT = 1.75;
 
 const SYMBOL_BASE_MULTIS: Record<PaySymbol, number> = {
   "🌵": 0.0025,
