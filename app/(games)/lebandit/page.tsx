@@ -1194,7 +1194,7 @@ export default function LeBanditPage() {
 					if (f.kind === "cauldron") finalCoinSum += (f.currentValue || 0);
 				}
 			}
-			totalFeatureWin = normalizeMoney(finalCoinSum * (betAmount / (isFreeSpin ? 10 : 100)));
+			totalFeatureWin = normalizeMoney(finalCoinSum * (betAmount / 10));
 			if (isFreeSpin) {
 				const prevFreeSpinWin = freeSpinWinRef.current;
 				const remaining = Math.max(0, normalizeMoney(freeSpinCapRef.current - prevFreeSpinWin));
