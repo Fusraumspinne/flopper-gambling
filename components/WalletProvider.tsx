@@ -33,6 +33,7 @@ export const GAME_OPTIONS = [
   { id: "gatesofolympus", label: "Gates Of Olympus" },
   { id: "lebandit", label: "Le Bandit" },
   { id: "deadorwild", label: "Dead or Wild" },
+  { id: "barbarossa", label: "Barbarossa" },
   { id: "coinflip", label: "Coinflip" },
   { id: "poker", label: "Poker" },
   { id: "livepoker", label: "Live Poker" },

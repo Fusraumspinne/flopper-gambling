@@ -4,6 +4,7 @@ export const games = [
   { name: "Gates of Olympus", href: "/gatesofolympus", tagline: "Stack multis and defeat Ceaser", image: "/images/GatesOfOlympus.png" },
   { name: "Le Bandit", href: "/lebandit", tagline: "Belle Époque clusters, gold tiles and coin chaos", image: "/images/LeBandit.png" },
   { name: "Dead or Wild", href: "/deadorwild", tagline: "Cowboys hey-ya, win every duel", image: "/images/DeadOrWild.png" },
+  { name: "Barbarossa", href: "/barbarossa", tagline: "Pirate ways with a cannon chain multiplier", image: "/images/DeadOrWild.png" },
   { name: "Coin Flip", href: "/coinflip", tagline: "Build a streak multiplier", image: "/images/Coinflip.png" },
   { name: "Poker", href: "/poker", tagline: "Read your enemies", image: "/images/Poker.png" },
   { name: "Mines", href: "/mines", tagline: "Find diamonds, avoid mines", image: "/images/Mines.png" },
