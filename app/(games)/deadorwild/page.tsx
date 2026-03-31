@@ -50,15 +50,15 @@ const SYMBOL_WEIGHTS: Record<PaySymbol, number> = {
 };
 
 const SCATTER_WEIGHT = 1.2;
-const VS_SYMBOL_WEIGHT = 1.75;
+const VS_SYMBOL_WEIGHT = 2;
 
 const SYMBOL_BASE_MULTIS: Record<PaySymbol, number> = {
-  "🌵": 0.0025,
-  "🦅": 0.005,
-  "🐎": 0.01,
-  "💰": 0.015,
-  "🤠": 0.025,
-  "🏜️": 0.05,
+  "🌵": 0.0035,
+  "🦅": 0.006,
+  "🐎": 0.012,
+  "💰": 0.0175,
+  "🤠": 0.03,
+  "🏜️": 0.06,
 };
 
 const BANNER_MULTI_POOL = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 50];

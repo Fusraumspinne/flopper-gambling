@@ -40,12 +40,12 @@ const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
 const SCATTER_WEIGHT = 3;
 
 const SYMBOL_BASE_MULTIS: Record<SymbolId, number> = {
-  "⚓": 0.005,
-  "🍺": 0.0075,
-  "🦜": 0.01,
-  "🗺️": 0.02,
-  "💰": 0.04,
-  "🏴‍☠️": 0.075,
+  "⚓": 0.0075,
+  "🍺": 0.01,
+  "🦜": 0.015,
+  "🗺️": 0.025,
+  "💰": 0.05,
+  "🏴‍☠️": 0.08,
   "💣": 0,
 };
 
