@@ -7,11 +7,12 @@ import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 
 type GamePhase = "idle" | "spinning" | "free";
-type SymbolId = "⚓" | "🍺" | "🦜" | "🗺️" | "💰" | "🏴‍☠️" | "💣";
+type PaySymbolId = "⚓" | "🍺" | "🦜" | "🗺️" | "💰" | "🏴‍☠️";
+type SymbolId = PaySymbolId | "💣" | "WILD";
 type Position = [number, number];
 
 type BaseConnection = {
-  symbol: SymbolId;
+  symbol: PaySymbolId;
   reelsHit: number;
   ways: number;
   basePayout: number;
@@ -24,29 +25,28 @@ const MIN_REELS_FOR_WIN = 3;
 const REEL_DEPTH_EXP_BASE = 2;
 const FREE_SPINS_AWARD = 10;
 const FREE_SPIN_MAX_WIN_MULTIPLIER = 100000;
+const WILD_SYMBOL = "WILD" as const;
 
-const SYMBOL_ORDER: SymbolId[] = ["🏴‍☠️", "💰", "🗺️", "🦜", "🍺", "⚓"];
+const SYMBOL_ORDER: PaySymbolId[] = ["🏴‍☠️", "💰", "🗺️", "🦜", "🍺", "⚓"];
 
-const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "⚓": 24,
-  "🍺": 22,
-  "🦜": 18,
-  "🗺️": 14,
-  "💰": 12,
-  "🏴‍☠️": 10,
-  "💣": 0,
+const SYMBOL_WEIGHTS: Record<PaySymbolId, number> = {
+  "⚓": 22,
+  "🍺": 20,
+  "🦜": 16,
+  "🗺️": 16,
+  "💰": 14,
+  "🏴‍☠️": 12,
 };
 
 const SCATTER_WEIGHT = 3;
 
-const SYMBOL_BASE_MULTIS: Record<SymbolId, number> = {
-  "⚓": 0.0075,
-  "🍺": 0.01,
-  "🦜": 0.015,
-  "🗺️": 0.025,
-  "💰": 0.05,
-  "🏴‍☠️": 0.08,
-  "💣": 0,
+const SYMBOL_BASE_MULTIS: Record<PaySymbolId, number> = {
+  "⚓": 0.001,
+  "🍺": 0.003,
+  "🦜": 0.0075,
+  "🗺️": 0.01,
+  "💰": 0.02,
+  "🏴‍☠️": 0.05,
 };
 
 const normalizeMoney = (value: number) => {
@@ -65,6 +65,11 @@ const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve
 
 function toPosKey(row: number, col: number) {
   return `${row}-${col}`;
+}
+
+function pickRandom<T>(items: T[]) {
+  if (items.length === 0) return null;
+  return items[Math.floor(Math.random() * items.length)];
 }
 
 function pickWeighted<T extends string | number>(entries: [T, number][]) {
@@ -117,6 +122,19 @@ function countScatters(grid: SymbolId[][]) {
   return count;
 }
 
+function matchesPaySymbol(symbol: SymbolId, paySymbol: PaySymbolId) {
+  return symbol === paySymbol || symbol === WILD_SYMBOL;
+}
+
+function injectDropWild(grid: SymbolId[][], droppedPositions: Position[]) {
+  const eligiblePositions = droppedPositions.filter(([row, col]) => grid[row][col] !== "💣");
+  const wildPosition = pickRandom(eligiblePositions.length > 0 ? eligiblePositions : droppedPositions);
+  if (!wildPosition) return;
+
+  const [row, col] = wildPosition;
+  grid[row][col] = WILD_SYMBOL;
+}
+
 function evaluateBaseConnections(grid: SymbolId[][], spinCost: number): BaseConnection[] {
   const out: BaseConnection[] = [];
 
@@ -125,7 +143,7 @@ function evaluateBaseConnections(grid: SymbolId[][], spinCost: number): BaseConn
 
     for (let col = 0; col < COLS; col++) {
       for (let row = 0; row < ROWS; row++) {
-        if (grid[row][col] === symbol) {
+        if (matchesPaySymbol(grid[row][col], symbol)) {
           reelHits[col].push([row, col]);
         }
       }
@@ -134,12 +152,16 @@ function evaluateBaseConnections(grid: SymbolId[][], spinCost: number): BaseConn
     if (reelHits[0].length === 0) continue;
 
     let reelsHit = 0;
+    let hasRealSymbolInConnection = false;
     for (let col = 0; col < COLS; col++) {
       if (reelHits[col].length === 0) break;
+      if (!hasRealSymbolInConnection) {
+        hasRealSymbolInConnection = reelHits[col].some(([row, hitCol]) => grid[row][hitCol] === symbol);
+      }
       reelsHit += 1;
     }
 
-    if (reelsHit < MIN_REELS_FOR_WIN) continue;
+    if (reelsHit < MIN_REELS_FOR_WIN || !hasRealSymbolInConnection) continue;
 
     const ways = reelHits.slice(0, reelsHit).reduce((acc, positions) => acc * positions.length, 1);
     const depthBoost = REEL_DEPTH_EXP_BASE ** Math.max(0, reelsHit - MIN_REELS_FOR_WIN);
@@ -166,6 +188,47 @@ function evaluateBaseConnections(grid: SymbolId[][], spinCost: number): BaseConn
   });
 
   return out;
+}
+
+function WildSymbolSvg() {
+  return (
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_8px_16px_rgba(0,0,0,0.45)]" aria-hidden="true">
+      <circle cx="50" cy="50" r="46" fill="#4a2a0f" />
+      <circle cx="50" cy="50" r="42" fill="#f3b322" />
+      <circle cx="50" cy="50" r="36" fill="#f7df92" opacity="0.65" />
+      <circle cx="50" cy="50" r="31" fill="#241327" stroke="#fde68a" strokeWidth="3" />
+
+      <g stroke="#fff7ed" strokeWidth="5" strokeLinecap="round">
+        <path d="M 28 66 L 41 54" />
+        <path d="M 28 54 L 41 66" />
+        <path d="M 59 54 L 72 66" />
+        <path d="M 59 66 L 72 54" />
+      </g>
+
+      <path d="M 50 28 C 40 28 34 35 34 44 C 34 53 39 60 45 63 L 45 68 L 55 68 L 55 63 C 61 60 66 53 66 44 C 66 35 60 28 50 28 Z" fill="#fff7ed" />
+      <circle cx="43" cy="45" r="4.2" fill="#111827" />
+      <circle cx="57" cy="45" r="4.2" fill="#111827" />
+      <path d="M 50 50 L 46 57 H 54 Z" fill="#d97706" />
+      <path d="M 42 61 Q 50 66 58 61" fill="none" stroke="#7c2d12" strokeWidth="3.5" strokeLinecap="round" />
+
+      <path d="M 18 72 Q 50 78 82 72 L 76 88 Q 50 94 24 88 Z" fill="#991b1b" stroke="#fee2e2" strokeWidth="2" />
+      <text x="50" y="84" textAnchor="middle" fontSize="16" fontWeight="900" fill="#fff8e1" letterSpacing="2">
+        WILD
+      </text>
+    </svg>
+  );
+}
+
+function SlotSymbol({ symbol, blurred = false }: { symbol: SymbolId; blurred?: boolean }) {
+  if (symbol === WILD_SYMBOL) {
+    return (
+      <div className={`w-[80%] h-[80%] ${blurred ? "blur-[1.2px]" : ""}`}>
+        <WildSymbolSvg />
+      </div>
+    );
+  }
+
+  return <span className={`text-xl sm:text-3xl lg:text-4xl select-none leading-none ${blurred ? "blur-[1.2px]" : ""}`}>{symbol}</span>;
 }
 
 function PirateSeaBackground() {
@@ -605,6 +668,7 @@ export default function BarbarossaPage() {
 
       if (cascadePositionsToRemove.size > 0) {
         const droppedIndices = new Set<string>();
+        const droppedPositions: Position[] = [];
         for (let col = 0; col < COLS; col++) {
           let writeRow = ROWS - 1;
           for (let readRow = ROWS - 1; readRow >= 0; readRow--) {
@@ -612,6 +676,7 @@ export default function BarbarossaPage() {
               currentGrid[writeRow][col] = currentGrid[readRow][col];
               if (writeRow !== readRow) {
                 droppedIndices.add(toPosKey(writeRow, col));
+                droppedPositions.push([writeRow, col]);
               }
               writeRow--;
             }
@@ -619,9 +684,12 @@ export default function BarbarossaPage() {
           while (writeRow >= 0) {
             currentGrid[writeRow][col] = randomSymbol(anteBet);
             droppedIndices.add(toPosKey(writeRow, col));
+            droppedPositions.push([writeRow, col]);
             writeRow--;
           }
         }
+
+        injectDropWild(currentGrid, droppedPositions);
         
         setLastDropIndices(droppedIndices);
         setGrid(currentGrid.map(row => [...row]));
@@ -953,9 +1021,7 @@ export default function BarbarossaPage() {
                                 <div className={`relative z-10 w-full h-full flex items-center justify-center select-none leading-none transform-gpu filter
                                     ${isHit ? "animate-pop" : isDropping ? "animate-drop-in" : !isTumbling && isExecutingSpin ? "animate-stop-bounce" : ""}
                                 `}>
-                                  <span className={`text-xl sm:text-3xl lg:text-4xl`}>
-                                    {symbol}
-                                  </span>
+                                  <SlotSymbol symbol={symbol} />
                                 </div>
                               )}
                             </div>
@@ -968,7 +1034,7 @@ export default function BarbarossaPage() {
                               {Array.from({ length: 4 }).flatMap((_, loopIdx) =>
                                 reelFrames[col].map((symbol, idx) => (
                                   <div key={`spin-${col}-${idx}-${loopIdx}-${spinKey}`} className="aspect-square w-full flex items-center justify-center rounded-xl">
-                                    <span className="text-xl sm:text-3xl lg:text-4xl select-none leading-none blur-[1.2px]">{symbol}</span>
+                                    <SlotSymbol symbol={symbol} blurred />
                                   </div>
                                 ))
                               )}
