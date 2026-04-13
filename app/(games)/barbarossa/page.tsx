@@ -7,7 +7,7 @@ import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 
 type GamePhase = "idle" | "spinning" | "free";
-type PaySymbolId = "⚓" | "🍺" | "🦜" | "🗺️" | "💰" | "🏴‍☠️";
+type PaySymbolId = "⚓" | "🍺" | "🦜" | "🗺️" | "⛵" | "💰" | "🏴‍☠️";
 type SymbolId = PaySymbolId | "💣" | "WILD";
 type Position = [number, number];
 
@@ -27,14 +27,15 @@ const FREE_SPINS_AWARD = 10;
 const FREE_SPIN_MAX_WIN_MULTIPLIER = 100000;
 const WILD_SYMBOL = "WILD" as const;
 
-const SYMBOL_ORDER: PaySymbolId[] = ["🏴‍☠️", "💰", "🗺️", "🦜", "🍺", "⚓"];
+const SYMBOL_ORDER: PaySymbolId[] = ["🏴‍☠️", "💰", "⛵", "🗺️", "🦜", "🍺", "⚓"];
 
 const SYMBOL_WEIGHTS: Record<PaySymbolId, number> = {
-  "⚓": 22,
-  "🍺": 20,
-  "🦜": 16,
-  "🗺️": 16,
-  "💰": 14,
+  "⚓": 17,
+  "🍺": 16,
+  "🦜": 14,
+  "🗺️": 14,
+  "⛵": 14,
+  "💰": 13,
   "🏴‍☠️": 12,
 };
 
@@ -45,6 +46,7 @@ const SYMBOL_BASE_MULTIS: Record<PaySymbolId, number> = {
   "🍺": 0.003,
   "🦜": 0.0075,
   "🗺️": 0.01,
+  "⛵": 0.015,
   "💰": 0.02,
   "🏴‍☠️": 0.05,
 };
@@ -127,6 +129,7 @@ function matchesPaySymbol(symbol: SymbolId, paySymbol: PaySymbolId) {
 }
 
 function injectDropWild(grid: SymbolId[][], droppedPositions: Position[]) {
+  if (Math.random() > 1) return;
   const eligiblePositions = droppedPositions.filter(([row, col]) => grid[row][col] !== "💣");
   const wildPosition = pickRandom(eligiblePositions.length > 0 ? eligiblePositions : droppedPositions);
   if (!wildPosition) return;

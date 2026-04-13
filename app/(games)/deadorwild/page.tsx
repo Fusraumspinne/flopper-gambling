@@ -50,7 +50,6 @@ const SYMBOL_WEIGHTS: Record<PaySymbol, number> = {
 };
 
 const SCATTER_WEIGHT = 1.2;
-const VS_SYMBOL_WEIGHT = 2;
 
 const SYMBOL_BASE_MULTIS: Record<PaySymbol, number> = {
   "🌵": 0.0035,
@@ -60,6 +59,14 @@ const SYMBOL_BASE_MULTIS: Record<PaySymbol, number> = {
   "🤠": 0.03,
   "🏜️": 0.06,
 };
+
+const VS_PERCENT_CHANCES = [
+  0.2,  
+  0.05,  
+  0.005, 
+  0.0005,
+  0.00005 
+];
 
 const BANNER_MULTI_POOL = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 50];
 const BANNER_MULTI_WEIGHTS = [28, 23, 17, 12, 8, 5, 3.2, 2.3, 1.1, 0.6, 0.22, 0.05];
@@ -92,49 +99,21 @@ function pickWeighted<T extends string | number>(entries: [T, number][]) {
   return entries[entries.length - 1][0];
 }
 
-function randomCell(anteBet: boolean, includeVSChance: boolean = false): Cell {
+function randomCell(anteBet: boolean): Cell {
   const table: [string, number][] = [
     ...PAY_SYMBOLS.map((symbol) => [symbol, SYMBOL_WEIGHTS[symbol]] as [string, number]),
     ["SCATTER", anteBet ? SCATTER_WEIGHT * 1.2 : SCATTER_WEIGHT],
   ];
-  if (includeVSChance) {
-    table.push(["VS", VS_SYMBOL_WEIGHT]);
-  }
 
   const picked = pickWeighted(table);
   if (picked === "SCATTER") return { kind: "scatter" };
-  if (picked === "VS") return { kind: "vs" };
   return { kind: "symbol", symbol: picked as PaySymbol };
 }
 
-function getVsCellChance(anteBet: boolean) {
-  const scatterWeight = anteBet ? SCATTER_WEIGHT * 1.2 : SCATTER_WEIGHT;
-  const paySymbolWeightTotal = PAY_SYMBOLS.reduce((acc, symbol) => acc + SYMBOL_WEIGHTS[symbol], 0);
-  const total = paySymbolWeightTotal + scatterWeight + VS_SYMBOL_WEIGHT;
-  return total > 0 ? VS_SYMBOL_WEIGHT / total : 0;
-}
-
-function enforceSingleVSPerReel(grid: Cell[][], anteBet: boolean, forcedVsRows: Map<number, number>) {
-  for (let reel = 0; reel < COLS; reel++) {
-    const vsRows: number[] = [];
-    for (let row = 0; row < ROWS; row++) {
-      if (grid[row][reel].kind === "vs") {
-        vsRows.push(row);
-      }
-    }
-
-    if (vsRows.length <= 1) continue;
-
-    const keepRow = forcedVsRows.get(reel) ?? vsRows[Math.floor(Math.random() * vsRows.length)];
-    for (const row of vsRows) {
-      if (row === keepRow) continue;
-      grid[row][reel] = randomCell(anteBet, false);
-    }
-  }
-}
-
-function buildGrid(anteBet: boolean, forceScatters: boolean = false, bannerReels: number[] = [], isFreeSpin: boolean = false) {
-  const grid: Cell[][] = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => randomCell(anteBet, isFreeSpin)));
+function buildGrid(anteBet: boolean, forceScatters: boolean = false, bannerReels: number[] = []) {
+  const grid: Cell[][] = Array.from({ length: ROWS }, () => 
+    Array.from({ length: COLS }, () => randomCell(anteBet))
+  );
 
   if (forceScatters) {
     const scatterPositions: [number, number][] = [];
@@ -148,15 +127,11 @@ function buildGrid(anteBet: boolean, forceScatters: boolean = false, bannerReels
     }
   }
 
-  const forcedVsRows = new Map<number, number>();
+  /* VS Symbole werden jetzt ausschließlich über bannerReels gesteuert */
   for (const reel of bannerReels) {
-    if (!isFreeSpin) continue;
     const randomRow = Math.floor(Math.random() * ROWS);
     grid[randomRow][reel] = { kind: "vs" };
-    forcedVsRows.set(reel, randomRow);
   }
-
-  enforceSingleVSPerReel(grid, anteBet, forcedVsRows);
 
   return grid;
 }
@@ -174,10 +149,10 @@ function getVSReelsFromGrid(grid: Cell[][]) {
   return [...reels].sort((a, b) => a - b);
 }
 
-function gridToReelFrames(sourceGrid: Cell[][], anteBet: boolean, isFreeSpin: boolean) {
+function gridToReelFrames(sourceGrid: Cell[][], anteBet: boolean) {
   return Array.from({ length: COLS }, (_, col) => {
     const base = Array.from({ length: ROWS }, (_, row) => sourceGrid[row][col]);
-    return [randomCell(anteBet, isFreeSpin), ...base];
+    return [randomCell(anteBet), ...base];
   });
 }
 
@@ -196,34 +171,31 @@ function randomBannerMultiplier() {
   return pickWeighted(table);
 }
 
-function rollWildBannerReels(isFreeSpin: boolean, forceFeature: boolean, anteBet: boolean) {
-  const reels = new Set<number>();
-  const vsCellChance = getVsCellChance(anteBet);
-  const baseFirstChance = Math.min(0.8, Math.max(0.015, vsCellChance * 1.4));
-  const firstChance = forceFeature
-    ? Math.min(0.95, baseFirstChance + 0.35)
-    : isFreeSpin
-      ? Math.min(0.9, baseFirstChance * 1.25)
-      : baseFirstChance;
-  if (Math.random() > firstChance) return [];
+function rollWildBannerReels() {
+  let count = 0;
+  const roll = Math.random();
+  let cumulative = 0;
 
-  reels.add(Math.floor(Math.random() * COLS));
+  for (let i = 0; i < VS_PERCENT_CHANCES.length; i++) {
+    const chance = VS_PERCENT_CHANCES[i];
+    cumulative += chance;
+    if (roll < cumulative) {
+      count = i + 1;
+      break;
+    }
+  }
 
-  const secondChance = forceFeature
-    ? Math.min(0.75, firstChance * 0.6)
-    : isFreeSpin
-      ? Math.min(0.55, firstChance * 0.5)
-      : Math.min(0.4, firstChance * 0.4);
-  if (Math.random() < secondChance) reels.add(Math.floor(Math.random() * COLS));
+  if (count === 0) return [];
 
-  const thirdChance = forceFeature
-    ? Math.min(0.35, secondChance * 0.35)
-    : isFreeSpin
-      ? Math.min(0.2, secondChance * 0.3)
-      : Math.min(0.12, secondChance * 0.25);
-  if (Math.random() < thirdChance) reels.add(Math.floor(Math.random() * COLS));
+  const availableReels = [0, 1, 2, 3, 4];
+  const chosenReels: number[] = [];
 
-  return [...reels].sort((a, b) => a - b);
+  for (let i = 0; i < count && availableReels.length > 0; i++) {
+    const idx = Math.floor(Math.random() * availableReels.length);
+    chosenReels.push(availableReels.splice(idx, 1)[0]);
+  }
+
+  return chosenReels.sort((a, b) => a - b);
 }
 
 function buildDuelBannerMap(reels: number[], unresolved: boolean) {
@@ -321,18 +293,18 @@ function evaluateConnections(grid: Cell[][], bannerMap: Record<number, ReelBanne
   return { connections, total, highlighted };
 }
 
-function renderCell(cell: Cell) {
-  if (cell.kind === "scatter") return "⭐";
+function renderCell(cell: Cell, blurred: boolean = false) {
+  if (cell.kind === "scatter") return <span className={blurred ? "blur-[1.2px]" : ""}>⭐</span>;
   if (cell.kind === "vs") {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-red-600 to-red-900 rounded-sm border-[2px] border-red-300 shadow-inner overflow-hidden">
-        <span className="text-white font-black italic text-xl sm:text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] transform -rotate-[10deg]">
+      <div className={`w-full h-full flex items-center justify-center bg-linear-to-br from-red-600 to-red-900 rounded-sm border-2 border-red-300 shadow-inner overflow-hidden ${blurred ? "blur-[1.2px]" : ""}`}>
+        <span className="text-white font-black italic transform -rotate-10">
           VS
         </span>
       </div>
     );
   }
-  return cell.symbol;
+  return <span className={`select-none leading-none ${blurred ? "blur-[1.2px]" : ""}`}>{cell.symbol}</span>;
 }
 
 function ReelWildBanner({ duel }: { duel: ReelBannerDuel }) {
@@ -350,7 +322,7 @@ function ReelWildBanner({ duel }: { duel: ReelBannerDuel }) {
               {duel.topMultiplier}X
             </div>
             
-            <div className={`absolute top-6 flex flex-col items-center transition-all duration-[60ms] origin-center ${duel.shootingPhase === 'top' ? 'translate-y-2 scale-110' : ''}`}>
+            <div className={`absolute top-6 flex flex-col items-center transition-all duration-60 origin-center ${duel.shootingPhase === 'top' ? 'translate-y-2 scale-110' : ''}`}>
               <svg viewBox="0 0 100 100" className="w-24 h-24 drop-shadow-2xl z-10" preserveAspectRatio="xMidYMid meet">
                 <path d="M22 42 C12 55, 12 85, 8 95 L92 95 C88 85, 88 55, 78 42 Q50 35 22 42" fill="#241205" />
                 <path d="M22 42 Q50 62, 78 42" fill="none" stroke="#1a0d04" strokeWidth="3" opacity="0.6" />
@@ -366,7 +338,7 @@ function ReelWildBanner({ duel }: { duel: ReelBannerDuel }) {
                 <path d="M75 48 C85 55, 85 75, 65 82" fill="none" stroke="#241205" strokeWidth="15" strokeLinecap="round" />
               </svg>
               
-              <div className={`absolute -bottom-6 -right-4 w-16 h-16 z-20 transition-all duration-[60ms] origin-[20%_80%] ${duel.shootingPhase === 'top' ? 'rotate-[-25deg] scale-125' : 'rotate-[10deg]'}`}>
+              <div className={`absolute -bottom-6 -right-4 w-16 h-16 z-20 transition-all duration-60 origin-[20%_80%] ${duel.shootingPhase === 'top' ? 'rotate-[-25deg] scale-125' : 'rotate-10'}`}>
                 <svg viewBox="0 0 60 60">
                   <path d="M10 45 L18 20 L40 25 L35 50 Z" fill="#321e14" /> 
                   <path d="M15 22 L55 22 L55 30 L15 32 Z" fill="#1a1a1a" /> 
@@ -380,30 +352,30 @@ function ReelWildBanner({ duel }: { duel: ReelBannerDuel }) {
             </div>
             
             {duel.shootingPhase === "top" && (
-              <div className="absolute top-[110px] left-[60%] z-40 animate-muzzle-flash pointer-events-none">
+              <div className="absolute top-27.5 left-[60%] z-40 animate-muzzle-flash pointer-events-none">
                 <div className="w-14 h-14 bg-yellow-300 rounded-full blur-[10px] absolute -translate-x-1/2 -translate-y-1/2" />
                 <div className="w-8 h-8 bg-white rounded-full absolute -translate-x-1/2 -translate-y-1/2 shadow-[0_0_20px_white]" />
-                <div className="w-[6px] h-[200px] bg-gradient-to-b from-yellow-200 via-orange-500 to-transparent absolute top-4 left-[-3px] origin-top animate-bullet-drop opacity-100 shadow-[0_0_15px_rgba(255,165,0,0.8)]" />
+                <div className="w-1.5 h-50 bg-linear-to-b from-yellow-200 via-orange-500 to-transparent absolute top-4 -left-0.75 origin-top animate-bullet-drop opacity-100 shadow-[0_0_15px_rgba(255,165,0,0.8)]" />
               </div>
             )}
           </div>
 
           <div className="absolute top-[46%] left-0 w-full h-[8%] flex items-center justify-center z-10">
-             <div className="w-full h-[2px] bg-linear-to-r from-transparent via-[#5d3a1a] to-transparent opacity-60 absolute" />
+             <div className="w-full h-0.5 bg-linear-to-r from-transparent via-[#5d3a1a] to-transparent opacity-60 absolute" />
              <div className={`bg-red-800 text-white font-black px-4 py-0.5 rounded shadow-2xl border-2 border-red-500/50 transform -rotate-12 italic text-base tracking-[0.2em] transition-all duration-300 ${duel.shootingPhase ? 'scale-150 brightness-150 rotate-0' : 'scale-100 opacity-80'}`}>VS</div>
           </div>
 
           <div className={`flex-[0.45] w-full relative flex flex-col items-center justify-end pb-1 transition-all duration-300 ${duel.shootingPhase === "top" ? "opacity-30 grayscale saturate-0" : "opacity-100"}`}>
             {duel.shootingPhase === "bottom" && (
-              <div className="absolute bottom-[110px] left-[40%] z-40 animate-muzzle-flash pointer-events-none">
+              <div className="absolute bottom-27.5 left-[40%] z-40 animate-muzzle-flash pointer-events-none">
                 <div className="w-14 h-14 bg-yellow-300 rounded-full blur-[10px] absolute -translate-x-1/2 -translate-y-1/2" />
                 <div className="w-8 h-8 bg-white rounded-full absolute -translate-x-1/2 -translate-y-1/2 shadow-[0_0_20px_white]" />
-                <div className="w-[6px] h-[200px] bg-gradient-to-t from-yellow-200 via-orange-500 to-transparent absolute bottom-4 left-[-3px] origin-bottom animate-bullet-rise opacity-100 shadow-[0_0_15px_rgba(255,165,0,0.8)]" />
+                <div className="w-1.5 h-50 bg-linear-to-t from-yellow-200 via-orange-500 to-transparent absolute bottom-4 -left-0.75 origin-bottom animate-bullet-rise opacity-100 shadow-[0_0_15px_rgba(255,165,0,0.8)]" />
               </div>
             )}
 
-            <div className={`absolute bottom-6 flex flex-col items-center transition-all duration-[60ms] origin-center ${duel.shootingPhase === 'bottom' ? 'translate-y-[-8px] scale-110' : ''}`}>
-              <div className={`absolute -top-10 -left-6 w-16 h-16 z-20 transition-all duration-[60ms] origin-[80%_80%] ${duel.shootingPhase === 'bottom' ? 'rotate-[155deg] scale-125' : 'rotate-[180deg]'}`}>
+            <div className={`absolute bottom-6 flex flex-col items-center transition-all duration-60 origin-center ${duel.shootingPhase === 'bottom' ? '-translate-y-2 scale-110' : ''}`}>
+              <div className={`absolute -top-10 -left-6 w-16 h-16 z-20 transition-all duration-60 origin-[80%_80%] ${duel.shootingPhase === 'bottom' ? 'rotate-155 scale-125' : 'rotate-180'}`}>
                 <svg viewBox="0 0 60 60">
                   <path d="M10 45 L18 20 L40 25 L35 50 Z" fill="#2d2d2d" /> 
                   <path d="M15 22 L55 22 L55 30 L15 32 Z" fill="#111" /> 
@@ -549,10 +521,10 @@ function WesternBackground() {
         </g>
       </svg>
 
-      <div className="absolute bottom-10 left-[-200px] w-12 h-12 bg-transparent animate-tumbleweed border-2 border-amber-900/30 rounded-full">
-         <div className="w-full h-full relative rotate-45">
-            <div className="absolute top-1/2 left-0 w-full h-[1px] bg-amber-900/40" />
-            <div className="absolute top-0 left-1/2 h-full w-[1px] bg-amber-900/40" />
+<div className="absolute bottom-10 -left-50 w-12 h-12 bg-transparent animate-tumbleweed border-2 border-amber-900/30 rounded-full">
+        <div className="w-full h-full relative rotate-45">
+          <div className="absolute top-1/2 left-0 w-full h-px bg-amber-900/40" />
+          <div className="absolute top-0 left-1/2 h-full w-px bg-amber-900/40" />
          </div>
       </div>
       
@@ -571,8 +543,8 @@ export default function DeadOrWildPage() {
   const [betAmount, setBetAmount] = useState(100);
   const [anteBet, setAnteBet] = useState(false);
 
-  const [grid, setGrid] = useState<Cell[][]>(() => buildGrid(false, false, [], false));
-  const [reelFrames, setReelFrames] = useState<Cell[][]>(() => gridToReelFrames(buildGrid(false, false, [], false), false, false));
+  const [grid, setGrid] = useState<Cell[][]>(() => buildGrid(false, false, []));
+  const [reelFrames, setReelFrames] = useState<Cell[][]>(() => gridToReelFrames(buildGrid(false, false, []), false));
   const [reelsSpinning, setReelsSpinning] = useState<boolean[]>(() => Array(COLS).fill(false));
   const [spinKey, setSpinKey] = useState(0);
 
@@ -697,13 +669,13 @@ export default function DeadOrWildPage() {
       setSpinKey((k) => k + 1);
       playAudio(audioRef.current.spin);
 
-      const forcedBannerReels = rollWildBannerReels(isFreeSpin, isBonusBuy, anteBet);
-      const workingGrid = buildGrid(anteBet, isBonusBuy, forcedBannerReels, isFreeSpin);
+      const forcedBannerReels = rollWildBannerReels();
+      const workingGrid = buildGrid(anteBet, isBonusBuy, forcedBannerReels);
       const bannerReels = getVSReelsFromGrid(workingGrid);
       const resolvedBannerMap = buildDuelBannerMap(bannerReels, false);
       const unresolvedBannerMap = makeUnresolvedFromResolved(resolvedBannerMap);
 
-      const startFrames = gridToReelFrames(grid, anteBet, isFreeSpin);
+      const startFrames = gridToReelFrames(grid, anteBet);
       setReelFrames(startFrames);
       setReelsSpinning(Array(COLS).fill(true));
 
@@ -1167,11 +1139,11 @@ export default function DeadOrWildPage() {
           animation: stop-bounce 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards;
         }
         @keyframes spinInfiniteDown {
-          0% { transform: translateY(-80%); }
+          0% { transform: translateY(-75%); }
           100% { transform: translateY(0%); }
         }
         .animate-spin-infinite-down {
-          animation: spinInfiniteDown 0.3s linear infinite;
+          animation: spinInfiniteDown 0.12s linear infinite;
         }
         @keyframes muzzle-flash {
           0% { transform: scale(0.5) rotate(0deg); opacity: 1; }
