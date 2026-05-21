@@ -1032,15 +1032,13 @@ export default function BarbarossaPage() {
                         })}
 
                         {reelsSpinning[col] && (
-                          <div className="absolute inset-0 overflow-hidden rounded-xl z-20 pointer-events-none">
-                            <div className="flex flex-col gap-1.5 sm:gap-2 absolute top-0 left-0 w-full h-[470%] animate-spin-infinite-down opacity-80">
-                              {Array.from({ length: 4 }).flatMap((_, loopIdx) =>
-                                reelFrames[col].map((symbol, idx) => (
-                                  <div key={`spin-${col}-${idx}-${loopIdx}-${spinKey}`} className="aspect-square w-full flex items-center justify-center rounded-xl">
-                                    <SlotSymbol symbol={symbol} blurred />
-                                  </div>
-                                ))
-                              )}
+                          <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none z-20">
+                            <div className="flex flex-col gap-1.5 sm:gap-2 absolute top-0 left-0 w-full animate-spin-infinite-down">
+                              {reelFrames[col].map((symbol, idx) => (
+                                <div key={`spin-${col}-${idx}-${spinKey}`} className="aspect-square w-full flex items-center justify-center rounded-xl">
+                                  <SlotSymbol symbol={symbol} blurred />
+                                </div>
+                              ))}
                             </div>
                           </div>
                         )}
@@ -1085,11 +1083,11 @@ export default function BarbarossaPage() {
           animation: stop-bounce 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
         }
         @keyframes spinInfiniteDown {
-          0% { transform: translateY(-8%); }
-          100% { transform: translateY(8%); }
+          0% { transform: translateY(-50%); }
+          100% { transform: translateY(0%); }
         }
         .animate-spin-infinite-down {
-          animation: spinInfiniteDown 90ms linear infinite;
+          animation: spinInfiniteDown 0.12s linear infinite;
         }
         @keyframes cannonRecoil {
           0% { transform: translateX(0) rotate(0); }

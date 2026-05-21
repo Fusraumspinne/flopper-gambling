@@ -669,7 +669,7 @@ export default function DeadOrWildPage() {
       setSpinKey((k) => k + 1);
       playAudio(audioRef.current.spin);
 
-      const forcedBannerReels = rollWildBannerReels();
+      const forcedBannerReels = isFreeSpin ? rollWildBannerReels() : [];
       const workingGrid = buildGrid(anteBet, isBonusBuy, forcedBannerReels);
       const bannerReels = getVSReelsFromGrid(workingGrid);
       const resolvedBannerMap = buildDuelBannerMap(bannerReels, false);
@@ -1087,18 +1087,20 @@ export default function DeadOrWildPage() {
                           })}
 
                           {reelsSpinning[col] && (
-                            <div className="absolute inset-0 overflow-hidden rounded-xl z-20 pointer-events-none">
-                              <div className="flex flex-col gap-1 sm:gap-1.5 absolute top-0 left-0 w-full h-[500%] animate-spin-infinite-down opacity-80">
-                                {Array.from({ length: 5 }).flatMap((_, loopIdx) => reelFrames[col].map((cell, idx) => (
-                                  <div key={`spin-${col}-${idx}-${loopIdx}-${spinKey}`} className="aspect-square w-full flex items-center justify-center rounded-xl bg-transparent">
-                                    <span className="text-xl sm:text-3xl lg:text-4xl select-none leading-none blur-[2px]">{renderCell(cell)}</span>
+                            <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none z-20">
+                              <div className="flex flex-col gap-1 sm:gap-1.5 absolute top-0 left-0 w-full animate-spin-infinite-down">
+                                {reelFrames[col].map((cell, idx) => (
+                                  <div key={`spin-${col}-${idx}-${spinKey}`} className="aspect-square w-full flex items-center justify-center rounded-xl bg-transparent">
+                                    <div className="w-full h-full flex items-center justify-center text-xl sm:text-3xl lg:text-4xl select-none leading-none">
+                                      {renderCell(cell, true)}
+                                    </div>
                                   </div>
-                                )))}
+                                ))}
                               </div>
                             </div>
                           )}
 
-                          {!reelsSpinning[col] && duel && <ReelWildBanner duel={duel} />}
+                          {!reelsSpinning[col] && phase === "free" && duel && <ReelWildBanner duel={duel} />}
                         </div>
                       );
                     })}
@@ -1139,7 +1141,7 @@ export default function DeadOrWildPage() {
           animation: stop-bounce 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards;
         }
         @keyframes spinInfiniteDown {
-          0% { transform: translateY(-75%); }
+          0% { transform: translateY(-50%); }
           100% { transform: translateY(0%); }
         }
         .animate-spin-infinite-down {
