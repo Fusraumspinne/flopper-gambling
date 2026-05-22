@@ -19,11 +19,11 @@ const FREE_SPINS_AWARD = 15;
 const FREE_SPIN_MAX_WIN_MULTIPLIER = 100000;
 
 const SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "🍬": 24,
+  "🍬": 25,
   "🍭": 21,
   "🍰": 20,
   "🧁": 19,
-  "🍫": 16,
+  "🍫": 15,
   "🌈": 0.8,
 };
 
