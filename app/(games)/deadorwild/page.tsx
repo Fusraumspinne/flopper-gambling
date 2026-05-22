@@ -61,9 +61,9 @@ const SYMBOL_BASE_MULTIS: Record<PaySymbol, number> = {
 };
 
 const VS_PERCENT_CHANCES = [
-  0.2,  
+  0.15,  
   0.05,  
-  0.005, 
+  0.0075, 
   0.0005,
   0.00005 
 ];
