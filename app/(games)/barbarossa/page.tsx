@@ -129,7 +129,7 @@ function matchesPaySymbol(symbol: SymbolId, paySymbol: PaySymbolId) {
 }
 
 function injectDropWild(grid: SymbolId[][], droppedPositions: Position[]) {
-  if (Math.random() > 0.65) return;
+  if (Math.random() > 0.75) return;
   const eligiblePositions = droppedPositions.filter(([row, col]) => grid[row][col] !== "💣");
   const wildPosition = pickRandom(eligiblePositions.length > 0 ? eligiblePositions : droppedPositions);
   if (!wildPosition) return;
