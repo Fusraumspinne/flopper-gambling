@@ -7,7 +7,7 @@ import { useWallet } from "@/components/WalletProvider";
 import { useSoundVolume } from "@/components/SoundVolumeProvider";
 
 type GamePhase = "idle" | "spinning" | "free";
-type PaySymbolId = "⚓" | "🍺" | "🦜" | "🗺️" | "⛵" | "💰" | "🏴‍☠️";
+type PaySymbolId = "⚓" | "🍺" | "🦜" | "🗺️" | "⛵" | "🏴‍☠️";
 type SymbolId = PaySymbolId | "💣" | "WILD";
 type Position = [number, number];
 
@@ -23,20 +23,19 @@ const ROWS = 3;
 const COLS = 5;
 const MIN_REELS_FOR_WIN = 3;
 const REEL_DEPTH_EXP_BASE = 2;
-const FREE_SPINS_AWARD = 10;
+const FREE_SPINS_AWARD = 5;
 const FREE_SPIN_MAX_WIN_MULTIPLIER = 100000;
 const WILD_SYMBOL = "WILD" as const;
 
-const SYMBOL_ORDER: PaySymbolId[] = ["🏴‍☠️", "💰", "⛵", "🗺️", "🦜", "🍺", "⚓"];
+const SYMBOL_ORDER: PaySymbolId[] = ["🏴‍☠️", "⛵", "🗺️", "🦜", "🍺", "⚓"];
 
 const SYMBOL_WEIGHTS: Record<PaySymbolId, number> = {
-  "⚓": 17,
-  "🍺": 16,
-  "🦜": 14,
-  "🗺️": 14,
+  "⚓": 22,
+  "🍺": 20,
+  "🦜": 18,
+  "🗺️": 16,
   "⛵": 14,
-  "💰": 13,
-  "🏴‍☠️": 12,
+  "🏴‍☠️": 10,
 };
 
 const SCATTER_WEIGHT = 3;
@@ -47,7 +46,6 @@ const SYMBOL_BASE_MULTIS: Record<PaySymbolId, number> = {
   "🦜": 0.0075,
   "🗺️": 0.01,
   "⛵": 0.015,
-  "💰": 0.02,
   "🏴‍☠️": 0.05,
 };
 
@@ -129,7 +127,6 @@ function matchesPaySymbol(symbol: SymbolId, paySymbol: PaySymbolId) {
 }
 
 function injectDropWild(grid: SymbolId[][], droppedPositions: Position[]) {
-  if (Math.random() > 0.75) return;
   const eligiblePositions = droppedPositions.filter(([row, col]) => grid[row][col] !== "💣");
   const wildPosition = pickRandom(eligiblePositions.length > 0 ? eligiblePositions : droppedPositions);
   if (!wildPosition) return;
@@ -729,7 +726,7 @@ export default function BarbarossaPage() {
     }
 
     if (isFreeSpin) {
-      const retriggerCount = scatterCount >= 3 ? 5 + 2 * Math.max(0, scatterCount - 3) : 0;
+      const retriggerCount = scatterCount >= 3 ? 5 + 1 * Math.max(0, scatterCount - 3) : 0;
       const leftAfter = Math.max(0, freeSpinsLeft - 1 + retriggerCount);
       setFreeSpinsLeft(leftAfter);
 
@@ -746,7 +743,7 @@ export default function BarbarossaPage() {
         setPhase("free");
         setIsAutospinning(false);
         setAnteBet(false);
-        const extraSpins = 2 * Math.max(0, scatterCount - 3);
+        const extraSpins = 1 * Math.max(0, scatterCount - 3);
         setFreeSpinsLeft(FREE_SPINS_AWARD + extraSpins);
         setFreeSpinMultiplier(runningMultiplier);
         

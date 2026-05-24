@@ -22,18 +22,18 @@ const FREE_SPINS_AWARD = 15;
 const FREE_SPIN_MAX_WIN_MULTIPLIER = 100000;
 
 const SYMBOL_WEIGHTS: Record<WeightedSymbol, number> = {
-  "🌿": 17,
-  "🍇": 16,
-  "⚔️": 15,
+  "🌿": 20,
+  "🍇": 18,
+  "⚔️": 14,
   "🏛️": 14,
-  "🪙": 13,
-  "🔱": 12,
-  "👑": 11,
+  "🪙": 14,
+  "🔱": 10,
+  "👑": 8,
   "⚡": 1.5,
 };
 
 const MULTIPLIER_WEIGHT_NORMAL = 0.5;
-const MULTIPLIER_WEIGHT_FREE = 3;
+const MULTIPLIER_WEIGHT_FREE = 3.5;
 
 const SYMBOL_BASE_MULTIS: Record<BaseSymbol, number> = {
   "🌿": 0.0025,
@@ -46,13 +46,13 @@ const SYMBOL_BASE_MULTIS: Record<BaseSymbol, number> = {
 };
 
 const SYMBOL_FREESPIN_MULTIS: Record<BaseSymbol, number> = {
-  "🌿": 0.0075,
-  "🍇": 0.01,
-  "⚔️": 0.015,
-  "🏛️": 0.025,
-  "🪙": 0.04,
-  "🔱": 0.07,
-  "👑": 0.1,
+  "🌿": 0.01,
+  "🍇": 0.015,
+  "⚔️": 0.025,
+  "🏛️": 0.04,
+  "🪙": 0.07,
+  "🔱": 0.1,
+  "👑": 0.15,
 };
 
 const MULTIPLIER_POOL = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 50, 100, 250, 500];

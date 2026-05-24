@@ -7,7 +7,7 @@ import GameRecordsPanel from "@/components/GameRecordsPanel";
 import PlayArrow from "@mui/icons-material/PlayArrow";
 
 type GamePhase = "idle" | "spinning" | "free";
-type PaySymbol = "🌵" | "🦅" | "🐎" | "💰" | "🤠" | "🏜️";
+type PaySymbol = "🌵" | "🦅" | "🐎" | "🥃" | "🚬" | "💰" | "🤠" | "🏜️";
 type Cell = { kind: "symbol"; symbol: PaySymbol } | { kind: "scatter" } | { kind: "vs" };
 type Position = [number, number];
 type DuelSide = "top" | "bottom";
@@ -34,38 +34,42 @@ type LineConnection = {
 const ROWS = 5;
 const COLS = 5;
 const MIN_REELS_FOR_WIN = 3;
-const FREE_SPINS_AWARD = 15;
+const FREE_SPINS_AWARD = 10;
 const FREE_SPIN_MAX_WIN_MULTIPLIER = 100000;
 const RIGHT_CONNECTION_EXP_BASE = 2;
 
-const PAY_SYMBOLS: PaySymbol[] = ["🌵", "🦅", "🐎", "💰", "🤠", "🏜️"];
+const PAY_SYMBOLS: PaySymbol[] = ["🌵", "🦅", "🐎", "🥃", "🚬", "💰", "🤠", "🏜️"];
 
 const SYMBOL_WEIGHTS: Record<PaySymbol, number> = {
-  "🌵": 24,
-  "🦅": 22,
-  "🐎": 18,
-  "💰": 14,
-  "🤠": 12,
-  "🏜️": 10,
+  "🌵": 12.5,
+  "🦅": 12.5,
+  "🐎": 12.5,
+  "🥃": 12.5,
+  "🚬": 12.5,
+  "💰": 12.5,
+  "🤠": 12.5,
+  "🏜️": 12.5,
 };
 
 const SCATTER_WEIGHT = 1.2;
 
 const SYMBOL_BASE_MULTIS: Record<PaySymbol, number> = {
-  "🌵": 0.0035,
-  "🦅": 0.006,
-  "🐎": 0.012,
-  "💰": 0.0175,
-  "🤠": 0.03,
-  "🏜️": 0.06,
+  "🌵": 0.001,
+  "🦅": 0.001,
+  "🐎": 0.0025,
+  "🥃": 0.0025,
+  "🚬": 0.005,
+  "💰": 0.005,
+  "🤠": 0.01,
+  "🏜️": 0.01,
 };
 
 const VS_PERCENT_CHANCES = [
-  0.25,  
-  0.075,  
-  0.01, 
-  0.005,
-  0.0005 
+  0.4,  
+  0.1,  
+  0.005, 
+  0.0005,
+  0.0001 
 ];
 
 const BANNER_MULTI_POOL = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 50];

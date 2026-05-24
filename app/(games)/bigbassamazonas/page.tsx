@@ -79,28 +79,28 @@ const BASE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
   toucan: 5,
   lure: 5,
   fish: 4,      
-  scatter: 2.4,
+  scatter: 2.5,
   fisher: 0,
 };
 const FREE_SYMBOL_WEIGHTS: Record<SymbolId, number> = {
-  "10": 14,
-  J: 14,
+  "10": 12,
+  J: 12,
   Q: 11,
   K: 11,
-  A: 11,
+  A: 10,
   rod: 10,
   bag: 10,
   toucan: 5,
   lure: 3,
-  fish: 10,
+  fish: 15,
   scatter: 0,
-  fisher: 1.35,
+  fisher: 1.5,
 };
 const FISH_VALUES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 250, 500, 1000];
 const FISH_WEIGHTS = [30, 21, 16, 13, 9.5, 6.2, 2.6, 0.22, 0.05, 0.015, 0.003, 0.0008];
 const BASE_COLLECT_MULTIS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 40];
 const FS_MULTIPLIERS = [1, 2, 3, 8, 12, 18, 25, 35];
-const BOAT_WAKE_CHANCE_BASE = 0.13;
+const BOAT_WAKE_CHANCE_BASE = 0.15;
 const BOAT_COLLECT_MULTI_WEIGHTS = [64, 24, 6.5, 2.5, 1.5, 0.9, 0.55, 0.3, 0.15, 0.07, 0.03];
 const PREFREE_START_SPINS = 10;
 const FREE_SPIN_MAX_WIN_MULTIPLIER = 100000;
