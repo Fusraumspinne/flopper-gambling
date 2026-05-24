@@ -1316,7 +1316,7 @@ export default function PokerPage() {
       persona: p,
       hole: [freshDeck.pop()!, freshDeck.pop()!],
       stack: Math.floor(
-        Math.max(1, Math.floor(betAmount)) * (3 + Math.random() * 4),
+        Math.max(1, Math.floor(betAmount)) * (10 + Math.random() * 25),
       ),
       contribution: 0,
       roundContribution: 0,
@@ -1835,74 +1835,129 @@ export default function PokerPage() {
         0,
         Math.floor(currentBet - bot.roundContribution),
       );
-      const postflop = revealed >= 3;
-      const postflopScore = postflop ? evaluateSeven(bot.hole, boardNow) : null;
-      const isOnlyHighCard = postflop && postflopScore?.catRank === 1;
-      const preflopStrength = estimatePreflopStrength(bot.hole);
-      const postflopStrength = postflopScore ? winStrength(postflopScore) : 0;
-
+      
       const bigBlind = Math.max(1, Math.floor(betAmount));
-      const finalPotIfCall = pot + toCall;
+      const currentStreetPot =
+        bots.reduce((s, b) => s + b.roundContribution, 0) +
+        playerRoundContribution;
+      const totalPot = pot + currentStreetPot;
+      const finalPotIfCall = totalPot + toCall;
+      
       const potOdds = toCall > 0 ? toCall / Math.max(1, finalPotIfCall) : 0;
-      const stackNow = Math.max(1, Math.floor(bot.stack));
-      const stackRiskRatio = toCall / stackNow;
-      const positionRiskPremium = postflop ? 0.08 : 0.11;
-      const multiwayPremium = Math.min(0.1, opponents * 0.015);
-      const stackRiskPremium = Math.min(0.12, stackRiskRatio * 0.35);
-      const requiredCallEquity = Math.min(
-        0.92,
-        potOdds + positionRiskPremium + multiwayPremium + stackRiskPremium,
-      );
-      const callEV = equity * finalPotIfCall - toCall;
-      const equityEdge = equity - requiredCallEquity;
       const canRaise = Math.floor(bot.stack) > toCall;
+      
+      const handsPlayed = Math.max(1, playerMemory.hands);
+      const playerVPIP = playerMemory.preflopVoluntary / handsPlayed;
+      const playerPFR = playerMemory.preflopRaises / handsPlayed;
+      const playerTight = handsPlayed > 5 && playerVPIP < 0.20;
+      const playerManiac = handsPlayed > 5 && playerPFR > 0.40;
+      const playerCallingStation = handsPlayed > 5 && (playerMemory.totalCalls / Math.max(1, playerMemory.totalRaises + playerMemory.totalCalls)) > 0.7;
 
+      let boardWetness = 0;
+      let hasNutBlocker = false;
+      const isPostflop = revealed >= 3;
+      if (isPostflop) {
+        const suits: Record<string, number> = {};
+        const ranks: number[] = [];
+        boardNow.forEach(c => {
+          suits[c.suit] = (suits[c.suit] || 0) + 1;
+          ranks.push(getCardValue(c.rank));
+        });
+        const maxSuit = Math.max(...Object.values(suits), 0);
+        if (maxSuit >= 3) boardWetness += 0.4; else if (maxSuit === 2) boardWetness += 0.2;
+        
+        const sorted = [...new Set(ranks)].sort((a,b) => b-a);
+        let maxConn=1, conn=1;
+        for(let i=0; i<sorted.length-1; i++) {
+          if (sorted[i]-sorted[i+1] === 1) { conn++; maxConn=Math.max(maxConn, conn); } else if (sorted[i]-sorted[i+1] > 1) conn=1;
+        }
+        if (maxConn >= 3) boardWetness += 0.4; else if (maxConn === 2) boardWetness += 0.15;
+        boardWetness = clamp01(boardWetness);
+
+        if (maxSuit >= 2) {
+           const flushSuit = Object.keys(suits).find(s => suits[s] >= 2);
+           const hasA = bot.hole.some(c => c.suit === flushSuit && c.rank === "A");
+           const hasK = bot.hole.some(c => c.suit === flushSuit && c.rank === "K");
+           if (hasA || hasK) hasNutBlocker = true; 
+        }
+      }
+
+      const potBB = (pot + currentBet) / bigBlind;
+      const rangeStrength = Math.min(0.20, potBB * 0.003 + (playerPFR * 0.1));
+      const trueEquity = clamp01(equity * (1 - rangeStrength));
+
+      let requiredEquity = potOdds;
+      const isRiver = stage === "river";
+      
+      if (toCall > 0 && activePlayerIndex === bots.length) {
+         if (playerTight) requiredEquity += 0.05 + boardWetness * 0.05;
+         else if (playerManiac) requiredEquity -= 0.05;
+      }
+
+      const isDraw = !isRiver && trueEquity > 0.15 && trueEquity < 0.35;
+      const effectiveStack = Math.min(bot.stack, balance);
+      if (isDraw && effectiveStack > toCall * 3) {
+          requiredEquity -= 0.08; 
+      }
+      requiredEquity = clamp01(requiredEquity);
+
+      const isFlop = stage === "flop";
+      const wasAggressor = lastAggressor === (bi + 1);
+      const isCBetSpot = isFlop && wasAggressor && toCall === 0;
+
+      let bluffFreq = clamp01(bot.persona.bluff + (bot.tilt * 0.08));
+      if (hasNutBlocker) bluffFreq += 0.25;
+      if (isCBetSpot && boardWetness < 0.4) bluffFreq += 0.35;
+      
+      if (playerCallingStation) bluffFreq *= 0.25;
+      else if (playerTight) bluffFreq *= 1.6;
+      
       let action: "fold" | "call" | "raise" = "call";
-
+      
+      const fairShare = 1 / (opponents + 1);
+      const isStrongFavorite = trueEquity > fairShare * 1.35;
+      const isModerateFavorite = trueEquity > fairShare * 1.15;
+      const isPolarizedNut = trueEquity > 0.85;
+      
       if (toCall > 0) {
-        const preflopTightGate =
-          !postflop &&
-          preflopStrength <
-            0.58 +
-              Math.min(0.1, stackRiskRatio * 0.25) +
-              Math.min(0.06, potOdds * 0.4);
-        const highCardNeedsFold =
-          isOnlyHighCard && equity < Math.max(0.36, requiredCallEquity + 0.02);
-
-        if (
-          callEV < 0 ||
-          equity < requiredCallEquity ||
-          highCardNeedsFold ||
-          preflopTightGate
-        ) {
-          action = "fold";
-        } else if (
-          canRaise &&
-          !isOnlyHighCard &&
-          ((!postflop &&
-            preflopStrength >= 0.84 &&
-            equity >= requiredCallEquity + 0.2) ||
-            (postflop &&
-              !!postflopScore &&
-              postflopScore.catRank >= 3 &&
-              postflopStrength >= 0.62 &&
-              equity >= requiredCallEquity + 0.18))
-        ) {
-          action = "raise";
+        const callEV = trueEquity * finalPotIfCall - toCall;
+        
+        if (callEV < 0 && trueEquity < requiredEquity) {
+            const bluffChance = bluffFreq * (isRiver ? 0.08 : 0.04);
+            if (canRaise && Math.random() < bluffChance) {
+                action = "raise";
+            } else {
+                action = "fold";
+            }
         } else {
-          action = "call";
+            let wantToRaise = false;
+            if (isPolarizedNut) {
+                 wantToRaise = Math.random() < 0.85; 
+            } else if (isStrongFavorite) {
+                wantToRaise = Math.random() < 0.70;
+            } else if (isModerateFavorite) {
+                wantToRaise = Math.random() < 0.25;
+            } else if (isDraw && canRaise) { 
+                wantToRaise = Math.random() < bluffFreq;
+            }
+            
+            if (canRaise && wantToRaise) action = "raise";
+            else action = "call";
         }
       } else {
-        action =
-          canRaise &&
-          ((!postflop && preflopStrength >= 0.88 && equity >= 0.66) ||
-            (postflop &&
-              !!postflopScore &&
-              postflopScore.catRank >= 3 &&
-              postflopStrength >= 0.67 &&
-              equity >= 0.68))
-            ? "raise"
-            : "call";
+        let wantToBet = false;
+        
+        if (isPolarizedNut) {
+            wantToBet = Math.random() < 0.90;
+        } else if (isStrongFavorite) {
+            wantToBet = Math.random() < 0.85;
+        } else if (isModerateFavorite) {
+            wantToBet = Math.random() < 0.45;
+        } else if (trueEquity < fairShare * 0.6) {
+            wantToBet = Math.random() < bluffFreq * 0.5; 
+        }
+        
+        action = canRaise && wantToBet ? "raise" : "call";
       }
 
       let nextBots = [...bots];
@@ -1974,34 +2029,47 @@ export default function PokerPage() {
       const minR = Math.max(nextMinR || bigBlind, bigBlind);
       let raiseAmt = minR;
 
-      const currentStreetPot =
-        bots.reduce((s, b) => s + b.roundContribution, 0) +
-        playerRoundContribution;
-      const totalPot = pot + currentStreetPot;
-
       const edgeOverBreakEven = clamp01(
-        (equity - Math.max(0.01, requiredCallEquity)) /
-          Math.max(0.1, 1 - requiredCallEquity),
+        (equity - Math.max(0.01, requiredEquity)) /
+          Math.max(0.1, 1 - requiredEquity),
       );
-      const valueFactor = 0.18 + edgeOverBreakEven * 0.5;
-      raiseAmt = Math.max(minR, Math.floor(totalPot * valueFactor));
+
+      const sizeRoll = Math.random();
+      const isValueRaise = equity > fairShare * 1.0; 
+      const rawFactor = isValueRaise
+        ? 0.35 + edgeOverBreakEven * 0.7 + (sizeRoll - 0.5) * 0.3
+        : 0.45 + sizeRoll * 0.4;
+      const clampedFactor = Math.max(0.18, Math.min(1.2, rawFactor));
+      raiseAmt = Math.max(minR, Math.floor(totalPot * clampedFactor));
+
+      if (isRiver && isValueRaise && equity >= 0.8 && sizeRoll < 0.28) {
+        raiseAmt = Math.max(
+          raiseAmt,
+          Math.floor(totalPot * (1.1 + Math.random() * 0.5)),
+        );
+      }
 
       const playerEffective = Math.max(
         1,
         Math.floor(balance + playerRoundContribution),
       );
-      const botMaxRaiseMultiplier = 20 + Math.floor(Math.random() * 11);
       const betAnchor = bigBlind;
-      const maxRaiseByBet = Math.max(minR, betAnchor * botMaxRaiseMultiplier);
       const maxRaiseByPlayer = Math.max(
         minR,
-        Math.floor(playerEffective * 0.4 + betAnchor * 8),
+        Math.floor(playerEffective * 0.75 + betAnchor * 6),
       );
-      const potCap = Math.max(minR, Math.floor(totalPot * 0.45));
-      raiseAmt = Math.min(raiseAmt, maxRaiseByBet, maxRaiseByPlayer, potCap);
+      const maxRaiseByStack = Math.max(
+        minR,
+        Math.floor(nextBots[bi].stack * 0.85),
+      );
+      const potCap = Math.max(
+        minR,
+        Math.floor(totalPot * (isRiver ? 1.5 : 0.9)),
+      );
+      raiseAmt = Math.min(raiseAmt, maxRaiseByPlayer, maxRaiseByStack, potCap);
 
       const shortStack = nextBots[bi].stack <= bigBlind * 8;
-      if (shortStack && equity >= 0.9) {
+      if (shortStack && equity >= 0.82) {
         raiseAmt = Math.max(raiseAmt, nextBots[bi].stack);
       }
 
@@ -2073,6 +2141,7 @@ export default function PokerPage() {
     playerRoundContribution,
     playerFolded,
     playerAllIn,
+    dealerPos,
   ]);
 
   useEffect(() => {
@@ -2398,34 +2467,31 @@ export default function PokerPage() {
             </div>
           </div>
 
-          {false && (
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
-                Bots
-              </label>
-              <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
-                {[2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setNumBots(n)}
-                    disabled={stage !== "setup" && stage !== "finished"}
-                    className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      numBots === n
-                        ? "bg-[#213743] text-white shadow-sm"
-                        : "text-[#b1bad3] hover:text-white"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-[#b1bad3] uppercase tracking-wider">
+              Bots
+            </label>
+            <div className="bg-[#0f212e] p-1 rounded-md border border-[#2f4553] flex">
+              {[2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setNumBots(n)}
+                  disabled={stage !== "setup" && stage !== "finished"}
+                  className={`flex-1 py-2 text-[10px] font-bold uppercase rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    numBots === n
+                      ? "bg-[#213743] text-white shadow-sm"
+                      : "text-[#b1bad3] hover:text-white"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
           {stage === "setup" || stage === "finished" ? (
             <button
               onClick={startHand}
-              disabled={true}
               className="w-full bg-[#00e701] hover:bg-[#00c201] text-black py-3 rounded-md font-bold text-lg shadow-[0_0_20px_rgba(0,231,1,0.2)] transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <PlayArrow /> Bet
