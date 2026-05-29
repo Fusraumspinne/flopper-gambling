@@ -65,11 +65,11 @@ const SYMBOL_BASE_MULTIS: Record<PaySymbol, number> = {
 };
 
 const VS_PERCENT_CHANCES = [
-  0.4,  
-  0.1,  
-  0.005, 
-  0.0005,
-  0.0001 
+  0.3,  
+  0.075,  
+  0.001, 
+  0.0001,
+  0.00001 
 ];
 
 const BANNER_MULTI_POOL = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 50];
